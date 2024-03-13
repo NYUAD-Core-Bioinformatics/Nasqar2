@@ -6,9 +6,11 @@ library(dada2)
 library(dplyr)
 htmltags<- tags
 ui <- dashboardPage(
+
     dashboardHeader(title = "DADA2"),
     dashboardSidebar(
         sidebarMenu(
+         
             id = "tabs",
             menuItem("Input Data", tabName = "input_tab", icon = icon("upload")),
             menuItem("Quality Profile", tabName = "qualityprofile_tab"),
@@ -24,9 +26,11 @@ ui <- dashboardPage(
         extendShinyjs(script = "custom.js", functions = c("addStatusIcon", "collapse")),
 
         htmltags$head(
+            htmltags$link(rel = "stylesheet", type = "text/css", href = "custom.css"),
             htmltags$style(HTML(" .shiny-output-error-validation {color: darkred; } ")),
             htmltags$style(".mybuttonclass{background-color:#CD0000;} .mybuttonclass{color: #fff;} .mybuttonclass{border-color: #9E0000;}"),
-            htmltags$link(rel = "stylesheet", type = "text/css", href = "custom.css")
+            
+            
         
         ),
         tabItems(

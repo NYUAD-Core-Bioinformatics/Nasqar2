@@ -12,6 +12,7 @@ tabItem(
         column(12,
         column(
             6,
+        
             withSpinner(plotOutput("plot_qualityprofile_fs"))
       
             # actionButton("run_deseq2", "Run DESeq2",
@@ -22,6 +23,7 @@ tabItem(
         ),
         column(
           6,
+
           withSpinner(plotOutput("plot_qualityprofile_rs"))
           
           # actionButton("run_deseq2", "Run DESeq2",

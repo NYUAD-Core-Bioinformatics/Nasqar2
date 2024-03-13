@@ -1,4 +1,12 @@
 reactiveInputData <- eventReactive(input$runQc, {
+
+    qc_done(FALSE);
+    shinyjs::hide(selector = "a[data-value=\"errorRatesTab\"]")
+    shinyjs::hide(selector = "a[data-value=\"margePairedReadsTab\"]")
+    shinyjs::hide(selector = "a[data-value=\"trackReadsTab\"]")
+
+
+
     js$addStatusIcon("filter_and_trim_tab", "loading")
     req(input$sel_sample_qualityprofile_tab)
     path <- my_values$base_dir
@@ -79,10 +87,21 @@ reactiveInputData <- eventReactive(input$runQc, {
         print('track')
         print(head(track))
 
+        qc_done(TRUE);
+
         shiny::setProgress(value = 1.0, detail = "...done")
        
     })
+     
+     shinyjs::show(selector = "a[data-value=\"errorRatesTab\"]")
+     shinyjs::show(selector = "a[data-value=\"margePairedReadsTab\"]")
+     shinyjs::show(selector = "a[data-value=\"trackReadsTab\"]")
+     shinyjs::show(selector = "a[data-value=\"filter_and_trim_tab\"]")
      js$addStatusIcon("filter_and_trim_tab", "done")
+     js$addStatusIcon("errorRatesTab", "done")
+     js$addStatusIcon("trackReadsTab", "done")
+     js$addStatusIcon("margePairedReadsTab", "done")
+     
     return(list(out = out, errF= errF, errR=errF, mergers = mergers, seqtabTable=seqtabTable, track=track ))
 })
 

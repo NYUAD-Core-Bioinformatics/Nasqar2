@@ -8,7 +8,8 @@ tabItem(
              
         ),
         column(12,
-               withSpinner(dataTableOutput('filterAndTrim_output_table'))
+                conditionalPanel( condition = "output.qc_result_available",
+               withSpinner(dataTableOutput('filterAndTrim_output_table')))
           
         )
     )

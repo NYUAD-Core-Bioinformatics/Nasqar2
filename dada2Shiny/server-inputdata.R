@@ -1,17 +1,13 @@
 observe({
-   
-    shinyjs::hide(selector = "a[data-value=\"fragmentsize_tab\"]")
-    shinyjs::hide(selector = "a[data-value=\"nucleosomepositioning_tab\"]")
-    shinyjs::hide(selector = "a[data-value=\"heatmap_tab\"]")
-    shinyjs::hide(selector = "a[data-value=\"librarycomplexity_tab\"]")
+    shinyjs::hide(selector = "a[data-value=\"qualityprofile_tab\"]")
+    shinyjs::hide(selector = "a[data-value=\"errorRatesTab\"]")
+    shinyjs::hide(selector = "a[data-value=\"filter_and_trim_tab\"]")
+    shinyjs::hide(selector = "a[data-value=\"margePairedReadsTab\"]")
+    shinyjs::hide(selector = "a[data-value=\"trackReadsTab\"]")
     
 })
 
 
-observe({
-    # shinyjs::hide(selector = "a[data-value=\"tab2\"]")
-    #ddsReactive()
-})
 
 
 
@@ -21,38 +17,46 @@ my_values$mounted_dir <- FALSE
 observeEvent(input$connect_remote_server, {
 
   
-  print(input$username)
-  print(input$hostname)
-  print(input$mountpoint)
-  print(input$id_rsa$datapath)
-  my_values$mounted_dir <- FALSE
-  
-  
-  system(paste("sh generate_ssh_config.sh ", input$username, " ", 
+    print(input$username)
+    print(input$hostname)
+    print(input$mountpoint)
+    print(input$id_rsa$datapath)
+    my_values$mounted_dir <- FALSE
+
+
+    system(paste("sh generate_ssh_config.sh ", input$username, " ", 
     input$hostname, " ", input$mountpoint, " ",
     input$id_rsa$datapath))
-  
 
-        # Get the list of files in the directory
+
+    # Get the list of files in the directory
     # files <- list.files(base_dir, full.names = FALSE)
     my_values$mounted_dir <- TRUE
     
   
 })
 
+qc_done <- reactiveVal(FALSE)
+
+output$qc_result_available <- reactive({
+    reactiveInputData()
+    return(qc_done())
+})
+outputOptions(output, 'qc_result_available', suspendWhenHidden=FALSE)
 
 
+observeEvent(input$initQC, {
+    print('input$initQC')
 
-observeEvent(input$bs_genome_input, {
-    print(input$bs_genome_input)
-    if(input$bs_genome_input != "" & input$bs_genome_input != " "){
-        print('input$bs_genome_input')
-        print(input$bs_genome_input)
-        library(input$bs_genome_input, character.only = T)
-        tx_db <- list("BSgenome.Hsapiens.UCSC.hg19" = c("TxDb.Hsapiens.UCSC.hg19.knownGene"))
-         shinyjs::enable("initQC")
-        # updateSelectInput(session, "tx_db_input", choices = tx_db[[input$bs_genome_input]])
-    }
+    qc_done(FALSE);
+  
+    shinyjs::hide(selector = "a[data-value=\"errorRatesTab\"]")
+    shinyjs::hide(selector = "a[data-value=\"margePairedReadsTab\"]")
+    shinyjs::hide(selector = "a[data-value=\"trackReadsTab\"]")
+  
+    shinyjs::show(selector = "a[data-value=\"filter_and_trim_tab\"]")
+    shinyjs::show(selector = "a[data-value=\"qualityprofile_tab\"]")
+
 
 })
 

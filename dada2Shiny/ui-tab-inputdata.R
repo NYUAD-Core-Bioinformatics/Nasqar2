@@ -48,18 +48,7 @@ tabItem(
                 box(
                     title = "DADA2 QC  Parameters", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "qc_parameters", collapsed = T,
                     
-                        column(
-                            12,
-                            # selectInput("bs_genome_input", "Reference genome:", choices = NULL, selected = NULL)
-                        ),
-                        # column(
-                        #     12,
-                        #     selectInput("tx_db_input", "TxDb:", choices = c(""), selected = NULL)
-                        # ),
-                        # column(
-                        #     12,
-                        #     selectInput("phast_cons_input", "PhastCons:", choices = NULL, selected = NULL)
-                        # ),
+                
                        
                     
                     actionButton("initQC", "Initialize QC", class = "btn-info btn-success", style = "width: 100%"),
