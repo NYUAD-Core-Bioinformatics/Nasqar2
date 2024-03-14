@@ -33,6 +33,9 @@ RUN conda run -n nasqar_env R -e "BiocManager::install(c('org.Hs.eg.db','org.Mm.
 RUN conda run -n nasqar_env R -e "devtools::install_github('smin95/smplot2')"
 ##Seurat wizard
 RUN conda run -n nasqar_env R -e "devtools::install_github('nyuad-corebio/seuratv3wizard')"
+RUN conda run -n nasqar_env R -e "remotes::install_github('satijalab/seurat-wrappers')"
+
+
 RUN conda run -n nasqar_env R -e "BiocManager::install(c('ATACseqQC'))"
 RUN conda run -n nasqar_env R -e "BiocManager::install(c('ChIPpeakAnno', 'MotifDb', 'GenomicAlignments'))"
 
@@ -89,6 +92,8 @@ RUN unzip master.zip
 
 RUN wget https://github.com/elliefewings/monocle3_shiny/archive/refs/heads/main.zip
 RUN unzip monocle3_shiny-main.zip
+RUN mv monocle3_shiny-main monocle3
+RUN sed 's/800\*1024\^2/5\*1024\^3/g' monocle3/app.R > monocle3/app.R
 
 RUN wget https://github.com/compbiomed/animalcules/archive/a24aced16297b12b92b63520b0046ddbae288322.zip 
 
@@ -100,7 +105,8 @@ RUN unzip a24aced16297b12b92b63520b0046ddbae288322.zip
 RUN mv animalcules-a24aced16297b12b92b63520b0046ddbae288322/inst/shiny animalcules
 RUN sed -i '1 i\library(animalcules)' animalcules/app.R
 
-
+RUN conda run -n nasqar_env R -e "devtools::install_github('mahmoudibrahim/genesorteR')"
+RUN conda run -n nasqar_env R -e "remotes::install_github('satijalab/seurat-wrappers')"
 
 COPY shiny-server.conf /etc/shiny-server/shiny-server.conf
 COPY shiny-server.sh /opt/nasqar_build/shiny-server.sh
