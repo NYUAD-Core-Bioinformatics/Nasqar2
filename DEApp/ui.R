@@ -20,7 +20,9 @@
 ## End checking whether all required packages are successfully loaded
 ## Load required packages
 library(shiny)
+library(shinyjs)
 library(shinydashboard)
+library(shinycssloaders)
 library(DT)
 library(ggplot2)
 library(gplots)
@@ -73,6 +75,17 @@ sidebar <- dashboardSidebar(
 
 
 body <- dashboardBody(
+  shinyjs::useShinyjs(),
+  extendShinyjs(script = "custom.js", functions = c("addStatusIcon", "collapse")),
+  
+   tags$head(
+    tags$link(rel = "stylesheet", type = "text/css", href = "custom.css"),
+    tags$style(HTML(" .shiny-output-error-validation {color: darkred; } ")),
+    tags$style(".mybuttonclass{background-color:#CD0000;} .mybuttonclass{color: #fff;} .mybuttonclass{border-color: #9E0000;}"),
+    
+    
+    
+  ),
     tabItems(
         #########################################
         ## Introduction tab panel
@@ -1321,4 +1334,4 @@ body <- dashboardBody(
 )
 
 
-ui <- dashboardPage(header, sidebar, body, skin = "red")
+ui <- dashboardPage(header, sidebar, body)
