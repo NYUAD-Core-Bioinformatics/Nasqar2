@@ -183,7 +183,11 @@ input_files_reactive <- reactive({
     print(dir(base_dir))
 
     bs_genome_db <- c(" " = " ", "Human(BSgenome.Hsapiens.UCSC.hg19)" = "BSgenome.Hsapiens.UCSC.hg19", "Mouse(BSgenome.Mmusculus.UCSC.mm10)" = "BSgenome.Mmusculus.UCSC.mm10", "ZebraFish(BSgenome.Drerio.UCSC.danRer11)" = "BSgenome.Drerio.UCSC.danRer11", "Worm(BSgenome.Celegans.UCSC.ce6)" = "BSgenome.Celegans.UCSC.ce6")
-    updateSelectInput(session, "bs_genome_input", choices = bs_genome_db, selected = NULL)
+    if (identical(input$data_file_type, "example_bam_file")) {
+      updateSelectInput(session, "bs_genome_input", choices = bs_genome_db, selected = "BSgenome.Mmusculus.UCSC.mm10")
+    } else {
+      updateSelectInput(session, "bs_genome_input", choices = bs_genome_db, selected = NULL)
+    }
     updateSelectInput(session, "sample_librarycomplexity", choices = sample_names, selected = NULL)
     updateSelectInput(session, "sample_fragmentsize", choices = sample_names, selected = NULL)
     updateSelectInput(session, "sel_sample_for_npositioning", choices = sample_names, selected = NULL)
