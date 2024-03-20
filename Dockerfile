@@ -32,14 +32,21 @@ RUN conda run -n nasqar_env R -e "devtools::install_github('YuLab-SMU/clusterPro
 RUN conda run -n nasqar_env R -e "BiocManager::install(c('org.Hs.eg.db','org.Mm.eg.db','org.Rn.eg.db','org.Sc.sgd.db','org.Dm.eg.db','org.At.tair.db','org.Dr.eg.db','org.Bt.eg.db','org.Ce.eg.db','org.Gg.eg.db','org.Cf.eg.db','org.Ss.eg.db','org.Mmu.eg.db','org.EcK12.eg.db','org.Xl.eg.db','org.Pt.eg.db','org.Ag.eg.db','org.Pf.plasmo.db','org.EcSakai.eg.db'))"
 RUN conda run -n nasqar_env R -e "devtools::install_github('smin95/smplot2')"
 ##Seurat wizard
-RUN conda run -n nasqar_env R -e "devtools::install_github('nyuad-corebio/seuratv3wizard')"
+#RUN conda run -n nasqar_env R -e "devtools::install_github('nyuad-corebio/seuratv3wizard')"
+RUN conda run -n nasqar_env R -e "install.packages(c('V8', 'Seurat'), repos='http://cran.rstudio.com/')"
+RUN conda run -n nasqar_env R -e "install.packages(c('sodium'), repos='http://cran.rstudio.com/')"
 RUN conda run -n nasqar_env R -e "remotes::install_github('satijalab/seurat-wrappers')"
-
+RUN conda run -n nasqar_env R -e "devtools::install_github('satijalab/seurat-data')"
+RUN conda run -n nasqar_env R -e "devtools::install_github('satijalab/azimuth')"
+RUN conda run -n nasqar_env R -e "devtools::install_github('satijalab/seurat-wrappers')"
 
 RUN conda run -n nasqar_env R -e "BiocManager::install(c('ATACseqQC'))"
 RUN conda run -n nasqar_env R -e "BiocManager::install(c('ChIPpeakAnno', 'MotifDb', 'GenomicAlignments'))"
 
-RUN conda run -n nasqar_env R -e "BiocManager::install( c('BSgenome.Hsapiens.UCSC.hg19'), ask = FALSE, update = FALSE)"
+
+RUN conda run -n nasqar_env R -e "if (BiocManager::install( c('BSgenome.Hsapiens.UCSC.hg19'), ask = FALSE, update = FALSE)  %in% rownames(installed.packages())) {quit( status = 0)} else {quit( status = 1)}"
+
+#RUN conda run -n nasqar_env R -e "BiocManager::install( c('BSgenome.Hsapiens.UCSC.hg19'), ask = FALSE, update = FALSE)"
 RUN conda run -n nasqar_env R -e "BiocManager::install( c('TxDb.Hsapiens.UCSC.hg19.knownGene'), ask = FALSE, update = FALSE)"
 
 RUN conda run -n nasqar_env R -e "BiocManager::install( c('BSgenome.Celegans.UCSC.ce11'), ask = FALSE, update = FALSE)"
