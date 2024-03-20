@@ -33,8 +33,8 @@ RUN conda run -n nasqar_env R -e "BiocManager::install(c('org.Hs.eg.db','org.Mm.
 RUN conda run -n nasqar_env R -e "devtools::install_github('smin95/smplot2')"
 ##Seurat wizard
 #RUN conda run -n nasqar_env R -e "devtools::install_github('nyuad-corebio/seuratv3wizard')"
-RUN conda run -n nasqar_env R -e "install.packages(c('V8', 'Seurat'), repos='http://cran.rstudio.com/')"
-RUN conda run -n nasqar_env R -e "install.packages(c('sodium'), repos='http://cran.rstudio.com/')"
+RUN conda run -n nasqar_env R -e "install.packages(c('V8'), repos='http://cran.rstudio.com/')"
+RUN conda run -n nasqar_env R -e "install.packages(c('sodium', 'Seurat'))"
 RUN conda run -n nasqar_env R -e "remotes::install_github('satijalab/seurat-wrappers')"
 RUN conda run -n nasqar_env R -e "devtools::install_github('satijalab/seurat-data')"
 RUN conda run -n nasqar_env R -e "devtools::install_github('satijalab/azimuth')"
