@@ -24,7 +24,7 @@ require(stringr)
 
 ui <- tagList(
   dashboardPage(
-    dashboardHeader(title = "SeuratV3 Wizard"),
+    dashboardHeader(title = "SeuratV5 Wizard"),
     dashboardSidebar(
       sidebarMenu(
         id = "tabs",
