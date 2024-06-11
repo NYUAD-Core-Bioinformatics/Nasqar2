@@ -1,0 +1,24 @@
+name: v_monocle3
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-base==4.3.3
+  - r-shiny
+  - r-shinydashboard
+  - r-shinyjs
+  - r-shinyBS
+  - r-shinycssloaders
+  - bioconductor-biocgenerics
+  - bioconductor-delayedarray
+  - bioconductor-delayedmatrixstats
+  - bioconductor-limma
+  - r-lme4
+  - bioconductor-s4vectors
+  - bioconductor-singlecellexperiment
+  - bioconductor-summarizedexperiment
+  - bioconductor-batchelor
+  - bioconductor-hdf5array
+  - r-terra
+  - r-ggrastr

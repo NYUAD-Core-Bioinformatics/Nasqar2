@@ -1,0 +1,27 @@
+name: v_seuratv5
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-base==4.3.3
+  - r-shiny
+  - r-shinydashboard
+  - r-shinyjs
+  - r-shinyBS
+  - r-shinycssloaders
+  - r-markdown
+  - r-future
+  - r-dt
+  - r-dplyr
+  - r-v8
+  - r-sodium
+  - r-ggplot2
+  - r-reticulate
+  - r-uuid
+  - r-stringr
+  - r-rspectra
+  - r-uwot
+  - bpp-core
+  - presto
+  - bioconductor-glmgampoi

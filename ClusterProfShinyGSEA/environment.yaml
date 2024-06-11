@@ -1,0 +1,18 @@
+name: v_enrichGSEA
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-base==4.3.3
+  - r-shiny
+  - r-shinydashboard
+  - r-shinyjs
+  - r-shinyBS
+  - r-shinycssloaders
+  - r-devtools
+  - r-DT
+  - r-plotly
+  - r-markdown
+  - bioconductor-clusterprofiler
+  - bioconductor-pathview

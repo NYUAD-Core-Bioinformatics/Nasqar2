@@ -1,0 +1,13 @@
+.container {
+    display: flex;
+
+  }
+  
+.component {
+    flex: 1;
+    /* border: 1px solid black; */
+    margin-bottom: 5px;
+    padding: 10px;
+ 
+    /* margin-left: 14px; */
+}

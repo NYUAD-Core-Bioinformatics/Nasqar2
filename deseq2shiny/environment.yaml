@@ -1,0 +1,36 @@
+name: v_deseq2
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-base==4.3.3
+  - r-shiny
+  - r-shinydashboard
+  - r-shinyjs
+  - r-shinyBS
+  - r-shinycssloaders
+  - r-devtools
+  - r-dplyr
+  - r-readr
+  - r-DT
+  - r-rhandsontable
+  - r-RColorBrewer
+  - r-heatmaply
+  - r-ggthemes
+  - r-sodium
+  - r-NMF
+  - r-uuid
+  - r-vennDiagram
+  - r-rclipboard
+  - r-nloptr
+  - r-lme4
+  - r-car
+  - r-rstatix
+  - r-ggpubr
+  - r-markdown
+  - bioconductor-deseq2
+  - bioconductor-sva
+  - bioconductor-enhancedvolcano
+  - bioconductor-complexheatmap
+  - bioconductor-interactivecomplexheatmap

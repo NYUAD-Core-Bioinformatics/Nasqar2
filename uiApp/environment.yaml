@@ -1,0 +1,6 @@
+name: v_uiApp
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - nodejs

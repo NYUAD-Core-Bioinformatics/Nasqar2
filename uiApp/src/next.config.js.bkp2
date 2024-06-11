@@ -1,0 +1,52 @@
+const withNextra = require('nextra')({
+  theme: 'nextra-theme-docs',
+  themeConfig: './theme.config.tsx',
+});
+
+module.exports = withNextra({
+	output: 'export',
+  reactStrictMode: true, // Enables React strict mode
+  swcMinify: true, // Enables SWC-based minification for faster builds
+
+  // Other custom Next.js configurations can go here
+  env: {
+    CUSTOM_KEY: 'customValue', // Example environment variable
+  },
+
+  // For static exports
+  trailingSlash: true,
+
+  // For custom webpack configurations
+  webpack: (config, { isServer }) => {
+    // Example: Add a custom plugin
+    if (!isServer) {
+      config.resolve.fallback.fs = false;
+    }
+
+    return config;
+  },
+
+  // For custom headers
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Custom-Header', value: 'my custom header value' },
+        ],
+      },
+    ];
+  }
+
+  // For custom redirects
+  //async redirects() {
+   // return [
+    //  {
+     //   source: '/old-path',
+      //  destination: '/new-path',
+       // permanent: true,
+      //},
+    //];
+  //},
+});
+

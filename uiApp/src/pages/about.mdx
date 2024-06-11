@@ -1,0 +1,59 @@
+# About:
+The Bioinformatics Core at NYUAD CGSB provides computational infrastructure and
+services for sequence analysis in support of a wide range of research projects. 
+The team develops analytical pipelines, joint genomics resources, training programs, data policies, and handles data management.
+ 
+
+## The Team
+
+import {KrisCard,NizarCard, ArshadCard, SaldiCard, JayaramCard, NabilCard } from '../components/appcard'
+
+<KrisCard/>
+
+### Researchers
+
+import styles from '../components/appcard.module.css'
+
+export function App() {
+  return (
+    <div>
+    <div className={styles.container}>
+    
+        <div className={styles.component} >
+            <NizarCard  />
+        </div>
+   
+    </div>
+    <div className={styles.container}>
+        <div className={styles.component} >
+            <ArshadCard  />
+        </div>
+
+
+        <div className={styles.component} >
+            <SaldiCard  />
+        </div>
+     
+    </div>
+       <div className={styles.container}>
+    
+        <div className={styles.component} >
+            <JayaramCard  />
+        </div>
+        <div className={styles.component} >
+            <NabilCard  />
+        </div>
+        
+    </div>
+    </div>
+  );
+}
+
+<App/>
+
+
+
+
+
+
+

@@ -1,0 +1,15 @@
+name: v_dada2
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-base==4.3.3
+  - r-dplyr
+  - r-DT
+  - r-shiny
+  - r-shinydashboard
+  - r-shinyjs
+  - r-shinyBS
+  - r-shinycssloaders
+  - bioconductor-dada2

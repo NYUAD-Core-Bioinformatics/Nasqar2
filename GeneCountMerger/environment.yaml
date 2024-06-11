@@ -1,0 +1,17 @@
+name: v_countmerger
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-base==4.3.3
+  - r-shiny
+  - r-shinydashboard
+  - r-shinyjs
+  - r-shinyBS
+  - r-shinycssloaders
+  - r-readr
+  - r-sodium
+  - r-uuid
+  - r-markdown
+

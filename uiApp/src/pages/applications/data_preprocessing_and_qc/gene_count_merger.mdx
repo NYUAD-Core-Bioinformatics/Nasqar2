@@ -1,0 +1,27 @@
+
+
+## Gene Count Merger
+
+import * as React from 'react';
+import Button from '@mui/material/Button';
+import { Link } from 'react-router-dom';
+
+export const MyApp = () => {
+
+  return (
+     <Button href="/GeneCountMerger/"   target="_blank"  variant="outlined" size="small"  style={{ marginTop:"10px"}} >
+          Launch GeneCountMerger
+        </Button>
+  );
+};
+
+
+
+This is a simple preprocessing tool to merge individual gene count files (Eg. output count files from htseq)
+
+**NOTE**: first column must contain the genes. If the gene columns do not match in all files, this tool will not work
+
+<MyApp/>
+
+
+

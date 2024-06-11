@@ -1,0 +1,8 @@
+{
+  "data_preprocessing_and_qc": "Data preprocessing & QC",
+  "rna_seq": "RNA seq",
+  "meta_genomics": "Meta Genomics",
+  "epigenetics": "Epigenetics",
+  "varient_annotation": "Variant calling  and Annotation"
+  
+}

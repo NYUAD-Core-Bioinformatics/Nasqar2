@@ -1,0 +1,87 @@
+
+## Installation
+
+You can install NASQA2 in any plaforms
+
+
+## Docker Based Installation
+
+Docker based installation procedure allows you seamlessly install NASQAR across different plaforms.
+
+
+### Install Docker
+
+**Prerequisite**: Docker (version >= 17.03.0-ce)
+
+You can install the latest version of **Docker** from  [here](https://www.docker.com/products/docker-desktop/)
+
+### Run Docker Image from a Remote Repository (Faster)
+
+We have prebuild images stored in github repositry for easy Installation
+
+**To run NASQAR locally on port 80**, use the following docker command:
+
+```
+docker run -p 80:3232 nyuadcorebio/nasqarall:nasqar
+```
+
+
+**To run NASQAR locally on a different port** (e.g. port 8083), use:
+
+
+```
+docker run -p 8083:3232 nyuadcorebio/nasqarall:nasqar
+
+
+
+
+
+```
+
+### Run Docker Image Locally from Source:
+#### Clone Nasqar2 reposity
+
+ Build Docker Image: 
+Navigate to the directory containing your Dockerfile and run the docker build command to build the Docker image.
+
+```
+docker build -t image_name .
+Replace image_name with the desired name for your Docker image.
+```
+
+- Run Docker Container: 
+Use the docker run command to run a container from the locally built Docker image.
+
+```
+docker run image_name
+Replace image_name with 
+```
+
+### Run individual application 
+
+
+
+#### Install Anaconda
+
+- Create conda virtual environemnt:
+
+```
+conda install -c bioconda -c conda-forge mamba -y
+mamba env create -f environment.yaml
+```
+
+
+- Run Indvidual Application
+
+```
+R -e "shiny::runApp('avoApp', port = 9000, host = '0.0.0.0')"
+
+```
+-
+
+Access via web-browser on http://localhost/ or http://localhost:8083/ depending on port number used.
+
+
+
+
+<b style={{color:"red", font: "bold"}}>No support support Apple M* chips</b>
