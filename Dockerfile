@@ -14,13 +14,59 @@ RUN /opt/conda/bin/conda install -c bioconda -c conda-forge mamba -y
 # Create multiple conda environments and install RShiny
 
 
+#deseq2shiny
 COPY deseq2shiny /srv/shiny-server/deseq2shiny
 RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/deseq2shiny/environment.yaml
+RUN /opt/conda/bin/conda run -n v_deseq2 R -e "devtools::install_github('smin95/smplot2')"
+
+
+# animalcules
+COPY animalcules  /srv/shiny-server/animalcules
+RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/animalcules/environment.yaml
+
+# ATACseqQCShniy
+COPY ATACseqQCShniy /srv/shiny-server/ATACseqQCShniy
+RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/ATACseqQCShniy/environment.yaml
+
+
+# ClusterProfShinyGSEA
+COPY ClusterProfShinyGSEA /srv/shiny-server/ClusterProfShinyGSEA
+RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/ClusterProfShinyGSEA/environment.yaml
+RUN /opt/conda/bin/conda run -n v_enrichGSEA  R -e "install.packages('GOplot', repos='http://cran.rstudio.com/')"
+
+
+#ClusterProfShinyORA
+COPY ClusterProfShinyORA /srv/shiny-server/ClusterProfShinyORA
+RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/ClusterProfShinyORA/environment.yaml
+
+#dada2Shiny
+COPY dada2Shiny  /srv/shiny-server/dada2Shiny
+RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/dada2Shiny/environment.yaml
+
+#debrowser-master
+COPY debrowser-master /srv/shiny-server/debrowser-master
+RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/debrowser-master/environment.yaml
+
+
+# GeneCountMerger
+COPY GeneCountMerger /srv/shiny-server/GeneCountMerger
+RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/GeneCountMerger/environment.yaml
+
+
+#monocle3
+COPY monocle3 /srv/shiny-server/monocle3
+RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/monocle3/environment.yaml
+
+#SeuratV5Shiny
+COPY SeuratV5Shiny /srv/shiny-server/SeuratV5Shiny
+RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/SeuratV5Shiny/environment.yaml
+RUN /opt/conda/bin/conda run -n v_seuratv5 R -e "install.packages(c('Seurat'), repos ='https://cran.nyuad.nyu.edu/')"
 
 
 
-#RUN /opt/conda/bin/conda create -n shiny_env1 -c r r-shiny && \
-#    /opt/conda/bin/conda create -n shiny_env2 -c r r-shiny
+
+
+
 
 # Copy your Shiny app files to the container
 
