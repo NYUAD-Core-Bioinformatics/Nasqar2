@@ -1,0 +1,30 @@
+name: v_tsar
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-base==4.3.3
+  - r-shiny
+  - r-shinydashboard
+  - r-shinyjs
+  - r-shinyBS
+  - r-shinycssloaders
+  - r-tidyr
+  - r-reshape2
+  - r-ggplot2
+  - r-ggrepel
+  - r-ggthemes
+  - r-gplots
+  - r-ggvis
+  - r-dt
+  - r-pheatmap
+  - r-plotly
+  - r-markdown
+  - r-NMF
+  - r-heatmaply
+  - r-readr
+  - r-sodium
+  - bioconductor-limmagui
+  - bioconductor-edger
+  - bioconductor-deseq2

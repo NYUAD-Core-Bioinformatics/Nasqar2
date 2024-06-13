@@ -10,15 +10,16 @@ dependencies:
   - r-shinyjs
   - r-shinyBS
   - r-shinycssloaders
+  - r-clustree
+  - r-lme4
+  - r-terra
+  - r-ggrastr
   - bioconductor-biocgenerics
   - bioconductor-delayedarray
   - bioconductor-delayedmatrixstats
   - bioconductor-limma
-  - r-lme4
   - bioconductor-s4vectors
   - bioconductor-singlecellexperiment
   - bioconductor-summarizedexperiment
   - bioconductor-batchelor
   - bioconductor-hdf5array
-  - r-terra
-  - r-ggrastr

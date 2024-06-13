@@ -8,8 +8,8 @@ import sys
 from collections import defaultdict
 
 
-applications = ['animalcules', 'ClusterProfShinyGSEA', 'debrowser-master', 'ATACseqQCShniy','ClusterProfShinyORA', 'deseq2shiny','GeneCountMerger',
-        'monocle3',  'dada2Shiny', 'SeuratV5Shiny']
+applications = ['animalcules', 'ClusterProfShinyGSEA', 'ATACseqQCShniy','ClusterProfShinyORA', 'deseq2shiny','GeneCountMerger',
+        'monocle3',  'dada2Shiny', 'SeuratV5Shiny', 'DEBrowser', 'mergeFPKMs', 'tsar_nasqar']
 def merge_yaml_files(yaml_files):
     merged_data = {
         'name': 'merged_env',
