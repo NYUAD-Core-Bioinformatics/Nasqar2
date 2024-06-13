@@ -16,8 +16,8 @@ COPY environment.yaml /srv/shiny-server/environment.yaml
 RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/environment.yaml
 
 RUN /opt/conda/bin/conda run -n merged_env R -e "devtools::install_github('smin95/smplot2')"
-RUN /opt/conda/bin/conda run -n v_enrichGSEA  R -e "install.packages('GOplot', repos='http://cran.rstudio.com/')"
-RUN /opt/conda/bin/conda run -n v_monocle3 R -e "install.packages(c('Seurat'), repos ='https://cran.nyuad.nyu.edu/')"
+RUN /opt/conda/bin/conda run -n merged_env  R -e "install.packages('GOplot', repos='http://cran.rstudio.com/')"
+RUN /opt/conda/bin/conda run -n merged_env R -e "install.packages(c('Seurat'), repos ='https://cran.nyuad.nyu.edu/')"
 
 # Clean stale data
 RUN /opt/conda/bin/conda clean -a -y

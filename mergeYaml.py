@@ -12,7 +12,7 @@ applications = ['animalcules', 'ClusterProfShinyGSEA', 'debrowser-master', 'ATAC
         'monocle3',  'dada2Shiny', 'SeuratV5Shiny']
 def merge_yaml_files(yaml_files):
     merged_data = {
-        'name': 'merged_environment',
+        'name': 'merged_env',
         'channels': [],
         'dependencies': []
     }

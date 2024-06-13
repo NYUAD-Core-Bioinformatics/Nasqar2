@@ -69,4 +69,4 @@ dependencies:
 - r-future
 - r-terra
 - r-car
-name: merged_environment
+name: merged_env
