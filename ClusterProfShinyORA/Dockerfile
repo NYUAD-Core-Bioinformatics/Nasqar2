@@ -29,8 +29,8 @@ RUN echo "conda activate nasqar_env" >> ~shiny/.bashrc
 RUN conda clean --all -y
 
 
-#RUN conda run -n nasqar_env R -e "install.packages(c('stringi', 'GOplot', 'wordcloud2'), repos='http://cran.rstudio.com/')"
-#RUN conda run -n nasqar_env R -e "devtools::install_github('YuLab-SMU/clusterProfiler')"
+RUN conda run -n v_enrichORA  R -e "install.packages('GOplot', repos='http://cran.rstudio.com/')"
+
 
 USER root
 

@@ -1,0 +1,81 @@
+FROM rocker/shiny:latest
+
+# Install Miniconda
+RUN apt-get update && apt-get install -y wget bzip2 nginx supervisor && \
+    wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
+    /bin/bash ~/miniconda.sh -b -p /opt/conda && \
+    rm ~/miniconda.sh && \
+    ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \ 
+    adduser --system --no-create-home --shell /bin/false --group --disabled-login nginx
+
+
+RUN /opt/conda/bin/conda install -c bioconda -c conda-forge mamba -y
+
+COPY environment.yaml /srv/shiny-server/environment.yaml
+
+RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/environment.yaml
+
+RUN /opt/conda/bin/conda run -n merged_env R -e "devtools::install_github('smin95/smplot2')"
+RUN /opt/conda/bin/conda run -n v_enrichGSEA  R -e "install.packages('GOplot', repos='http://cran.rstudio.com/')"
+RUN /opt/conda/bin/conda run -n v_monocle3 R -e "install.packages(c('Seurat'), repos ='https://cran.nyuad.nyu.edu/')"
+
+# Clean stale data
+RUN /opt/conda/bin/conda clean -a -y
+
+#deseq2shiny
+COPY deseq2shiny /srv/shiny-server/deseq2shiny
+
+
+# animalcules
+COPY animalcules  /srv/shiny-server/animalcules
+
+# ATACseqQCShniy
+COPY ATACseqQCShniy /srv/shiny-server/ATACseqQCShniy
+
+
+# ClusterProfShinyGSEA
+COPY ClusterProfShinyGSEA /srv/shiny-server/ClusterProfShinyGSEA
+
+
+#ClusterProfShinyORA
+COPY ClusterProfShinyORA /srv/shiny-server/ClusterProfShinyORA
+
+#dada2Shiny
+COPY dada2Shiny  /srv/shiny-server/dada2Shiny
+
+#debrowser-master
+COPY debrowser-master /srv/shiny-server/debrowser-master
+
+
+# GeneCountMerger
+COPY GeneCountMerger /srv/shiny-server/GeneCountMerger
+
+
+#monocle3
+COPY monocle3 /srv/shiny-server/monocle3
+
+#SeuratV5Shiny
+COPY SeuratV5Shiny /srv/shiny-server/SeuratV5Shiny
+
+
+
+
+
+
+# Copy your Shiny app files to the container
+
+# Add Nginx configuration
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY uiApp/src/out/ /usr/share/nginx/html
+
+
+
+# Add the supervisor configuration file
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+RUN sed -i 's|/opt/conda/envs/v_[^/ ]*|/opt/conda/envs/merged_env|g'  supervisord.conf 
+
+# Expose the port for the Nginx server
+EXPOSE 80
+
+# Command to start supervisord
+CMD ["/usr/bin/supervisord"]

@@ -38,6 +38,7 @@ RUN /opt/conda/bin/conda run -n v_enrichGSEA  R -e "install.packages('GOplot', r
 #ClusterProfShinyORA
 COPY ClusterProfShinyORA /srv/shiny-server/ClusterProfShinyORA
 RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/ClusterProfShinyORA/environment.yaml
+RUN /opt/conda/bin/conda run -n v_enrichORA  R -e "install.packages('GOplot', repos='http://cran.rstudio.com/')"
 
 #dada2Shiny
 COPY dada2Shiny  /srv/shiny-server/dada2Shiny
@@ -56,6 +57,7 @@ RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/GeneCountMerger/environ
 #monocle3
 COPY monocle3 /srv/shiny-server/monocle3
 RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/monocle3/environment.yaml
+RUN /opt/conda/bin/conda run -n v_monocle3 R -e "install.packages(c('Seurat'), repos ='https://cran.nyuad.nyu.edu/')"
 
 #SeuratV5Shiny
 COPY SeuratV5Shiny /srv/shiny-server/SeuratV5Shiny
@@ -64,7 +66,8 @@ RUN /opt/conda/bin/conda run -n v_seuratv5 R -e "install.packages(c('Seurat'), r
 
 
 
-
+# Clean stale data
+RUN /opt/conda/bin/conda clean -a -y
 
 
 
@@ -73,6 +76,8 @@ RUN /opt/conda/bin/conda run -n v_seuratv5 R -e "install.packages(c('Seurat'), r
 # Add Nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY uiApp/src/out/ /usr/share/nginx/html
+
+
 
 # Add the supervisor configuration file
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
