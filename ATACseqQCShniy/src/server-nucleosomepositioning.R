@@ -47,7 +47,9 @@ inputDataReactive <- eventReactive(input$run_qc, {
 
     js$addStatusIcon("nucleosomepositioning_tab", "loading")
 
-    library(tx_db_list[[input$bs_genome_input]], character.only = T)
+    
+    # library(tx_db_list[[input$bs_genome_input]], character.only = T)
+    check_and_load_bioc_package(tx_db_list[[input$bs_genome_input]])
 
 
     tags_integer_types <- input$sel_tag_integer_type
@@ -110,6 +112,7 @@ inputDataReactive <- eventReactive(input$run_qc, {
     ## GenomicFeatures::makeTxDbFromGFF to create one from gff3 or gtf file.
     seqlev <- input$sel_chromosome ## subsample data for quick run
     txb <- tx_db_list[[input$bs_genome_input]]
+    
     seqinformation <- seqinfo(get(txb))
     as(seqinformation[input$sel_chromosome], "GRanges")
     # seqinformation <- seqinfo(TxDb.Hsapiens.UCSC.hg19.knownGene)
@@ -137,7 +140,8 @@ inputDataReactive <- eventReactive(input$run_qc, {
     # PT score will show if the signal is enriched in promoters.
 
     tx_db <- tx_db_list[[input$bs_genome_input]]
-    library(tx_db, character.only = T)
+    #library(tx_db, character.only = T)
+    check_and_load_bioc_package(tx_db)
     txs <- transcripts(get(tx_db))
     my_values$pt <- PTscore(gal1, txs)
     # plot will be called under renderPlot

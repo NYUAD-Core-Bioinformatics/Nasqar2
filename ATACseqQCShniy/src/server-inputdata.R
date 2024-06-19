@@ -6,6 +6,8 @@ observe({
 })
 
 
+
+
 observe({
     # shinyjs::hide(selector = "a[data-value=\"tab2\"]")
     # ddsReactive()
@@ -80,7 +82,8 @@ observeEvent(input$bs_genome_input, {
     if (input$bs_genome_input != "" & input$bs_genome_input != " ") {
         print("input$bs_genome_input")
         print(input$bs_genome_input)
-        library(input$bs_genome_input, character.only = T)
+        check_and_load_bioc_package(input$bs_genome_input)
+        # library(input$bs_genome_input, character.only = T)
         tx_db <- list("BSgenome.Hsapiens.UCSC.hg19" = c("TxDb.Hsapiens.UCSC.hg19.knownGene"))
         shinyjs::enable("initQC")
         # updateSelectInput(session, "tx_db_input", choices = tx_db[[input$bs_genome_input]])
@@ -184,7 +187,7 @@ input_files_reactive <- reactive({
 
     bs_genome_db <- c(" " = " ", "Human(BSgenome.Hsapiens.UCSC.hg19)" = "BSgenome.Hsapiens.UCSC.hg19", "Mouse(BSgenome.Mmusculus.UCSC.mm10)" = "BSgenome.Mmusculus.UCSC.mm10", "ZebraFish(BSgenome.Drerio.UCSC.danRer11)" = "BSgenome.Drerio.UCSC.danRer11", "Worm(BSgenome.Celegans.UCSC.ce6)" = "BSgenome.Celegans.UCSC.ce6")
     if (identical(input$data_file_type, "example_bam_file")) {
-      updateSelectInput(session, "bs_genome_input", choices = bs_genome_db, selected = "BSgenome.Mmusculus.UCSC.mm10")
+      updateSelectInput(session, "bs_genome_input", choices = bs_genome_db, selected = "BSgenome.Hsapiens.UCSC.hg19")
     } else {
       updateSelectInput(session, "bs_genome_input", choices = bs_genome_db, selected = NULL)
     }
