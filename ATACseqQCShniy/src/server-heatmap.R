@@ -38,7 +38,7 @@ output$plot_heatmap <-  renderPlot({
     #library(input$bs_genome_input, character.only = T)
     check_and_load_bioc_package(input$bs_genome_input)
     # library(TxDb.Hsapiens.UCSC.hg19.knownGene)
-    #tx_db <- tx_db_list[[input$bs_genome_input]]
+    tx_db <- tx_db_list[[input$bs_genome_input]]
     print(tx_db)
     # library(tx_db, character.only = T)
     check_and_load_bioc_package(tx_db)
