@@ -29,6 +29,86 @@ output$select_venn_ui <- renderUI({
 })
 
 
+venn_expression_df <- reactive({
+  
+  print("venn_expression_result")
+  matrix <- heatmap_matrix()
+  print("matrix")
+  print(matrix)
+  print(nrow(matrix))
+  req(nrow(matrix) > 0)
+  # ht <- Heatmap(matrix, show_row_names = FALSE, show_column_names = FALSE)
+  ht <- Heatmap(matrix)
+  
+  ht <- draw(ht)
+  
+  
+  req(length(isolate(input$select_avo_de_venn_files)) > 1)
+  
+  req(isolate(input$venn_set_expression_input))
+  
+  genes <- expression_set_data()
+  req(length(genes[1]) > 0)
+  print("makeInteractiveComplexHeatmap start")
+  makeInteractiveComplexHeatmap(input, output, session, ht, 
+                                click_action = click_action, brush_action = brush_action,"ht1"
+  )
+  print("makeInteractiveComplexHeatmap stop")
+  
+  
+  
+  values <- list()
+  common_genes <- genes[[1]]
+  values[["gene.id"]] <- common_genes
+  
+  
+  if (input$gene_alias == "included") {
+    values[["gene.name"]] <- myValues$genenames[common_genes, ]
+  }
+  
+  tagnames <- LETTERS[1:length(isolate(input$select_avo_de_venn_files))]
+  print(tagnames)
+  df_list <- list()
+  j <- 1
+  for (f in names(filelist$file_list)) {
+    print(f)
+    print(filelist$file_list[[f]])
+    df <- read.csv(filelist$file_list[[f]])
+    df[is.na(df)] <- 0
+    
+    # df <- na.omit(df)
+    df <- df[df$X %in% common_genes, ]
+    # df <- na.omit(df)
+    print(dim(df))
+    values[[paste0(tagnames[j], ".logFC")]] <- df$log2FoldChange
+    j <- j + 1
+  }
+  
+  #
+  #   i <- 1
+  #   for(avo_file in input$avo_de_file$name){
+  #     #print(input$avo_de_file$datapath)
+  #     df <-  NULL
+  #
+  #     if (f == avo_file){
+  #       df <- read.csv(input$avo_de_file$datapath[[i]])
+  #       df <-  df[df$X %in% common_genes,]
+  #       values[[paste0(tagnames[j],'.logFC')]]  <- df$log2FoldChange
+  #
+  #       j<-j+1
+  #       break
+  #
+  #     }
+  #     i <- i + 1
+  #   }
+  # }
+  
+  df <- data.frame(values)
+  df
+  
+})
+
+
 
 
 heatmap_matrix <- reactive({
@@ -159,7 +239,16 @@ brush_action <- function(df, output) {
             })
 
             updateTextAreaInput(session, "venn_gene_list", value = paste(genes, collapse = input$venn_input_genes_sep))
-
+            output$downloadVennMatrix <- downloadHandler(
+              filename = function() {
+                paste0("Venn_expression" , ".csv")
+              },
+              content = function(file) {
+                csv <- m
+                
+                write.csv(csv, file, row.names = T)
+              }
+            )
             return(m)
         },
         options = list(scrollX = TRUE, pageLength = 50)
@@ -372,83 +461,23 @@ output$panelStatus <- reactive({
 outputOptions(output, "panelStatus", suspendWhenHidden = FALSE)
 
 
+#output$downloadVennMatrix <- downloadHandler(
+#  filename = function() {
+#    paste0("Venn_expression" , ".csv")
+#  },
+#  content = function(file) {
+#    csv <- venn_expression_df()
+#    
+#    write.csv(csv, file, row.names = T)
+#  }
+#)
+
+
 observeEvent(input$evaluateExpression, {
     output$venn_expression_result <- renderDataTable(
         {
-            print("venn_expression_result")
-            matrix <- heatmap_matrix()
-            print("matrix")
-            print(matrix)
-            print(nrow(matrix))
-            req(nrow(matrix) > 0)
-            # ht <- Heatmap(matrix, show_row_names = FALSE, show_column_names = FALSE)
-            ht <- Heatmap(matrix)
-
-            ht <- draw(ht)
-
-
-            req(length(isolate(input$select_avo_de_venn_files)) > 1)
-
-            req(isolate(input$venn_set_expression_input))
-
-            genes <- expression_set_data()
-            req(length(genes[1]) > 0)
-            print("makeInteractiveComplexHeatmap start")
-            makeInteractiveComplexHeatmap(input, output, session, ht, 
-                click_action = click_action, brush_action = brush_action,"ht1"
-            )
-            print("makeInteractiveComplexHeatmap stop")
-
-
-
-            values <- list()
-            common_genes <- genes[[1]]
-            values[["gene.id"]] <- common_genes
-
-
-            if (input$gene_alias == "included") {
-                values[["gene.name"]] <- myValues$genenames[common_genes, ]
-            }
-
-            tagnames <- LETTERS[1:length(isolate(input$select_avo_de_venn_files))]
-            print(tagnames)
-            df_list <- list()
-            j <- 1
-            for (f in names(filelist$file_list)) {
-                print(f)
-                print(filelist$file_list[[f]])
-                df <- read.csv(filelist$file_list[[f]])
-                df[is.na(df)] <- 0
-
-                # df <- na.omit(df)
-                df <- df[df$X %in% common_genes, ]
-                # df <- na.omit(df)
-                print(dim(df))
-                values[[paste0(tagnames[j], ".logFC")]] <- df$log2FoldChange
-                j <- j + 1
-            }
-
-            #
-            #   i <- 1
-            #   for(avo_file in input$avo_de_file$name){
-            #     #print(input$avo_de_file$datapath)
-            #     df <-  NULL
-            #
-            #     if (f == avo_file){
-            #       df <- read.csv(input$avo_de_file$datapath[[i]])
-            #       df <-  df[df$X %in% common_genes,]
-            #       values[[paste0(tagnames[j],'.logFC')]]  <- df$log2FoldChange
-            #
-            #       j<-j+1
-            #       break
-            #
-            #     }
-            #     i <- i + 1
-            #   }
-            # }
-
-            df <- data.frame(values)
-
+            df <- venn_expression_df()
+            
             print(colnames(df))
 
 

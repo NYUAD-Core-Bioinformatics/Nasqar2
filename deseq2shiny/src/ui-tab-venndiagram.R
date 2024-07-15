@@ -100,7 +100,8 @@ tabItem(
                 hr(),
                 column(
                     12,
-                    DTOutput("venn_expression_result")
+                    DTOutput("venn_expression_result"),
+                    h4(p(class = "text-right", downloadButton("downloadVennMatrix", "Download .csv", class = "btn btn-primary btn-sm"))),
                 ),
                 hr(),
                 column(
