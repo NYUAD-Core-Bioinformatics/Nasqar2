@@ -100,8 +100,7 @@ tabItem(
                 hr(),
                 column(
                     12,
-                    DTOutput("venn_expression_result"),
-                    h4(p(class = "text-right", downloadButton("downloadVennMatrix", "Download .csv", class = "btn btn-primary btn-sm"))),
+                    DTOutput("venn_expression_result")
                 ),
                 hr(),
                 column(
@@ -124,7 +123,11 @@ tabItem(
                 hr(),
                 column(
                     12,
-                    DTOutput("venn_diagram_heatmap_matrix_table")
+                    DTOutput("venn_diagram_heatmap_matrix_table"),
+                    
+                    conditionalPanel(
+                      condition = "output.venn_expression_result && output.selected_genes",
+                    h4(p(class = "text-right", downloadButton("downloadVennMatrix", "Download .csv", class = "btn btn-primary btn-sm"))))
                     # plotOutput("heatMap1")htmlOutput("info1"),
                 ),
                 hr(),
