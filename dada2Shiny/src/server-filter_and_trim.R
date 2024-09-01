@@ -1,9 +1,13 @@
-reactiveInputData <- eventReactive(input$runQc, {
-
-    qc_done(FALSE);
+reactiveInputData <- eventReactive(input$runDADA2, {
+    qc_done(FALSE)
+    #    shinyjs::hide(selector = "a[data-value=\"qualityprofile_tab\"]")
     shinyjs::hide(selector = "a[data-value=\"errorRatesTab\"]")
+    # shinyjs::hide(selector = "a[data-value=\"filter_and_trim_tab\"]")
     shinyjs::hide(selector = "a[data-value=\"margePairedReadsTab\"]")
     shinyjs::hide(selector = "a[data-value=\"trackReadsTab\"]")
+    shinyjs::hide(selector = "a[data-value=\"taxanomyTab\"]")
+    shinyjs::hide(selector = "a[data-value=\"alphaDiversityTab\"]")
+
 
 
 
@@ -14,96 +18,202 @@ reactiveInputData <- eventReactive(input$runQc, {
 
     print(my_values$samples_df)
     fnFs <- file.path(path, my_values$samples_df[, "FASTQ_Fs"])
-    fnRs <- file.path(path, my_values$samples_df[, "FASTQ_Rs"])
-    # print(fnFs)
-    # print(fnRs)
-    filtFs <- file.path(path, "filtered", paste0(sample.names, "_F_filt.fastq.gz"))
-    filtRs <- file.path(path, "filtered", paste0(sample.names, "_R_filt.fastq.gz"))
 
+    filtFs <- file.path(path, "filtered", paste0(sample.names, "_F_filt.fastq.gz"))
     print("dir1")
     sapply(fnFs, function(fasqfile) {
         print(file.exists(fasqfile))
     })
-    print("dir2")
-    sapply(fnRs, function(fasqfile) {
-        print(file.exists(fasqfile))
-    })
     names(filtFs) <- sample.names
-    names(filtRs) <- sample.names
+
+    if (input$seq_type == "paired") {
+        fnRs <- file.path(path, my_values$samples_df[, "FASTQ_Rs"])
+        filtRs <- file.path(path, "filtered", paste0(sample.names, "_R_filt.fastq.gz"))
+        print("dir2")
+        sapply(fnRs, function(fasqfile) {
+            print(file.exists(fasqfile))
+        })
+
+        names(filtRs) <- sample.names
+    }
+    # print(fnFs)
+    # print(fnRs)
+
+
+
+
+
 
 
     withProgress(message = "Running DADA2 , please wait", {
-      
         shiny::setProgress(value = 0.1, detail = "...filterAndTrim")
 
-
-        out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs,
-            truncLen = c(240, 160),
-            maxN = 0, maxEE = c(2, 2), truncQ = 2, rm.phix = TRUE,
-            compress = TRUE, multithread = TRUE
-        )
+        # disabling multithread as it is runs in reactive context
+        if (input$seq_type == "paired") {
+            out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs,
+                truncLen = c(input$truncLen_fwd, input$truncLen_rev),
+                maxN = 0, maxEE = c(input$maxEE_fwd, input$maxEE_rev), truncQ = 2, rm.phix = TRUE,
+                compress = TRUE, multithread = FALSE
+            )
+        } else {
+            out <- filterAndTrim(fnFs, filtFs,
+                truncLen = c(input$truncLen_fwd),
+                maxN = 0, maxEE = c(input$maxEE_fwd), truncQ = 2, rm.phix = TRUE,
+                compress = TRUE, multithread = FALSE
+            )
+        }
 
         shiny::setProgress(value = 0.4, detail = "...learnErrors")
         errF <- learnErrors(filtFs, multithread = TRUE)
-        errR <- learnErrors(filtRs, multithread = TRUE)
+
+        if (input$seq_type == "paired") {
+            errR <- learnErrors(filtRs, multithread = TRUE)
+        }
 
         shiny::setProgress(value = 0.6, detail = "...dadafs")
         dadaFs <- dada(filtFs, err = errF, multithread = TRUE)
-        dadaRs <- dada(filtRs, err = errR, multithread = TRUE)
 
-        shiny::setProgress(value = 0.7, detail = "...mergePairs")
-        mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose = TRUE)
-        # Inspect the merger data.frame from the first sample
-        print('mergers')
+        if (input$seq_type == "paired") {
+            dadaRs <- dada(filtRs, err = errR, multithread = TRUE)
+        }
 
-        
-        
-        print(names(head(mergers)))
-        updateSelectInput(session, "selSample4margePairedReadsTab", choices = names(mergers))
+        if (input$seq_type == "paired") {
+            shiny::setProgress(value = 0.7, detail = "...mergePairs")
+            mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose = TRUE)
+            # Inspect the merger data.frame from the first sample
+            print("mergers")
 
 
+
+            print(names(head(mergers)))
+            updateSelectInput(session, "selSample4margePairedReadsTab", choices = names(mergers))
+        }
         shiny::setProgress(value = 0.8, detail = "...makeSequenceTable")
-        seqtab <- makeSequenceTable(mergers)
+
+        if (input$seq_type == "paired") {
+            seqtab <- makeSequenceTable(mergers)
+        } else {
+            seqtab <- makeSequenceTable(dadaFs)
+        }
         dim(seqtab)
 
         # Inspect distribution of sequence lengths
-        print('table')
+        print("table")
         seqtabTable <- table(nchar(getSequences(seqtab)))
 
 
+        # remove chimeras from the sequence table:
         seqtab.nochim <- removeBimeraDenovo(seqtab, method = "consensus", multithread = TRUE, verbose = TRUE)
         dim(seqtab.nochim)
 
         sum(seqtab.nochim) / sum(seqtab)
 
         getN <- function(x) sum(getUniques(x))
-        track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
-        # If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
-        colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
-        rownames(track) <- sample.names
+
+        if (input$seq_type == "paired") {
+            track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
+            # If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
+            colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
+            rownames(track) <- sample.names
+        } else {
+            track <- cbind(out, sapply(dadaFs, getN), rowSums(seqtab.nochim))
+            # If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
+            colnames(track) <- c("input", "filtered", "denoisedF", "nonchim")
+            rownames(track) <- sample.names
+        }
         # updateSelectInput(session, "selSample4trackReadsTab", choices = sample.names)
 
 
-        print('track')
+        print("track")
         print(head(track))
 
-        qc_done(TRUE);
+        print("taxa")
+
+        taxa <- assignTaxonomy(seqtab.nochim, "./www/taxonomy/silva_nr99_v138.1_train_set.fa.gz", multithread = TRUE)
+        print(taxa)
+        print("taxa second")
+        taxa <- addSpecies(taxa, "./www/taxonomy/silva_species_assignment_v138.1.fa.gz")
+        # print(taxa)
+        taxa.print <- taxa # Removing sequence rownames for display only
+        rownames(taxa.print) <- NULL
+
+
+        print(head(taxa.print))
+
+
+        # samples.out <- rownames(seqtab.nochim)
+        # print('samples.out')
+        # print(samples.out)
+        # subject <- sapply(strsplit(samples.out, "D"), '[', 1)
+        # gender <- substr(subject,1,1)
+        # subject <- substr(subject,2,999)
+        # # day <- as.integer(sapply(strsplit(samples.out, "D"), '[', 2))
+        # day <- as.integer(sapply(strsplit(sapply(strsplit(samples.out, "D"), '[', 2), '_'), '[', 1))
+        # samdf <- data.frame(Subject=subject, Gender=gender, Day=day)
+        # samdf$When <- "Early"
+        # samdf$When[samdf$Day>100] <- "Late"
+        # rownames(samdf) <- samples.out
+
+        print("samples.out")
+        print(samdf)
+
+        # ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE),
+        #        sample_data(samdf),
+        #        tax_table(taxa))
+        # ps <- prune_samples(sample_names(ps) != "Mock", ps) # Remove mock sample
+
+
+        # dna <- Biostrings::DNAStringSet(taxa_names(ps))
+        # names(dna) <- taxa_names(ps)
+        # ps <- merge_phyloseq(ps, dna)
+        # taxa_names(ps) <- paste0("ASV", seq(ntaxa(ps)))
+        # print(ps)
+        # # Transform data to proportions as appropriate for Bray-Curtis distances
+        # ps.prop <- transform_sample_counts(ps, function(otu) otu/sum(otu))
+        # ord.nmds.bray <- ordinate(ps.prop, method="NMDS", distance="bray")
+
+
+        # top20 <- names(sort(taxa_sums(ps), decreasing=TRUE))[1:20]
+        # ps.top20 <- transform_sample_counts(ps, function(OTU) OTU/sum(OTU))
+        # ps.top20 <- prune_taxa(top20, ps.top20)
+
+        print("qc done")
+
+
+        qc_done(TRUE)
 
         shiny::setProgress(value = 1.0, detail = "...done")
-       
     })
-     
-     shinyjs::show(selector = "a[data-value=\"errorRatesTab\"]")
-     shinyjs::show(selector = "a[data-value=\"margePairedReadsTab\"]")
-     shinyjs::show(selector = "a[data-value=\"trackReadsTab\"]")
-     shinyjs::show(selector = "a[data-value=\"filter_and_trim_tab\"]")
-     js$addStatusIcon("filter_and_trim_tab", "done")
-     js$addStatusIcon("errorRatesTab", "done")
-     js$addStatusIcon("trackReadsTab", "done")
-     js$addStatusIcon("margePairedReadsTab", "done")
-     
-    return(list(out = out, errF= errF, errR=errF, mergers = mergers, seqtabTable=seqtabTable, track=track ))
+
+    shinyjs::show(selector = "a[data-value=\"errorRatesTab\"]")
+    if (input$seq_type == "paired") {
+        shinyjs::show(selector = "a[data-value=\"margePairedReadsTab\"]")
+        js$addStatusIcon("margePairedReadsTab", "done")
+    }
+
+    shinyjs::show(selector = "a[data-value=\"trackReadsTab\"]")
+    shinyjs::show(selector = "a[data-value=\"filter_and_trim_tab\"]")
+    shinyjs::show(selector = "a[data-value=\"taxanomyTab\"]")
+
+
+
+    js$addStatusIcon("filter_and_trim_tab", "done")
+    js$addStatusIcon("errorRatesTab", "done")
+    js$addStatusIcon("trackReadsTab", "done")
+
+
+
+
+
+
+    if (input$seq_type == "paired") {
+        return(list(out = out, errF = errF, errR = errR, mergers = mergers, seqtabTable = seqtabTable, track = track, seqtab.nochim = seqtab.nochim))
+    } else {
+        return(list(out = out, errF = errF, seqtabTable = seqtabTable, track = track, seqtab.nochim = seqtab.nochim))
+    }
 })
+
+
 
 
 
