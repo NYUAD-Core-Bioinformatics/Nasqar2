@@ -154,8 +154,8 @@ reactiveInputData <- eventReactive(input$runDADA2, {
         # samdf$When[samdf$Day>100] <- "Late"
         # rownames(samdf) <- samples.out
 
-        print("samples.out")
-        print(samdf)
+        # print("samples.out")
+        # print(samdf)
 
         # ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE),
         #        sample_data(samdf),
