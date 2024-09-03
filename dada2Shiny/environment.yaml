@@ -6,10 +6,11 @@ channels:
 dependencies:
   - r-base==4.3.3
   - r-dplyr
-  - r-DT
   - r-shiny
   - r-shinydashboard
   - r-shinyjs
   - r-shinyBS
   - r-shinycssloaders
+  - r-DT
   - bioconductor-dada2
+  - bioconductor-phyloseq

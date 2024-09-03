@@ -15,15 +15,22 @@ COPY environment.yaml /srv/shiny-server/environment.yaml
 
 RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/environment.yaml
 
-RUN /opt/conda/bin/conda run -n merged_env R -e "devtools::install_github('smin95/smplot2')"
+# Activate the environment and set the PATH
+ENV PATH=/opt/conda/envs/merged_env/bin:$PATH
+
+#RUN /opt/conda/bin/conda run -n merged_env R -e "devtools::install_github('smin95/smplot2')"
+RUN /opt/conda/bin/conda run -n merged_env  R -e "install.packages('smplot2', repos='http://cran.rstudio.com/')"
 RUN /opt/conda/bin/conda run -n merged_env  R -e "install.packages('GOplot', repos='http://cran.rstudio.com/')"
-RUN /opt/conda/bin/conda run -n merged_env R -e "install.packages(c('Seurat'), repos ='https://cran.nyuad.nyu.edu/')"
+
+RUN /opt/conda/bin/conda run -n merged_env R -e "devtools::install_github('cole-trapnell-lab/monocle3')"
+RUN /opt/conda/bin/conda run -n merged_env R -e "devtools::install_github('mahmoudibrahim/genesorteR')"
+RUN /opt/conda/bin/conda run -n merged_env R -e "remotes::install_github('satijalab/seurat-wrappers')"
+RUN /opt/conda/bin/conda run -n merged_env R -e "remotes::install_github('daqana/dqshiny')"
+RUN /opt/conda/bin/conda run -n merged_env R -e "install.packages('Seurat', repos ='https://cran.nyuad.nyu.edu/')"
 
 # Clean stale data
 RUN /opt/conda/bin/conda clean -a -y
 
-#deseq2shiny
-COPY deseq2shiny /srv/shiny-server/deseq2shiny
 
 
 # animalcules
@@ -31,6 +38,7 @@ COPY animalcules  /srv/shiny-server/animalcules
 
 # ATACseqQCShniy
 COPY ATACseqQCShniy /srv/shiny-server/ATACseqQCShniy
+COPY BSgenome.Hsapiens.UCSC.hg19_1.4.3.tar.gz /
 
 
 # ClusterProfShinyGSEA
@@ -43,8 +51,11 @@ COPY ClusterProfShinyORA /srv/shiny-server/ClusterProfShinyORA
 #dada2Shiny
 COPY dada2Shiny  /srv/shiny-server/dada2Shiny
 
-#debrowser-master
-COPY debrowser-master /srv/shiny-server/debrowser-master
+#deseq2shiny
+COPY deseq2shiny /srv/shiny-server/deseq2shiny
+
+#debrowser
+COPY DEBrowser /srv/shiny-server/DEBrowser
 
 
 # GeneCountMerger
@@ -56,6 +67,12 @@ COPY monocle3 /srv/shiny-server/monocle3
 
 #SeuratV5Shiny
 COPY SeuratV5Shiny /srv/shiny-server/SeuratV5Shiny
+
+#mergeFPKMs
+COPY mergeFPKMs /srv/shiny-server/mergeFPKMs
+
+#mergeFPKMs
+COPY tsar_nasqar /srv/shiny-server/tsar_nasqar
 
 
 
@@ -72,7 +89,7 @@ COPY uiApp/src/out/ /usr/share/nginx/html
 
 # Add the supervisor configuration file
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-RUN sed -i 's|/opt/conda/envs/v_[^/ ]*|/opt/conda/envs/merged_env|g'  supervisord.conf 
+RUN sed -i 's|/opt/conda/envs/v_[^/ ]*|/opt/conda/envs/merged_env|g'  /etc/supervisor/conf.d/supervisord.conf
 
 # Expose the port for the Nginx server
 EXPOSE 80

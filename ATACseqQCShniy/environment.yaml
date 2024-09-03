@@ -15,3 +15,4 @@ dependencies:
   - bioconductor-chippeakanno
   - bioconductor-motifdb
   - bioconductor-genomicalignments
+  - bioconductor-rsamtools

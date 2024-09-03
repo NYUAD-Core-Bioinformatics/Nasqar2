@@ -1,3 +1,5 @@
 #!/bin/bash
-exec shiny-server > /dev/null 2>&1
-#exec shiny-server >> /var/log/nasqar/shiny-server.log 2>&1
+#exec shiny-server > /dev/null 2>&1
+source /home/shiny/miniconda3/etc/profile.d/conda.sh
+conda activate v_dada2
+exec shiny-server >> /var/log/shiny-server/shiny-server.log 2>&1

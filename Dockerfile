@@ -44,9 +44,9 @@ RUN /opt/conda/bin/conda run -n v_enrichORA  R -e "install.packages('GOplot', re
 COPY dada2Shiny  /srv/shiny-server/dada2Shiny
 RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/dada2Shiny/environment.yaml
 
-#debrowser-master
-COPY debrowser-master /srv/shiny-server/debrowser-master
-RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/debrowser-master/environment.yaml
+#debrowser
+COPY DEBrowser /srv/shiny-server/DEBrowser
+RUN /opt/conda/bin/mamba env create -f /srv/shiny-server/DEBrowser/environment.yaml
 
 
 # GeneCountMerger

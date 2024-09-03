@@ -23,7 +23,7 @@ library(pheatmap)
 library(dqshiny)
 
 # Change data load maximum
-options(shiny.maxRequestSize = 5*1024^3)
+options(shiny.maxRequestSize = 115*1024^3)
 
 #Source functions
 source("./source.R")

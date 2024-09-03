@@ -8,6 +8,7 @@ library(ChIPpeakAnno)
 library(GenomicAlignments)
 require(DT)
 
+
 htmltags<- tags
 ui <- dashboardPage(
     dashboardHeader(title = "ATACseqQC"),

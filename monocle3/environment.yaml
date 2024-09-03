@@ -4,6 +4,8 @@ channels:
   - bioconda
   - defaults
 dependencies:
+  - gcc_linux-64
+  - gxx_linux-64
   - r-base==4.3.3
   - r-shiny
   - r-shinydashboard
@@ -14,6 +16,11 @@ dependencies:
   - r-lme4
   - r-terra
   - r-ggrastr
+  - r-SeuratObject
+  - r-Matrix
+  - r-clustree
+  - r-sf
+  - r-spdep
   - bioconductor-biocgenerics
   - bioconductor-delayedarray
   - bioconductor-delayedmatrixstats
