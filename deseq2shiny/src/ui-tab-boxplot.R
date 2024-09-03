@@ -50,6 +50,12 @@ tabItem(
                             options = list(minItems = 2)
                         )
                     ),
+                    # Dropdown to select which level to customize
+  selectInput("levelSelect", "Select Factors to Customize Color:", choices = NULL),
+  
+  # Color picker to select color for the chosen level
+  colourInput("levelColor", "Select color:", value = "blue"),
+  actionButton("applyColor", "Apply Color"),
                     div(style = "clear:both;")
                 ),
                 column(

@@ -4,6 +4,13 @@ suppressPackageStartupMessages(library(kableExtra))
 
 # Define server
 
+# Function to generate n distinct random colors
+generate_random_colors <- function(n) {
+  colors <- grDevices::colors()[sample(1:657, n)]
+  return(colors)
+}
+
+
 server <- function(input, output, session) {
     source("server-inputdata.R", local = TRUE)
 

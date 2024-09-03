@@ -1,3 +1,39 @@
+# Reactive values to store the custom colors
+custom_colors <- reactiveValues(colors = list())
+
+# Update the level selection dropdown based on the selected fill variable
+observe({
+    req(input$boxplotFill)
+    filtered <- geneExrReactive()
+    # levels <- unique(filtered[[input$boxplotFill]])
+    levels <- factor(filtered[[input$sel_groups]], input$sel_factors)
+    isolate({
+    # Generate random colors for each level if not already set
+    # if (length(custom_colors$colors) == 0) {
+        random_colors <- generate_random_colors(length(levels))
+        custom_colors$colors <- setNames(as.list(random_colors), levels)
+        print(custom_colors$colors)
+    # }
+    })
+
+updateSelectInput(session, "levelSelect", choices = levels)
+})
+
+# Update the custom colors when the user clicks the apply button
+  observeEvent(input$applyColor, {
+
+    print('applyColor1')
+    print(custom_colors$colors)
+    print('applyColor2')
+    print(input$levelSelect)
+    print('applyColor3')
+    print(input$levelColor)
+    print('applyColor4')
+    req(input$levelSelect, input$levelColor)
+    custom_colors$colors[[input$levelSelect]] <- input$levelColor
+    print(custom_colors$colors[[input$levelSelect]])
+  })
+
 observe({
     # print('sel_gene')
     # print(myValues)
@@ -64,6 +100,7 @@ geneExrReactive <- reactive({
 
 
     factors <- input$sel_groups
+    
 
 
     filtered_new <- filtered
@@ -82,26 +119,45 @@ geneExrReactive <- reactive({
 
     print(filtered_new)
 
+
+
+    #Order bar plots based on order user select
+    filtered_new[[input$sel_groups]] <- factor(filtered_new[[input$sel_groups]], input$sel_factors)
+
     return(filtered_new)
 })
 
 output$boxPlot <- renderPlotly({
+
     if (!is.null(geneExrReactive())) {
         filtered <- geneExrReactive()
+        print(input$sel_factors)
 
         validate(need(length(input$boxplotX) > 0, "Please select a group."))
         validate(need(length(input$boxplotFill) > 0, "Please select a fill by group."))
+
+        
+        # levels <- unique(filtered[[input$boxplotFill]])
+    
+        # # Retrieve or set default colors
+        # colors <- sapply(levels, function(level) {
+        #     custom_colors$colors[[level]]
+        # })
+        # names(colors) <- levels
 
         ## Adapted from STARTapp dotplot
 
         if (isolate(input$box_plot_sel_gene_type) == "gene.name") {
             p <- ggplot(filtered, aes_string(input$boxplotX, "expression", fill = input$boxplotFill)) +
                 geom_boxplot() +
-                facet_wrap(~gene.name, scales = "free_y")
+                facet_wrap(~gene.name, scales = "free_y") +
+                scale_fill_manual(values = custom_colors$colors)
         } else {
             p <- ggplot(filtered, aes_string(input$boxplotX, "expression", fill = input$boxplotFill)) +
                 geom_boxplot() +
-                facet_wrap(~gene, scales = "free_y")
+                facet_wrap(~gene, scales = "free_y") +
+                scale_fill_manual(values = custom_colors$colors)
+
         }
 
 
