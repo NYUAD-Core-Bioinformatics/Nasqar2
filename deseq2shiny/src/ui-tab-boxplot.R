@@ -69,7 +69,7 @@ tabItem(
                             ),
                             column(
                                 12,
-                                selectInput("levelSelect", "Select Factors to Customize Color:", choices = NULL)
+                                selectInput("levelSelect", "Customize Fill Color:", choices = NULL)
                             ),
                             column(
                                 12,
