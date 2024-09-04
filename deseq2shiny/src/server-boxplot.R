@@ -3,20 +3,39 @@ custom_colors <- reactiveValues(colors = list())
 
 # Update the level selection dropdown based on the selected fill variable
 observe({
-    req(input$boxplotFill)
+    req(input$sel_groups)
+    # req(input$boxplotX)
     filtered <- geneExrReactive()
     # levels <- unique(filtered[[input$boxplotFill]])
-    levels <- factor(filtered[[input$sel_groups]], input$sel_factors)
+    print('input$sel_groups')
+
+    
+    
+    # mylevels <- factor(filtered[c(input$boxplotFill)], input$sel_factors)
     isolate({
+        tmpgroups <- input$sel_groups
+        mylevels <- unlist(lapply(tmpgroups, function(x) {
+            levels(myValues$DF[, x])
+        }))
+        # mylevels <- levels(myValues$DF[, input$boxplotFill])
     # Generate random colors for each level if not already set
     # if (length(custom_colors$colors) == 0) {
-        random_colors <- generate_random_colors(length(levels))
-        custom_colors$colors <- setNames(as.list(random_colors), levels)
+        random_colors <- generate_random_colors(length(mylevels))
+        custom_colors$globalcolors <- setNames(as.list(random_colors), mylevels)
+        mylevels <- levels(myValues$DF[, input$boxplotFill])
+        custom_colors$colors <- custom_colors$globalcolors[mylevels]
+        
         print(custom_colors$colors)
     # }
     })
+    
+})
 
-updateSelectInput(session, "levelSelect", choices = levels)
+observe({
+    req(input$boxplotFill)
+    mylevels <- levels(myValues$DF[, input$boxplotFill])
+    custom_colors$colors <- custom_colors$globalcolors[mylevels]
+    updateSelectInput(session, "levelSelect", choices = mylevels)
 })
 
 # Update the custom colors when the user clicks the apply button
@@ -121,8 +140,7 @@ geneExrReactive <- reactive({
 
 
 
-    #Order bar plots based on order user select
-    filtered_new[[input$sel_groups]] <- factor(filtered_new[[input$sel_groups]], input$sel_factors)
+   
 
     return(filtered_new)
 })
@@ -146,6 +164,10 @@ output$boxPlot <- renderPlotly({
         # names(colors) <- levels
 
         ## Adapted from STARTapp dotplot
+
+         #Order bar plots based on order user select
+        filtered[[input$boxplotX]] <- factor(filtered[[input$boxplotX]], input$sel_factors)
+
 
         if (isolate(input$box_plot_sel_gene_type) == "gene.name") {
             p <- ggplot(filtered, aes_string(input$boxplotX, "expression", fill = input$boxplotFill)) +

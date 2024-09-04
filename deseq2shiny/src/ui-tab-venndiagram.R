@@ -11,11 +11,32 @@ tabItem(
                             12,
                             uiOutput("select_venn_ui")
                         ),
-                        radioButtons("venn_sig_genes_selection",
+                        column(
+                            12,
+                            column(8, radioButtons("venn_sig_genes_selection",
                             label = h5("Significant Genes Selction"),
                             choices = list("All significant genes" = 1, "Up regulated genes" = 2, "Down regulated genes" = 3),
                             selected = 1
+                            )),
+                            column(4, 
+                                conditionalPanel(
+                                condition = "input.gene_alias=='included'",
+                                
+                                        radioButtons("venn_sel_gene_type", 
+                                        label = h5("List gene by"),
+                                                c(
+                                                    "gene.id" = "gene.id",
+                                                    "gene.name" = "gene.name"
+                                                ),
+                                                selected = "gene.id"
+                                        )
+                                    
+                                )
+                            )
+                            
                         ),
+                          
+                        
                         actionButton("plotVenn", "Plot Venn  diagram"),
                         div(style = "clear:both;")
                     )
@@ -135,18 +156,7 @@ tabItem(
                     conditionalPanel(condition = "output.selected_genes",
                         column(
                             12,
-                            conditionalPanel(
-                                condition = "input.gene_alias=='included'",
-                                column(4,
-                                    radioButtons("venn_sel_gene_type", "Gene list by",
-                                            c(
-                                                "gene.id" = "gene.id",
-                                                "gene.name" = "gene.name"
-                                            ),
-                                            selected = "gene.id"
-                                    )
-                                )
-                            ),
+                          
                             column(4,
                                 radioButtons("venn_input_genes_sep", "Genes separted by",
                                     c(

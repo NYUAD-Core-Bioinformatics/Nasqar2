@@ -96,7 +96,15 @@ heatmap_matrix <- reactive({
     # print('heatmap plot')
 
 
+     if (input$gene_alias == "included" && input$venn_sel_gene_type == "gene.name") {
+        # print(head(myValues$genenames))
+        common_genes <- myValues$genenames[common_genes, 1]
+    }
+
     rownames(d) <- common_genes
+
+
+    # rownames(d) <- common_genes
 
     # return (heatmaply(d, k_row = 3, k_col = 2,dendrogram="row", label_names= c("colum", "row", "va")))
 
@@ -150,11 +158,11 @@ brush_action <- function(df, output) {
 
 
 
-            if (input$gene_alias == "included") {
-                genes <- myValues$genenames[gene.id, ]
-                gene.name <- genes
-                m <- cbind(m, gene.name)
-            }
+            # if (input$gene_alias == "included") {
+            #     genes <- myValues$genenames[gene.id, ]
+            #     gene.name <- genes
+            #     m <- cbind(m, gene.name)
+            # }
 
             if (input$venn_sel_gene_type == "gene.id") {
                 genes <- gene.id

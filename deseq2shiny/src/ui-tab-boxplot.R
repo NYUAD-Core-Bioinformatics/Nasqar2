@@ -50,12 +50,8 @@ tabItem(
                             options = list(minItems = 2)
                         )
                     ),
-                    # Dropdown to select which level to customize
-  selectInput("levelSelect", "Select Factors to Customize Color:", choices = NULL),
-  
-  # Color picker to select color for the chosen level
-  colourInput("levelColor", "Select color:", value = "blue"),
-  actionButton("applyColor", "Apply Color"),
+
+                
                     div(style = "clear:both;")
                 ),
                 column(
@@ -70,7 +66,28 @@ tabItem(
                             column(
                                 12,
                                 selectInput("boxplotFill", "Fill (group by)", choices = c())
+                            ),
+                            column(
+                                12,
+                                selectInput("levelSelect", "Select Factors to Customize Color:", choices = NULL)
+                            ),
+                            column(
+                                12,
+                                 # Color picker to select color for the chosen level
+                                colourInput("levelColor", "Select color:", value = "blue")
+                            ),
+                            column(
+                                12,
+                                 # Color picker to select color for the chosen level
+                                actionButton("applyColor", "Apply Color")
                             )
+
+                            
+
+                             # Dropdown to select which level to customize
+  
+  
+ 
                         ),
                         # column(2,
                         #        radioButtons("counttype","Y axis:",choices=c("counts","rlog","vst"))
