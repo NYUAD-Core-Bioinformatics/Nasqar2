@@ -25,11 +25,11 @@ RUN mamba env create -f environment.yaml
 RUN echo "alias l='ls -lah'" >> ~shiny/.bashrc
 RUN conda init bash
 SHELL ["/bin/bash", "-c"]
-RUN echo "conda activate nasqar_env" >> ~shiny/.bashrc
+RUN echo "conda activate v_enrichGSEA" >> ~shiny/.bashrc
 RUN conda clean --all -y
 
 
-conda run -n nasqar_env R -e "install.packages('GOplot'), repos='http://cran.rstudio.com/')"
+RUN conda run -n v_enrichGSEA R -e "install.packages('GOplot', repos='http://cran.rstudio.com/')"
 
 
 #RUN conda run -n nasqar_env R -e "install.packages(c('stringi', 'GOplot', 'wordcloud2'), repos='http://cran.rstudio.com/')"

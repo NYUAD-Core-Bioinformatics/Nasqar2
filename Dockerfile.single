@@ -21,6 +21,7 @@ ENV PATH=/opt/conda/envs/merged_env/bin:$PATH
 #RUN /opt/conda/bin/conda run -n merged_env R -e "devtools::install_github('smin95/smplot2')"
 RUN /opt/conda/bin/conda run -n merged_env  R -e "install.packages('smplot2', repos='http://cran.rstudio.com/')"
 RUN /opt/conda/bin/conda run -n merged_env  R -e "install.packages('GOplot', repos='http://cran.rstudio.com/')"
+RUN /opt/conda/bin/conda run -n merged_env  R -e "install.packages('wordcloud2', repos='http://cran.rstudio.com/')"
 
 RUN /opt/conda/bin/conda run -n merged_env R -e "devtools::install_github('cole-trapnell-lab/monocle3')"
 RUN /opt/conda/bin/conda run -n merged_env R -e "devtools::install_github('mahmoudibrahim/genesorteR')"

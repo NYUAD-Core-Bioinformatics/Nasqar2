@@ -16,7 +16,7 @@ output$gsePlotMap <- renderPlot({
     withProgress(message = "Plotting  enrichment map ...", {
         go_gse <- gseGoReactive()$go_gse
 
-        emapplot(go_gse, showCategory = input$showCategory_enrichmap)
+        emapplot(pairwise_termsim(go_gse), showCategory = input$showCategory_enrichmap)
     })
 })
 
@@ -48,7 +48,7 @@ output$cnetplot <- renderPlot({
     withProgress(message = "Plotting Gene-Concept Network ...", {
         go_gse <- gseGoReactive()$go_gse
 
-        cnetplot(go_gse, categorySize = "pvalue", foldChange = myValues$gene_list, showCategory = input$showCategory_cnet)
+        cnetplot(go_gse, categorySize = "pvalue", color.params = list(foldChange = myValues$gene_list), showCategory = input$showCategory_cnet)
     })
 })
 
@@ -74,7 +74,7 @@ output$gsePlotMap_kegg <- renderPlot({
     withProgress(message = "Plotting Enrichment Map ...", {
         kegg_gse <- gseGoReactive()$kegg_gse
 
-        emapplot(kegg_gse, showCategory = input$showCategory_enrichmap_kegg)
+        emapplot(pairwise_termsim(kegg_gse), showCategory = input$showCategory_enrichmap_kegg)
     })
 })
 
@@ -83,7 +83,7 @@ output$cnetplot_kegg <- renderPlot({
     withProgress(message = "Plotting Gene-Concept Network ...", {
         kegg_gse <- gseGoReactive()$kegg_gse
 
-        cnetplot(kegg_gse, categorySize = "pvalue", foldChange = myValues$kegg_gene_list, showCategory = input$showCategory_cnet_kegg)
+        cnetplot(kegg_gse, categorySize = "pvalue", color.params = list(foldChange = myValues$kegg_gene_list), showCategory = input$showCategory_cnet_kegg)
     })
 })
 

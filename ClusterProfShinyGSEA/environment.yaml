@@ -14,5 +14,8 @@ dependencies:
   - r-DT
   - r-plotly
   - r-markdown
+  - r-biocmanager
+  - r-ggridges
+  - r-europepmc
   - bioconductor-clusterprofiler
   - bioconductor-pathview
