@@ -13,4 +13,8 @@ dependencies:
   - r-devtools
   - r-sodium
   - r-DT
+  - r-markdown
+  - r-biocmanager
+  - r-ggupset
   - bioconductor-clusterprofiler
+  - bioconductor-pathview

@@ -191,9 +191,26 @@ observeEvent(input$nextInitParams, {
 
 
 observeEvent(input$organismDb, {
-    if (input$organismDb == "") {
-        return(NULL)
-    }
+		    req(input$organismDb)
+    #if (input$organismDb == "") {
+    #    return(NULL)
+    #}
+
+            if (!require(input$organismDb, character.only = TRUE)) {
+		                    print('not installed')
+                    print(input$organismDb)
+		                   withProgress(
+						                        message = paste0("Installing package ",input$organismDb),
+									                    detail = "This may take a while...",
+									                    value = 0, {
+												                             incProgress(0.4)
+											                            BiocManager::install(input$organismDb)
+														                                             incProgress(0.4) })
+
+
+
+
+		                    }
 
     library(input$organismDb, character.only = T)
 

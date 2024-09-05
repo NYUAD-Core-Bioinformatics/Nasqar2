@@ -99,7 +99,7 @@ output$cnetplot <- renderPlot({
         } else {
             updateNumericInput(session, "showCategory_cnet", max = nrow(go_enrich@result), min = 0)
         }
-        cnetplot(go_enrich, categorySize = "pvalue", foldChange = myValues$gene_list, showCategory = input$showCategory_cnet)
+        cnetplot(go_enrich, categorySize = "pvalue", color.params = list(foldChange = myValues$gene_list),  showCategory = input$showCategory_cnet)
     })
 })
 
@@ -134,6 +134,7 @@ output$wordcloud <- renderWordcloud2({
 ### KEGG
 
 output$barPlot_kegg <- renderPlot({
+    req(input$showCategory_dot_kegg)
     withProgress(message = "Plotting barplot ...", {
         kegg_enrich <- enrichGoReactive()$kegg_enrich
         
@@ -194,7 +195,7 @@ output$cnetplot_kegg <- renderPlot({
             kegg_enrich <- filter(kegg_enrich, ID %in% kegg_enrich@result$ID[s])
         } 
         updateNumericInput(session, "showCategory_cnet_kegg", max = nrow(kegg_enrich@result), min = 0)
-        cnetplot(kegg_enrich, categorySize = "pvalue", foldChange = myValues$kegg_gene_list, showCategory = input$showCategory_cnet_kegg)
+        cnetplot(kegg_enrich, categorySize = "pvalue", color.params = list(foldChange = myValues$gene_list) , showCategory = input$showCategory_cnet_kegg)
     })
 })
 
