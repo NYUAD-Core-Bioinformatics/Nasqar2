@@ -28,7 +28,7 @@ observeEvent(input$runAlphaDiversity, {
     req(qiimeData())
 
     seqtab.nochim <- reactiveInputData()$seqtab.nochim
-    taxa <- reactiveTaxonomyData()
+    taxa <- reactiveTaxonomyData$taxa
 
     # print(qiimeData())
 

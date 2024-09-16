@@ -3,37 +3,32 @@ tabItem(
     fluidRow(
         column(
             12,
-            column(
-                4, wellPanel(
-                    selectInput("sel_sample_qualityprofile_tab", "Salect Sample", choices = NULL, selected = NULL)
-                )
-            ),
-        ),
-        column(
-            12,
-            column(
-                6,
-                withSpinner(plotOutput("plot_qualityprofile_fs"))
+      
+                box(
+                    title = "Inspect read quality profiles", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "qc_parameters", collapsed = F,
 
-                # actionButton("run_deseq2", "Run DESeq2",
-                #              class = "btn btn-success",
-                #              style = "width:100%;height:60px;"
-                # ),
-                # plotOutput("plot")
-            ),
-            column(
-                6,
-                conditionalPanel(
-                    "input.seq_type == 'paired'",
-                    withSpinner(plotOutput("plot_qualityprofile_rs"))
+                    column(6,
+                       
+                        selectInput("sel_sample_qualityprofile_tab", "Salect Sample", choices = NULL, selected = NULL)
+                      
+                    ),
+                    column(12,
+                       
+                        p('Assess the quality of the sequencing reads to determine where to truncate reads to remove poor-quality regions.')
+                        
+                    ),
+                    column(12,
+                        column(6,
+                            withSpinner(plotOutput("plot_qualityprofile_fs"))
+                        ),
+                        column(6,
+                            conditionalPanel("input.seq_type == 'paired'",
+                                withSpinner(plotOutput("plot_qualityprofile_rs"))
+                        ))
+                    )
                 )
-
-                # actionButton("run_deseq2", "Run DESeq2",
-                #              class = "btn btn-success",
-                #              style = "width:100%;height:60px;"
-                # ),
-                # plotOutput("plot")
-            )
         )
+            
+        
     )
 )

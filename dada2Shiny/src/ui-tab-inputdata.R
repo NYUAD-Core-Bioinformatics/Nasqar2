@@ -6,8 +6,8 @@ tabItem(
             box(
                 title = "Upload fastq file", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "uploadbox",
                 # h4("Upload Gene Counts"),
-                h4("(select .fastq"),
-                radioButtons("data_file_type", "Use example file or upload your own data",
+    
+                radioButtons("data_file_type", "Use example file or upload your own data (zipped or unzipped FASTQ files)",
                     c(
                         "Upload fastq File" = "upload_fastq_file",
                         "Example fastq file" = "example_fastq_file",
@@ -37,7 +37,7 @@ tabItem(
                     condition = "input.data_file_type=='example_fastq_file'",
                     p(
                         "For details on this data, see ",
-                        a(href = "https://doi.org/10.1007/978-3-319-07212-8_3", target = "_blank", "this publication")
+                        a(href = "https://mothur.org/wiki/miseq_sop/", target = "_blank", "this publication")
                     )
                 )
             ),
@@ -88,10 +88,13 @@ tabItem(
         ),
         column(
             6,
+            conditionalPanel(condition = "output.fastqfiles_uploaded === true",
+            box(
+                title = "Fastq Files", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "uploadbox",
             tags$div(
                 class = "BoxArea2",
                 withSpinner(dataTableOutput("fastq_samples_table"))
-            )
+            )))
         )
     )
 )

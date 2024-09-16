@@ -1,0 +1,300 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Documention from the link https://mothur.org/wiki/miseq_sop/
+says "40 fastq files representing 10 time points from Female 3 and 1 mock community" but I see 19 data point 1 mock community.
+F3D0 denotes female 3 on day 0.
+Original dataset has we 362 pairs of fastq files. FOr this tutorial 20 only selected
+
+
+```{r}
+
+library(dada2); packageVersion("dada2")
+#setwd('/Users/nr83/Downloads/amplicon_data')
+#getwd()
+setwd('/Users/nr83/Documents/nasqar_projects/nasqar2-dev/dada2Shiny/src/')
+path <- "./www/exampleData/MiSeq_SOP" # this is the path where fastq should be
+#path = "./www/exampleData/amplicon_data"
+list.files(path) # will list all the fastq files in the above mentioned directory
+
+```
+
+
+```{r}
+# Forward and reverse fastq filenames have format: SAMPLENAME_R1_001.fastq and SAMPLENAME_R2_001.fastq
+fnFs <- sort(list.files(path, pattern="_R1_001.fastq", full.names = TRUE))
+fnRs <- sort(list.files(path, pattern="_R2_001.fastq", full.names = TRUE))
+# Extract sample names, assuming filenames have format: SAMPLENAME_XXX.fastq
+sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`, 1)
+sample.names
+```
+
+
+
+
+```{R}
+library(ShortRead)
+# Read the fastq file (just the first one as an example)
+fastq_data <- readFastq(fnFs[1])
+# Extract the sequences as a character vector
+sequences <- as.character(sread(fastq_data))
+
+# Create a table of unique sequences and their counts
+unique_sequences <- table(sequences)
+
+# Get the lengths of all unique sequences
+sequence_lengths <- nchar(names(unique_sequences))
+
+# Create a data frame with sequence, count, and length
+unique_sequences_df <- data.frame(
+  Count = as.integer(unique_sequences),
+  Length = sequence_lengths
+)
+
+
+
+# Optionally write to a file if needed
+# write.csv(unique_sequences_df, "unique_sequences.csv", row.names = FALSE)
+
+unique_sequences_df
+```
+
+
+
+
+# Inspect read quality profiles
+
+```{r}
+
+plotQualityProfile(fnFs[1:2])
+
+```
+
+
+```{r}
+
+
+plotQualityProfile(fnRs[1:2])
+```
+
+#3. Filter and trim
+# Place filtered files in filtered/ subdirectory
+
+```{r}
+
+filtFs <- file.path(path, "filtered", paste0(sample.names, "_F_filt.fastq.gz"))
+filtRs <- file.path(path, "filtered", paste0(sample.names, "_R_filt.fastq.gz"))
+names(filtFs) <- sample.names
+names(filtRs) <- sample.names
+
+out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(240,160), maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE, compress=TRUE, multithread=FALSE) # On Windows set multithread=FALSE
+dim(out)
+```
+
+
+```{R}
+library(ShortRead)
+# Read the fastq file (just the first one as an example)
+fastq_data <- readFastq(filtFs[1])
+# Extract the sequences as a character vector
+sequences <- as.character(sread(fastq_data))
+
+# Create a table of unique sequences and their counts
+unique_sequences <- table(sequences)
+
+# Get the lengths of all unique sequences
+sequence_lengths <- nchar(names(unique_sequences))
+
+# Create a data frame with sequence, count, and length
+unique_sequences_df <- data.frame(
+  Count = as.integer(unique_sequences),
+  Length = sequence_lengths
+)
+
+
+
+# Optionally write to a file if needed
+# write.csv(unique_sequences_df, "unique_sequences.csv", row.names = FALSE)
+
+unique_sequences_df
+```
+
+
+```{r}
+head(out)
+```
+
+
+```{r}
+str(out)
+```
+
+
+
+# 4. Learn the Error Rates
+```{r}
+
+errF <- learnErrors(filtFs, multithread=TRUE)
+errR <- learnErrors(filtRs, multithread=TRUE)
+```
+
+
+```{r}
+plotErrors(errF, nominalQ=TRUE)
+```
+
+```{r}
+plotErrors(errR, nominalQ=TRUE)
+```
+
+#5. Sample Inference
+
+```{r}
+dadaFs <- dada(filtFs  , err=errF, multithread=TRUE)
+dadaRs <- dada(filtRs, err=errR, multithread=TRUE)
+```
+
+```{r}
+dadaFs[[1]]
+```
+
+
+```{r}
+#get frequency of each sequnces
+head(getUniques(dadaFs[[1]]))
+
+
+```
+
+```{r}
+d <- dadaFs[[1]]@.Data
+d[[2]]
+```
+
+```{r}
+d <- dadaFs[[1]]@.Data
+#2 abudnace columns
+sum(d[[2]][2])
+
+```
+
+
+
+
+# 6. Merge paired reads
+
+```{r}
+
+mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
+# Inspect the merger data.frame from the first sample
+head(mergers[[1]])
+
+```
+
+# 7. Construct sequence table
+
+
+
+```{r}
+seqtab <- makeSequenceTable(mergers)
+dim(seqtab) # 20 samples and 292 uniq sequnces across all samples
+```
+
+# Inspect distribution of sequence lengths
+```{r}
+table(nchar(getSequences(seqtab)))
+```
+
+
+```{r}
+#overall 293 unique  sequences
+sum(table(nchar(getSequences(seqtab))))
+```
+
+# 8. Remove chimeras
+
+```{r}
+seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
+dim(seqtab.nochim)
+```
+
+```{r}
+sum(seqtab.nochim)/sum(seqtab)
+```
+
+
+# 9. Track reads through the pipeline
+
+```{r}
+getN <- function(x) sum(getUniques(x))
+track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
+# If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
+colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
+rownames(track) <- sample.names
+head(track)
+```
+
+# 10. Assign taxonomy
+
+```{r}
+taxa <- assignTaxonomy(seqtab.nochim, "./www/taxonomy/silva_nr99_v138.1_train_set.fa.gz") # this is the hypothetical path but you need to add the database to a location and then give path to the files
+taxa <- addSpecies(taxa, "./www/taxonomy/silva_species_assignment_v138.1.fa.gz") # this is the hypothetical path but you need to add the database to a location and then give path to the files
+
+taxa.print <- taxa # Removing sequence rownames for display only
+rownames(taxa.print) <- NULL
+head(taxa.print)
+```
+
+11. Bonus: Handoff to phyloseq
+
+```{r}
+
+library(phyloseq); packageVersion("phyloseq")
+library(Biostrings); packageVersion("Biostrings")
+library(ggplot2); packageVersion("ggplot2")
+```
+
+# We now construct a phyloseq object directly from the dada2 outputs.
+
+```{r}
+map <- import_qiime_sample_data("../../samples_out.tsv") # this is the hypothetical path but you need to add the location of the metadata file here
+ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE), sample_data(map), tax_table(taxa))
+
+dna <- Biostrings::DNAStringSet(taxa_names(ps))
+names(dna) <- taxa_names(ps)
+ps <- merge_phyloseq(ps, dna)
+taxa_names(ps) <- paste0("ASV", seq(ntaxa(ps)))
+ps
+```
+
+12. Visualize alpha-diversity
+
+```{r}
+plot_richness(ps, x="Day", measures=c("Shannon", "Simpson"), color="When") # Day and When should be changed accroding to metadata information 
+
+```
+
+13. NMDS
+
+
+
+# Transform data to proportions as appropriate for Bray-Curtis distances
+
+```{r}
+ps.prop <- transform_sample_counts(ps, function(otu) otu/sum(otu))
+ord.nmds.bray <- ordinate(ps.prop, method="NMDS", distance="bray")
+
+plot_ordination(ps.prop, ord.nmds.bray, color="When", title="Bray NMDS")
+```
+
+14. Taxanomy abundance bar plots
+
+```{r}
+# for top 20 taxa
+top20 <- names(sort(taxa_sums(ps), decreasing=TRUE))[1:20]
+ps.top20 <- transform_sample_counts(ps, function(OTU) OTU/sum(OTU))
+ps.top20 <- prune_taxa(top20, ps.top20)
+plot_bar(ps.top20, x="Day", fill="Family") + facet_wrap(~When, scales="free_x")
+```

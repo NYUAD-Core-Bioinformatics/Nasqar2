@@ -1,29 +1,35 @@
 tabItem(
     tabName = "margePairedReadsTab",
     fluidRow(
-        column(
-            12,
-            column(
-                4, wellPanel(
-                    selectInput("selSample4margePairedReadsTab", "Salect Sample", choices = NULL, selected = NULL)
-                )
-            ),
-        ),
-        column(
-            12,
+        box(
+            title = "Merged Paired Reads",
+            width = 12,
+            solidHeader = TRUE,
+            status = "primary",
             column(
                 12,
-                conditionalPanel(
-                    "input.seq_type == 'paired'",
-                    withSpinner(dataTableOutput("mergerTable"))
-                )
-
-                # actionButton("run_deseq2", "Run DESeq2",
-                #              class = "btn btn-success",
-                #              style = "width:100%;height:60px;"
-                # ),
-                # plotOutput("plot")
+                p('The merged paired reads output table provides information on the successful merging 
+                of forward and reverse reads.')
+                
+            ),
+            column(
+                4,
+                selectInput("selSample4margePairedReadsTab", "Salect Sample", choices = NULL, selected = NULL)
+            
+            ),
+            column(
+                12, p('The merged paired reads output table is wrapped due to its width; please scroll to the right to view all columns.')
             )
         )
-    )
+    ),
+    fluidRow(
+        column(
+            12,
+            box(
+                title = "Sequence Abundance Estimation Table ", solidHeader = TRUE, status = "primary", width = 12, collapsible = TRUE, collapsed = FALSE,
+                withSpinner(dataTableOutput("mergerTable")),
+                downloadButton("download_merger_table", "Download Abundance Estimation Table", class = "btn-primary", style = "margin-top: 10px;")
+            )
+        )
+    ),
 )

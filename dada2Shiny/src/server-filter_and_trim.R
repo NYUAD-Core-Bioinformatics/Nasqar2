@@ -193,25 +193,30 @@ reactiveInputData <- eventReactive(input$runDADA2, {
 
     shinyjs::show(selector = "a[data-value=\"trackReadsTab\"]")
     shinyjs::show(selector = "a[data-value=\"filter_and_trim_tab\"]")
-    shinyjs::show(selector = "a[data-value=\"taxanomyTab\"]")
+    # shinyjs::show(selector = "a[data-value=\"taxanomyTab\"]")
 
 
 
     js$addStatusIcon("filter_and_trim_tab", "done")
     js$addStatusIcon("errorRatesTab", "done")
-    js$addStatusIcon("trackReadsTab", "done")
-
+    js$addStatusIcon("trackReadsTab", "next")
 
 
 
 
 
     if (input$seq_type == "paired") {
-        return(list(out = out, errF = errF, errR = errR, mergers = mergers, seqtabTable = seqtabTable, track = track, seqtab.nochim = seqtab.nochim))
+        return(list(sample.names=sample.names,dadaFs=dadaFs,dadaRs=dadaRs,mergers=mergers, out = out, errF = errF, errR = errR, mergers = mergers, seqtabTable = seqtabTable, track = track, seqtab.nochim = seqtab.nochim))
     } else {
-        return(list(out = out, errF = errF, seqtabTable = seqtabTable, track = track, seqtab.nochim = seqtab.nochim))
+        return(list(sample.names=sample.names,dadaFs=dadaFs,dadaRs=dadaRs, out = out, errF = errF, seqtabTable = seqtabTable, track = track, seqtab.nochim = seqtab.nochim))
     }
 })
+
+output$dada2object_ready <- reactive({
+    return(!is.null(reactiveInputData()))
+})
+outputOptions(output, "dada2object_ready", suspendWhenHidden = FALSE)
+
 
 
 
@@ -223,7 +228,11 @@ output$filterAndTrim_output_table <- DT::renderDataTable(
 
         data <- reactiveInputData()
 
-        data$out
+        output_table_wth_samples <- cbind(Sample = rownames(data$out), data$out)
+        
+        colnames(output_table_wth_samples) <- c('Sample', "Fragments before Quality trimming", "Fragments after Quality trimming")
+        output_table_wth_samples
     },
-    options = list(scrollX = TRUE, pageLength = 15)
+    rownames = FALSE, 
+    options = list(scrollX = TRUE, pageLength = 10)
 )

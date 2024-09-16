@@ -1,18 +1,22 @@
 tabItem(
     tabName = "errorRatesTab",
     fluidRow(
-        column(12, ),
-        column(
-            12,
+        box(
+            title = "Learn the Error Rates", 
+            width = 12, 
+            solidHeader = TRUE, 
+            status = "primary",
+            
+            column(
+                12,
+                p('The plot visualizes the DADA2 error model, which compares the observed error frequencies (gray points) for specific nucleotide substitutions (e.g., A to C, G to T) against the predicted error rates (red line) based on the quality scores of the reads.'),
+                p('By learning the error patterns, DADA2 can more accurately distinguish between true biological sequences and sequencing errors, improving the overall accuracy of sequence analysis. This model plays a key role in denoising the data for downstream analysis.')
+            ),
             column(
                 6,
                 withSpinner(plotOutput("plotErrors_errF"))
 
-                # actionButton("run_deseq2", "Run DESeq2",
-                #              class = "btn btn-success",
-                #              style = "width:100%;height:60px;"
-                # ),
-                # plotOutput("plot")
+            
             ),
             column(
                 6,
@@ -21,11 +25,6 @@ tabItem(
                     withSpinner(plotOutput("plotErrors_errR"))
                 )
 
-                # actionButton("run_deseq2", "Run DESeq2",
-                #              class = "btn btn-success",
-                #              style = "width:100%;height:60px;"
-                # ),
-                # plotOutput("plot")
             )
         )
     )

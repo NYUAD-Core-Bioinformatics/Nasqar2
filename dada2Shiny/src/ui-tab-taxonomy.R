@@ -1,13 +1,21 @@
 tabItem(
     tabName = "taxanomyTab",
-    fluidRow(
+    
+     fluidRow(
         column(
-            6,
+            12,
             box(
-                title = "Taxonomy", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "qc_parameters", collapsed = F,
-                actionButton("assignTaxonomy", "Asssign Taxonomy", class = "btn-info btn-success", style = "width: 100%")
-            ),
-        ),
-        column(12, withSpinner(dataTableOutput("taxonomyTable")))
+                title = "Taxonomy Table", solidHeader = TRUE, status = "primary", width = 12, collapsible = TRUE, collapsed = FALSE,
+                column(
+                12, p('Taxonomy output table is wrapped due to its width; please scroll to the right to view all columns.')
+                ),
+                column(
+                12, withSpinner(dataTableOutput("taxonomyTable"))
+                ),
+                column(
+                12,downloadButton("download_taxonomy_table", "Download Taxonomy Table", class = "btn-primary", style = "margin-top: 10px;")
+                )
+            )
+        )
     )
 )

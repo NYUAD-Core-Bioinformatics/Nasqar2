@@ -1,4 +1,5 @@
 observe({
+    js$addStatusIcon("input_tab", "next")
     shinyjs::hide(selector = "a[data-value=\"qualityprofile_tab\"]")
     shinyjs::hide(selector = "a[data-value=\"errorRatesTab\"]")
     shinyjs::hide(selector = "a[data-value=\"filter_and_trim_tab\"]")
@@ -64,6 +65,8 @@ observeEvent(input$initFastq, {
     shinyjs::show(selector = "a[data-value=\"filter_and_trim_tab\"]")
     shinyjs::show(selector = "a[data-value=\"qualityprofile_tab\"]")
     shinyjs::show(selector = "a[data-value=\"input_tab\"]")
+    js$addStatusIcon("input_tab", "done")
+     js$addStatusIcon("filter_and_trim_tab", "next")
 })
 
 # observeEvent(input$tx_db_input, {
@@ -218,5 +221,5 @@ output$fastq_samples_table <- DT::renderDataTable(
     {
         input_files_reactive()
     },
-    options = list(scrollX = TRUE, pageLength = 15)
+    options = list(scrollX = TRUE, pageLength = 10)
 )

@@ -28,3 +28,9 @@ done
 
 #mamba insatll 
 mamba install -c bioconda -c conda-forge  bioconductor-dada2
+
+
+
+#
+git fetch origin
+git checkout 1-deseq2shiny-customization-of-gene-boxplot-factors-plot-aesthetics-and-heatmap-gene-names

@@ -4,7 +4,9 @@ tabItem(
         column(
             8,
             box(
-                title = "DADA2 init parameters", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "qc_parameters", collapsed = F,
+                title = "DADA2 Quality Filtering Parameters", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "qc_parameters", collapsed = F,
+                column(12,
+                p('Filter and trim reads to remove low-quality bases and noisy reads, ensuring that only high-quality data is processed.')),
                 column(
                     6,
 
@@ -47,15 +49,20 @@ tabItem(
                         )
                     )
                 ),
+    
                 actionButton("runDADA2", "Run DADA2", class = "btn-info btn-success", style = "width: 100%")
             )
-        ),
+        )
+    ),
+
+    fluidRow(
         column(
             12,
-            conditionalPanel(
-                condition = "output.qc_result_available",
+            conditionalPanel(condition = "output.dada2object_ready === true",
+            box(
+                title = "Fragments Summary Table", solidHeader = TRUE, status = "primary", width = 12, collapsible = TRUE, collapsed = FALSE,
                 withSpinner(dataTableOutput("filterAndTrim_output_table"))
-            )
+            ))
         )
     )
 )
