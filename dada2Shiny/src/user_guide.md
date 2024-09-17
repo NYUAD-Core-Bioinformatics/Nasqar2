@@ -2,7 +2,9 @@
 
 ## Introduction
 
-This guide provides a basic overview of using DADA2 within an R Shiny application for analyzing microbiome sequencing data. DADA2 is an advanced tool for processing and denoising amplicon sequencing data, such as 16S rRNA sequences, ensuring high-resolution identification of sequence variants.
+This guide provides a basic overview of using DADA2 within an R Shiny application for analyzing microbiome sequencing data. DADA2 is a tool for processing and denoising amplicon sequencing data, such as 16S rRNA sequences, ensuring high-resolution identification of sequence variants.
+
+The original paper describing DADA2 can be found in the citation at the bottom of this page.
 
 ---
 
