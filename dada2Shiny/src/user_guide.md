@@ -36,7 +36,7 @@ The DADA2 pipeline provides a streamlined method for analyzing amplicon sequenci
 
 For detailed instructions and additional resources, please refer to the [DADA2 Documentation](https://benjjneb.github.io/dada2/).
 
-Citation:
+## Citation:
 
 If you use this App for your analysis, please use the following citations:
 
