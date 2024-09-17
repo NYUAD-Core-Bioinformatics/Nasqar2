@@ -9,7 +9,8 @@ tabItem(
             column(
                 12,
                 p('The merged paired reads output table provides information on the successful merging 
-                of forward and reverse reads.')
+                of forward and reverse reads.'),
+                p('Merging is performed by aligning the denoised forward reads with the reverse-complement of the corresponding denoised reverse reads, and then constructing the merged “contig” sequences. By default, merged sequences are only output if the forward and reverse reads overlap by at least 12 bases, and are identical to each other in the overlap region (but these conditions can be changed via function arguments).')
                 
             ),
             column(
