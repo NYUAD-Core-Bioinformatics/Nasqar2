@@ -19,7 +19,8 @@ tabItem(
             
             ),
             column(
-                12, p('The merged paired reads output table is wrapped due to its width; please scroll to the right to view all columns.')
+                12, p('The merged paired reads output table is wrapped due to its width; please scroll to the right to view all columns.'),
+                p('We provide you with the option to download the merged reads (download link at the bottom of this page)')
             )
         )
     ),
