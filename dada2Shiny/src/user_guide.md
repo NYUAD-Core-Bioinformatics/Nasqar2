@@ -8,7 +8,7 @@ The original paper describing DADA2 can be found in the citation at the bottom o
 
 ---
 
-### Steps in DADA2 Analysis Pipeline:
+### The RShiny DADA2 app will perform the following analysis steps:
 
 1. **Quality Profiling:**
    - Assess the quality of the sequencing reads to determine where to truncate reads to remove poor-quality regions.
@@ -32,8 +32,14 @@ The original paper describing DADA2 can be found in the citation at the bottom o
 
 ---
 
-## Conclusion
+The DADA2 pipeline provides a streamlined method for analyzing amplicon sequencing data in a quick and efficient manaer. By using this pipeline, users can obtain a high-resolution view of their microbial communities.
 
-The DADA2 pipeline provides a streamlined method for analyzing amplicon sequencing data. By using this pipeline, users can obtain a high-resolution view of their microbial communities.
+For detailed instructions and additional resources, please refer to the [DADA2 Documentation](https://benjjneb.github.io/dada2/).
 
-For detailed instructions and additional resources, refer to the [DADA2 Documentation](https://benjjneb.github.io/dada2/).
+Citation:
+
+If you use this App for your analysis, please use the following citations:
+
+1. Callahan, B., McMurdie, P., Rosen, M. et al. DADA2: High-resolution sample inference from Illumina amplicon data. Nat Methods 13, 581–583 (2016). https://doi.org/10.1038/nmeth.3869
+2. NASQAR 2 :(Pending publication)
+
