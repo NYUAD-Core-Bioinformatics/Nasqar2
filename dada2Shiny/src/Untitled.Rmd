@@ -12,27 +12,71 @@ Original dataset has we 362 pairs of fastq files. FOr this tutorial 20 only sele
 ```{r}
 
 library(dada2); packageVersion("dada2")
-#setwd('/Users/nr83/Downloads/amplicon_data')
+#setwd('/Users/nr83/Downloads/amplicon_data/sampled_files')
 #getwd()
 setwd('/Users/nr83/Documents/nasqar_projects/nasqar2-dev/dada2Shiny/src/')
 path <- "./www/exampleData/MiSeq_SOP" # this is the path where fastq should be
-#path = "./www/exampleData/amplicon_data"
+#path = "./www/exampleData/amplicon_data/sampled_files"
 list.files(path) # will list all the fastq files in the above mentioned directory
 
 ```
 
 
 ```{r}
-# Forward and reverse fastq filenames have format: SAMPLENAME_R1_001.fastq and SAMPLENAME_R2_001.fastq
+# Load the dada2 package
+library(dada2)
+
+# Set your working directory to where the DADA2 Shiny project is located
+setwd('/Users/nr83/Documents/nasqar_projects/nasqar2-dev/dada2Shiny/src/')
+
+# Define the path where the FASTQ files are stored
+#path <- "./www/exampleData/amplicon_data/sampled_files"
+path <- "./www/exampleData/MiSeq_SOP"
+
+# List and sort the forward and reverse FASTQ files
 fnFs <- sort(list.files(path, pattern="_R1_001.fastq", full.names = TRUE))
 fnRs <- sort(list.files(path, pattern="_R2_001.fastq", full.names = TRUE))
-# Extract sample names, assuming filenames have format: SAMPLENAME_XXX.fastq
+
+# Extract sample names, assuming the filenames follow the format: SAMPLENAME_XXX.fastq
 sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`, 1)
-sample.names
+
+# Sample 30 pairs of FASTQ files (30 forward and 30 reverse)
+#set.seed(123)  # Set seed for reproducibility
+#sampled_indices <- sample(seq_along(sample.names), 5)
+
+# Select the sampled forward and reverse FASTQ files based on the sampled indices
+#sampled_fnFs <- fnFs[sampled_indices]
+#sampled_fnRs <- fnRs[sampled_indices]
+
+# Print the sampled forward and reverse FASTQ files
+#sampled_fnFs
+#sampled_fnRs
+
+#fnFs <- sampled_fnFs
+#fnRs <- sampled_fnRs
+
+
 ```
 
 
 
+```{R}
+# Create a new directory for the sampled files
+new_dir <- file.path(path, "sampled_files")
+if (!dir.exists(new_dir)) {
+  dir.create(new_dir)
+}
+
+# Copy the sampled forward files to the new directory
+file.copy(sampled_fnFs, new_dir)
+
+# Copy the sampled reverse files to the new directory
+file.copy(sampled_fnRs, new_dir)
+
+# List the copied files in the new directory
+list.files(new_dir)
+
+```
 
 ```{R}
 library(ShortRead)
@@ -89,7 +133,7 @@ filtRs <- file.path(path, "filtered", paste0(sample.names, "_R_filt.fastq.gz"))
 names(filtFs) <- sample.names
 names(filtRs) <- sample.names
 
-out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(240,160), maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE, compress=TRUE, multithread=FALSE) # On Windows set multithread=FALSE
+out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(240,160), maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE, compress=TRUE, multithread=TRUE) # On Windows set multithread=FALSE
 dim(out)
 ```
 

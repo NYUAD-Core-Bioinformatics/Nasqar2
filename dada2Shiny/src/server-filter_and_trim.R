@@ -63,22 +63,24 @@ reactiveInputData <- eventReactive(input$runDADA2, {
             )
         }
 
-        shiny::setProgress(value = 0.4, detail = "...learnErrors")
+        shiny::setProgress(value = 0.2, detail = "...learnErrors Fr")
         errF <- learnErrors(filtFs, multithread = TRUE)
 
         if (input$seq_type == "paired") {
+            shiny::setProgress(value = 0.3, detail = "...learnErrors Fr")
             errR <- learnErrors(filtRs, multithread = TRUE)
         }
 
-        shiny::setProgress(value = 0.6, detail = "...dadafs")
+        shiny::setProgress(value = 0.4, detail = "...dadafs")
         dadaFs <- dada(filtFs, err = errF, multithread = TRUE)
 
         if (input$seq_type == "paired") {
+            shiny::setProgress(value = 0.5, detail = "...dadaRs")
             dadaRs <- dada(filtRs, err = errR, multithread = TRUE)
         }
 
         if (input$seq_type == "paired") {
-            shiny::setProgress(value = 0.7, detail = "...mergePairs")
+            shiny::setProgress(value = 0.6, detail = "...mergePairs")
             mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose = TRUE)
             # Inspect the merger data.frame from the first sample
             print("mergers")
@@ -88,7 +90,7 @@ reactiveInputData <- eventReactive(input$runDADA2, {
             print(names(head(mergers)))
             updateSelectInput(session, "selSample4margePairedReadsTab", choices = names(mergers))
         }
-        shiny::setProgress(value = 0.8, detail = "...makeSequenceTable")
+        shiny::setProgress(value = 0.7, detail = "...makeSequenceTable")
 
         if (input$seq_type == "paired") {
             seqtab <- makeSequenceTable(mergers)
@@ -101,7 +103,7 @@ reactiveInputData <- eventReactive(input$runDADA2, {
         print("table")
         seqtabTable <- table(nchar(getSequences(seqtab)))
 
-
+        shiny::setProgress(value = 0.8, detail = "...makeSequenceTable")
         # remove chimeras from the sequence table:
         seqtab.nochim <- removeBimeraDenovo(seqtab, method = "consensus", multithread = TRUE, verbose = TRUE)
         dim(seqtab.nochim)
@@ -129,16 +131,17 @@ reactiveInputData <- eventReactive(input$runDADA2, {
 
         print("taxa")
 
-        taxa <- assignTaxonomy(seqtab.nochim, "./www/taxonomy/silva_nr99_v138.1_train_set.fa.gz", multithread = TRUE)
-        print(taxa)
-        print("taxa second")
-        taxa <- addSpecies(taxa, "./www/taxonomy/silva_species_assignment_v138.1.fa.gz")
+
+        # taxa <- assignTaxonomy(seqtab.nochim, "./www/taxonomy/silva_nr99_v138.1_train_set.fa.gz", multithread = TRUE)
         # print(taxa)
-        taxa.print <- taxa # Removing sequence rownames for display only
-        rownames(taxa.print) <- NULL
+        # print("taxa second")
+        # taxa <- addSpecies(taxa, "./www/taxonomy/silva_species_assignment_v138.1.fa.gz")
+        # print(taxa)
+        # taxa.print <- taxa # Removing sequence rownames for display only
+        # rownames(taxa.print) <- NULL
 
 
-        print(head(taxa.print))
+        # print(head(taxa.print))
 
 
         # samples.out <- rownames(seqtab.nochim)
@@ -191,6 +194,7 @@ reactiveInputData <- eventReactive(input$runDADA2, {
         js$addStatusIcon("margePairedReadsTab", "done")
     }
 
+    shinyjs::show(selector = "a[data-value=\"taxanomyTab\"]")
     shinyjs::show(selector = "a[data-value=\"trackReadsTab\"]")
     shinyjs::show(selector = "a[data-value=\"filter_and_trim_tab\"]")
     # shinyjs::show(selector = "a[data-value=\"taxanomyTab\"]")
@@ -199,7 +203,9 @@ reactiveInputData <- eventReactive(input$runDADA2, {
 
     js$addStatusIcon("filter_and_trim_tab", "done")
     js$addStatusIcon("errorRatesTab", "done")
-    js$addStatusIcon("trackReadsTab", "next")
+    js$addStatusIcon("trackReadsTab", "done")
+    js$addStatusIcon("taxanomyTab", "next")
+    
 
 
 

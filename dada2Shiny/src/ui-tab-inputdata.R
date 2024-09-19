@@ -29,7 +29,7 @@ tabItem(
                     p("File with extensions .fastq"),
                     fileInput("fastq_files", "",
                         accept = c(
-                            ".fastq"
+                            ".fastq", ".gz"
                         ), multiple = TRUE
                     )
                 ),

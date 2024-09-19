@@ -106,12 +106,23 @@ input_files_reactive <- eventReactive(input$initFastq, {
 
 
     if (identical(input$data_file_type, "upload_fastq_file")) {
-        print(input$fastq_files)
+        # print(input$fastq_files)
         files <- c(input$fastq_files$name)
+        print('uploaded_fastq_file')
+        print(files)
+
+        print('forward_pattern')
+        print(input$forward_pattern)
 
         # Filter fastq files
         # Filter fastq files
+
+        print('grepl(input$forward_pattern, files)')
+        print(grepl(input$forward_pattern, files))
         fn_Fs <- files[grepl(input$forward_pattern, files)]
+
+        print('fn_Fs')
+        print(fn_Fs)
 
         if (input$seq_type == "paired") {
             fn_Rs <- files[grepl(input$reverse_pattern, files)]
@@ -147,8 +158,17 @@ input_files_reactive <- eventReactive(input$initFastq, {
         # Get the list of files in the directory
         files <- list.files(base_dir, full.names = FALSE)
 
+        print('base_dir...')
+        print(base_dir)
+        print(files)
+        print(input$forward_pattern)
+        print('grepl(input$forward_pattern, files)')
+        grepl(input$forward_pattern, files)
+
         # Filter fastq files
         fn_Fs <- files[grepl(input$forward_pattern, files)]
+
+        print(fn_Fs)
 
         if (input$seq_type == "paired") {
             fn_Rs <- files[grepl(input$reverse_pattern, files)]
@@ -161,11 +181,17 @@ input_files_reactive <- eventReactive(input$initFastq, {
         }
     } else {
         base_dir <- "./mnt"
+        print(base_dir)
         # Get the list of files in the directory
         files <- list.files(base_dir, full.names = FALSE)
+        print(files)
 
+        print('grepl(input$forward_pattern, files) ..')
+        print(grepl(input$forward_pattern, files))
         # Filter fastq files
         fn_Fs <- files[grepl(input$forward_pattern, files)]
+        print('fn_Fs ....')
+        print(fn_Fs)
 
         if (input$seq_type == "paired") {
             fn_Rs <- files[grepl(input$reverse_pattern, files)]
@@ -189,8 +215,15 @@ input_files_reactive <- eventReactive(input$initFastq, {
     })
 
     sample_names <- unname(sample_names)
-
+    print('dir(base_dir)')
+    print(base_dir)
     print(dir(base_dir))
+
+    print('fn_Fs')
+    print(fn_Fs)
+
+      print('fn_Rs')
+    print(fn_Rs)
 
     if (input$seq_type == "paired") {
         samples_df <- data.frame(FASTQ_Fs = fn_Fs, FASTQ_Rs = fn_Rs, row.names = sample_names)
@@ -206,6 +239,7 @@ input_files_reactive <- eventReactive(input$initFastq, {
     print("sel_sample_for_npositioning")
 
     js$addStatusIcon("qualityprofile_tab", "done")
+    print(samples_df)
 
     samples_df
 })

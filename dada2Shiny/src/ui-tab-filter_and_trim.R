@@ -4,24 +4,28 @@ tabItem(
         column(
             8,
             box(
-                title = "DADA2 Quality Filtering Parameters", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "qc_parameters", collapsed = F,
+                title = "Sequencing Processing and Analysis: Run DADA2", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "qc_parameters", collapsed = F,
                 column(12,
-                p('Filter and trim reads to remove low-quality bases and noisy reads, ensuring that only high-quality data is processed.')),
+                    p("The DADA2 pipeline involves several key steps, including filtering, trimming, denoising, merging paired reads, and removing chimeras to ensure the quality of the sequences.")
+                ),
+                hr(),  # Adds a visual separation
+                column(12,
+                    h4("Input Parameters for Filtering and Trimming"),  # Header for the input parameters
+                    hr()
+                
+                ),
                 column(
                     6,
-
-
-                    # Input for truncLen for single-end
                     numericInput("truncLen_fwd",
-                        label = "Forward Read Truncation Length (truncLen):",
+                        label = tagList("Forward Read Truncation Length (truncLen):", 
+                                        icon("question-circle", title = "The length at which forward reads are truncated. Longer reads will be trimmed.")),
                         value = 240,
                         min = 50,
                         max = 300
                     ),
-
-                    # Input for maxEE for single-end
                     numericInput("maxEE_fwd",
-                        label = "Forward Read Max Expected Errors (maxEE):",
+                        label = tagList("Forward Read Max Expected Errors (maxEE):", 
+                                        icon("question-circle", title = "The maximum number of errors allowed in forward reads.")),
                         value = 2,
                         min = 0,
                         max = 10
@@ -29,20 +33,18 @@ tabItem(
                 ),
                 column(
                     6,
-                    # Conditional panel for paired-end sequencing
                     conditionalPanel(
                         condition = "input.seq_type == 'paired'",
                         numericInput("truncLen_rev",
-                            label = "Reverse Read Truncation Length (truncLen):",
+                            label = tagList("Reverse Read Truncation Length (truncLen):", 
+                                            icon("question-circle", title = "The length at which reverse reads are truncated. Longer reads will be trimmed.")),
                             value = 160,
                             min = 50,
                             max = 300
                         ),
-
-                        # Input for maxEE for paired-end
-
                         numericInput("maxEE_rev",
-                            label = "Reverse Read Max Expected Errors (maxEE):",
+                            label = tagList("Reverse Read Max Expected Errors (maxEE):", 
+                                            icon("question-circle", title = "The maximum number of errors allowed in reverse reads.")),
                             value = 2,
                             min = 0,
                             max = 10
