@@ -67,7 +67,7 @@ reactiveInputData <- eventReactive(input$runDADA2, {
         errF <- learnErrors(filtFs, multithread = TRUE)
 
         if (input$seq_type == "paired") {
-            shiny::setProgress(value = 0.3, detail = "...learnErrors Fr")
+            shiny::setProgress(value = 0.3, detail = "...learnErrors Rr")
             errR <- learnErrors(filtRs, multithread = TRUE)
         }
 

@@ -342,3 +342,92 @@ ps.top20 <- transform_sample_counts(ps, function(OTU) OTU/sum(OTU))
 ps.top20 <- prune_taxa(top20, ps.top20)
 plot_bar(ps.top20, x="Day", fill="Family") + facet_wrap(~When, scales="free_x")
 ```
+
+
+
+```{r}
+
+# Load required libraries
+library(ggplot2)
+
+
+data1 <- data.frame(
+  Sample = c("Sample1", "Sample2", "Sample3", "Sample4", "Sample5"),
+  seq1 = c(5, 3, 4, 7, 2),
+  GroupB = c(2, 2, 3, 5, 4),
+  GroupC = c(3, 5, 6, 2, 3)
+)
+
+data2 <- data.frame(
+  Sample = c("Sample1", "Sample2", "Sample3", "Sample4", "Sample5"),
+  seq1 = c(5, 3, 4, 7, 2),
+  GroupB = c('A', 'B', 'C', 'D', 'G'),
+  GroupC = c(3, 5, 6, 2, 3)
+)
+
+
+# Sample data for a stacked bar plot
+data <- data.frame(
+  Sample = c("Sample1", "Sample2", "Sample3", "Sample4", "Sample5"),
+  GroupA = c(5, 3, 4, 7, 2),
+  GroupB = c(2, 2, 3, 5, 4),
+  GroupC = c(3, 5, 6, 2, 3)
+)
+
+# Convert the data to long format for ggplot
+data_long <- tidyr::pivot_longer(data, cols=c('GroupA', 'GroupB'), names_to = "Group", values_to = "Value")
+
+# Create the stacked bar plot
+ggplot(data_long, aes(x = Sample, y = Value, fill = .data[['Group']])) +
+  geom_bar(stat = "identity") +  # 'identity' keeps the actual values for stacking
+  labs(title = "Stacked Bar Plot Example", x = "Sample", y = "Value") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_discrete(name = "Group")
+
+```
+
+
+```{R}
+
+# Define sequences and their corresponding taxonomy values
+sequences <- c(
+  "TACGGAGGATGCGAGCGTTATCCGGATTTATTGGGTTTAAAGGGTGCGCAGGCGGAAGATCAAGTCAGCGGTAAAATTGAGAGGCTCAACCTCTTCGAGCCGTTGAAACTGGTTTTCTTGAGTGAGCGAGAAGTATGCGGAATGCGTGGTGTAGCGGTGAAATGCATAGATATCACGCAGAACTCCGATTGCGAAGGCAGCATACCGGCGCTCAACTGACGCTCATGCACGAAAGTGTGGGTATCGAACAGG",
+  "TACGGAGGATGCGAGCGTTATCCGGATTTATTGGGTTTAAAGGGTGCGCAGGCGGACTCTCAAGTCAGCGGTCAAATCGCGGGGCTCAACCCCGTTCCGCCGTTGAAACTGGGAGCCTTGAGTGCGCGAGAAGTAGGCGGAATGCGTGGTGTAGCGGTGAAATGCATAGATATCACGCAGAACTCCGATTGCGAAGGCAGCCTACCGGCGCGCAACTGACGCTCATGCACGAAAGCGTGGGTATCGAACAGG"
+)
+
+# Define the corresponding taxonomy group (Bacteroidota in this case)
+taxonomy <- c("Bacteroidota", "Bacteroidota")
+
+# Construct the data frame
+df <- data.frame(
+  Sequence = sequences,
+  Taxonomy = taxonomy,
+  stringsAsFactors = FALSE  # Avoid converting strings to factors
+)
+
+# Print the data frame
+print(df)
+
+```
+
+
+
+```{R}
+# Define sequences
+sequences <- c(
+  "TACGGAGGATGCGAGCGTTATCCGGATTTATTGGGTTTAAAGGGTGCGCAGGCGGAAGATCAAGTCAGCGGTAAAATTGAGAGGCTCAACCTCTTCGAGCCGTTGAAACTGGTTTTCTTGAGTGAGCGAGAAGTATGCGGAATGCGTGGTGTAGCGGTGAAATGCATAGATATCACGCAGAACTCCGATTGCGAAGGCAGCATACCGGCGCTCAACTGACGCTCATGCACGAAAGTGTGGGTATCGAACAGG",
+  "TACGGAGGATGCGAGCGTTATCCGGATTTATTGGGTTTAAAGGGTGCGCAGGCGGACTCTCAAGTCAGCGGTCAAATCGCGGGGCTCAACCCCGTTCCGCCGTTGAAACTGGGAGCCTTGAGTGCGCGAGAAGTAGGCGGAATGCGTGGTGTAGCGGTGAAATGCATAGATATCACGCAGAACTCCGATTGCGAAGGCAGCCTACCGGCGCGCAACTGACGCTCATGCACGAAAGCGTGGGTATCGAACAGG"
+)
+
+# Define the corresponding taxonomy group (Bacteroidota in this case)
+taxonomy <- c("Bacteroidota", "Bacteroidota")
+
+# Create a named character vector
+named_taxonomy <- setNames(taxonomy, sequences)
+
+# Print the named character vector
+print(named_taxonomy)
+
+
+```

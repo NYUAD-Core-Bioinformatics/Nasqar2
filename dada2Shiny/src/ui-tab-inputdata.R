@@ -52,23 +52,18 @@ tabItem(
                 ), # Default to paired-end
 
                 # Conditional panel for single-end sequencing (only shows forward pattern)
-                conditionalPanel(
-                    condition = "input.seq_type == 'single'",
-                    textInput("forward_pattern",
-                        label = "Forward Read Pattern:",
-                        value = "_R1_001.fastq",
-                        placeholder = "Enter pattern for forward reads (e.g., _R1_001.fastq)"
-                    )
-                ),
-
-                # Conditional panel for paired-end sequencing (shows both forward and reverse patterns)
-                conditionalPanel(
-                    condition = "input.seq_type == 'paired'",
+                
                     textInput("forward_pattern",
                         label = "Forward Read Pattern:",
                         value = "_R1_001.fastq",
                         placeholder = "Enter pattern for forward reads (e.g., _R1_001.fastq)"
                     ),
+                
+
+                # Conditional panel for paired-end sequencing (shows both forward and reverse patterns)
+                conditionalPanel(
+                    condition = "input.seq_type == 'paired'",
+                    
                     textInput("reverse_pattern",
                         label = "Reverse Read Pattern:",
                         value = "_R2_001.fastq",

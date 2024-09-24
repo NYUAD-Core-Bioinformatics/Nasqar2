@@ -9,15 +9,19 @@ library(phyloseq)
 library(Biostrings)
 library(ggplot2)
 
-library(future)
-library(promises)
-plan(multisession)  # Enable parallel processing with separate R sessions
+# library(future)
+# library(promises)
+# plan(multisession)  # Enable parallel processing with separate R sessions
+
+
+# library(RcppParallel)
+# setThreadOptions(numThreads = 4)
 
 
 
 htmltags <- tags
 
-options(shiny.timeout = 300000 * 3) # Set timeout to 5 * 3 minutes (in milliseconds)
+options(shiny.timeout = 300000 * 1600) # Set timeout to 5 * 3 minutes (in milliseconds)
 
 
 ui <- dashboardPage(
@@ -66,6 +70,10 @@ ui <- dashboardPage(
             source("ui-tab-trackReads.R", local = TRUE)$value,
             source("ui-tab-alphaDiversity.R", local = TRUE)$value,
             source("ui-tab-taxonomy.R", local = TRUE)$value
-        )
+        ),
+         # Add a heartbeat function to prevent session from disconnecting
+        tags$script(HTML(
+           'setInterval(function(){ Shiny.onInputChange("keepAlive", new Date()); }, 10000);'
+         ))
     )
 )
