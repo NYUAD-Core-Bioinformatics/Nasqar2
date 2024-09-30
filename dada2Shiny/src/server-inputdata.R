@@ -70,7 +70,7 @@ downloadFiles <- function(){
         download.file(file_url, file_path, mode = "wb")
       }
       my_values$downloaded_files <- TRUE
-    #   output$status <- renderText("Files downloaded successfully, started analysis...")
+      output$status <- renderText("s")
     }, error = function(e) {
     #   output$status <- renderText(paste("Error downloading files:", e))
       output$status <- renderText({
