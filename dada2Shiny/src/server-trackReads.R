@@ -120,7 +120,11 @@ output$trackTable <- DT::renderDataTable(
         sample_names <- rownames(seqtab.nochim) # Extract sample names
         for (sample in sample_names) {
           fasta_filename <- file.path(temp_dir, paste0("nonchim_", sample, ".fasta"))
-          createFastaNonchim(sample, seqtab.nochim, fasta_filename)
+          counts <- seqtab.nochim[sample, ]
+          if(sum(counts > 0) > 0){
+            createFastaNonchim(sample, seqtab.nochim, fasta_filename)
+          }
+          
         }
 
         # Zip the individual non-chimeric FASTA files

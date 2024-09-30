@@ -126,19 +126,24 @@ observe({
             selected_column_values <- taxonomy[seq_with_one, input$grouping_column, drop = TRUE]
             frequency_table <- table(selected_column_values)
 
-            # Add row to plot_data with the total abundance (sum of 1's) and frequency table
-            new_row <- data.frame(
-                Sample = rownames(seq_abundance)[i],  # Current sample name
-                Abundance = sum(seq_abundance[i, ]),
-                stringsAsFactors = FALSE
-            )
+            if (sum(seq_abundance[i, ]) > 0){
+                
+            
 
-            for (name in input$filter_values) {
-                new_row[[name]] <- ifelse(name %in% names(frequency_table), frequency_table[name], 0)
+                # Add row to plot_data with the total abundance (sum of 1's) and frequency table
+                new_row <- data.frame(
+                    Sample = rownames(seq_abundance)[i],  # Current sample name
+                    Abundance = sum(seq_abundance[i, ]),
+                    stringsAsFactors = FALSE
+                )
+
+                for (name in input$filter_values) {
+                    new_row[[name]] <- ifelse(name %in% names(frequency_table), frequency_table[name], 0)
+                }
+
+                # Bind new_row to plot_data
+                plot_data <- rbind(plot_data, new_row)
             }
-
-            # Bind new_row to plot_data
-            plot_data <- rbind(plot_data, new_row)
         }
 
         # Convert the data into a long format for plotting

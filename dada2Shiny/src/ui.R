@@ -8,6 +8,9 @@ library(dplyr)
 library(phyloseq)
 library(Biostrings)
 library(ggplot2)
+library(httr)
+library(rmarkdown)
+
 
 # library(future)
 # library(promises)

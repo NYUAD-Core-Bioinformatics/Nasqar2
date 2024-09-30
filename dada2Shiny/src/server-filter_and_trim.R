@@ -63,6 +63,8 @@ reactiveInputData <- eventReactive(input$runDADA2, {
             )
         }
 
+        rownames(out) <- sample.names
+
         shiny::setProgress(value = 0.2, detail = "...learnErrors Fr")
         errF <- learnErrors(filtFs, multithread = TRUE)
 
@@ -234,7 +236,8 @@ output$filterAndTrim_output_table <- DT::renderDataTable(
 
         data <- reactiveInputData()
 
-        output_table_wth_samples <- cbind(Sample = rownames(data$out), data$out)
+        # output_table_wth_samples <- cbind(Sample = rownames(data$out), data$out)
+        output_table_wth_samples <- cbind(Sample = data$sample.names, data$out)
         
         colnames(output_table_wth_samples) <- c('Sample', "Fragments before Quality trimming", "Fragments after Quality trimming")
         output_table_wth_samples

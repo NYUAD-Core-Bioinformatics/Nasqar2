@@ -70,7 +70,7 @@ downloadFiles <- function(){
         download.file(file_url, file_path, mode = "wb")
       }
       my_values$downloaded_files <- TRUE
-      output$status <- renderText("Files downloaded successfully. Ready for analysis.")
+      output$status <- renderText("Files downloaded successfully, started analysis...")
     }, error = function(e) {
     #   output$status <- renderText(paste("Error downloading files:", e))
       output$status <- renderText({
@@ -308,6 +308,8 @@ input_files_reactive <- eventReactive(input$initFastq, {
     my_values$base_dir <- base_dir
     my_values$samples_df <- samples_df
 
+    if(nrow(samples_df) > 0) {
+
     updateSelectInput(session, "sel_sample_qualityprofile_tab", choices = sample_names, selected = NULL)
     # library(input$bs_genome_input, character.only = T)
     # bamfile <- my_values$bamfile
@@ -321,6 +323,19 @@ input_files_reactive <- eventReactive(input$initFastq, {
     shinyjs::show(selector = "a[data-value=\"input_tab\"]")
     
     print(samples_df)
+    } else {
+        output$status <- renderText({
+        
+        
+        validate(need(FALSE, 'Incorrect fastq file pattern or missing files'))
+        
+        })
+    js$addStatusIcon("input_tab", "done")
+    js$addStatusIcon("input_tab", "next")
+    
+    shinyjs::show(selector = "a[data-value=\"input_tab\"]")
+    
+    }
 
     samples_df
 })
