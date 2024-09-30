@@ -42,7 +42,7 @@ observeEvent(input$assignTaxonomy, {
     })
 
     # Store taxonomy and species assignment results
-    taxa[is.na(taxa)]<-'unknown'
+    taxa[is.na(taxa)] <- 'unknown'
     reactiveTaxonomyData$taxa <- taxa
 
     # Update icons and tabs
@@ -61,7 +61,7 @@ output$taxonomyTable <- DT::renderDataTable({
     output_table_wth_sequence <- cbind(Sequence = rownames(taxonomy), taxonomy)
 
     # Populate the grouping column select input based on available columns
-    updateSelectInput(session, "grouping_column", choices = colnames(taxonomy))  # Exclude sequence column
+    updateSelectInput(session, "grouping_column", choices = colnames(taxonomy))
 
     # Enable row selection for multiple row selection
     datatable(output_table_wth_sequence, 
@@ -69,6 +69,9 @@ output$taxonomyTable <- DT::renderDataTable({
               options = list(scrollX = TRUE, pageLength = 10), 
               selection = 'multiple')  # Specify multiple row selection
 })
+
+# Create a DataTable proxy
+proxy <- dataTableProxy('taxonomyTable')
 
 # Reactive to handle row selection in the taxonomy table and plot generation
 observe({
@@ -83,7 +86,7 @@ observe({
 
     # Ensure seqtab.nochim is available
     seqtab.nochim <- reactiveInputData()$seqtab.nochim
-    req(seqtab.nochim)  # Ensure seqtab.nochim is available
+    req(seqtab.nochim)
 
     # Get the sequences corresponding to the selected rows
     selected_sequences <- rownames(reactiveTaxonomyData$taxa)[selected_rows]
@@ -113,62 +116,27 @@ observe({
 
         # Initialize an empty data frame for storing plot data
         plot_data <- data.frame(Sample = character(), Abundance = numeric(), stringsAsFactors = FALSE)
-        print('selected_sequences')
-        print(selected_sequences)
-        print('grouping_column')
-        print(grouping_column)
-        #selected_column_values <- taxonomy[selected_sequences, grouping_column()]
-        #selected_column_values <- ifelse(is.na(selected_column_values), "unknown", selected_column_values)
-        # selected_column_values <-  input$filter_values
-        # print('selected_column_values')
-        # print(selected_column_values)
-        
 
         # Loop through each row of seq_abundance and add frequency information to plot_data
         for (i in 1:nrow(seq_abundance)) {
             cols_with_one <- which(seq_abundance[i, selected_sequences] == 1)  # Find columns with 1 in the current row
-            # cols_with_zero <- which(seq_abundance[i, ] == 0)
-            
-            # print('cols_with_one')
-            # print(cols_with_one)
 
-            
             seq_with_one <- colnames(seq_abundance)[cols_with_one]  # Get column names (sequences) with 1
-            # seq_with_zero <- colnames(seq_abundance)[cols_with_zero]
 
             selected_column_values <- taxonomy[seq_with_one, input$grouping_column, drop = TRUE]
             frequency_table <- table(selected_column_values)
-            # Create the frequency table
 
-            
-            # selected_column_values <- ifelse(is.na(selected_column_values), "unknown", selected_column_values)
-
-            # frequency_table <- table(selected_column_values)
-            
-
-            print('frequency_table')
-            print(frequency_table)
-            
             # Add row to plot_data with the total abundance (sum of 1's) and frequency table
             new_row <- data.frame(
                 Sample = rownames(seq_abundance)[i],  # Current sample name
-                # Abundance = sum(seq_abundance[i, ]),  # Total abundance (number of 1's)
                 Abundance = sum(seq_abundance[i, ]),
                 stringsAsFactors = FALSE
             )
-            
 
             for (name in input$filter_values) {
-                if (name %in% names(frequency_table)){
-                    new_row[[name]] <- frequency_table[name]
-
-                } else {
-                    new_row[[name]] <- 0
-                }
-                # new_row[[name]] <- frequency_table[[name]]  # Add the frequency of each category
-                
+                new_row[[name]] <- ifelse(name %in% names(frequency_table), frequency_table[name], 0)
             }
-            
+
             # Bind new_row to plot_data
             plot_data <- rbind(plot_data, new_row)
         }
@@ -181,8 +149,6 @@ observe({
             values_to = "Value"  # 1 or 0 based on the values
         )
 
-        print(plot_data_long)
-
         # Create the bar plot with grouping
         ggplot(plot_data_long, aes(x = Sample, y = Value, fill = .data[[grouping_column()]])) +
             geom_bar(stat = "identity") +
@@ -191,33 +157,23 @@ observe({
                  y = "Abundance") +
             theme_minimal() +
             theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-            scale_fill_discrete(name = grouping_column())  # Color by group
+            scale_fill_discrete(name = grouping_column())
     })
 })
 
 # Function to update the grouping column values and filter
 updateGroupingAndFilter <- function(selected_rows, grouping_column) {
-    req(reactiveTaxonomyData$taxa)  # Ensure taxa is available
-    
+    req(reactiveTaxonomyData$taxa)
 
     # If no rows are selected, select all rows by default
     if (is.null(selected_rows) || length(selected_rows) == 0) {
-        selected_rows <- 1:nrow(reactiveTaxonomyData$taxa)  # Select all rows by default
+        selected_rows <- 1:nrow(reactiveTaxonomyData$taxa)
     }
-    
-    print('updateGroupingAndFilter')
-    print(selected_rows)
-    
 
     # Get the sequences corresponding to the selected rows
     selected_sequences <- rownames(reactiveTaxonomyData$taxa)[selected_rows]
-    print(grouping_column)
-    print( taxonomy[selected_sequences])
-
-    # Get unique values from the selected grouping column
     taxonomy <- reactiveTaxonomyData$taxa
     selected_column_values <- taxonomy[selected_sequences, grouping_column, drop = TRUE]
-
 
     group_values <- unique(selected_column_values)
 
@@ -228,7 +184,7 @@ updateGroupingAndFilter <- function(selected_rows, grouping_column) {
 # Update filter options based on selected grouping column
 # Observe event for grouping column change
 observeEvent(input$grouping_column, {
-    req(input$grouping_column)  # Ensure a grouping column is selected
+    req(input$grouping_column)
     selected_rows <- input$taxonomyTable_rows_selected
 
     # Trigger the update function with the current selection of rows and the grouping column
@@ -236,18 +192,11 @@ observeEvent(input$grouping_column, {
 })
 
 # Observe event for row selection in taxonomy table
-observe( {
+observe({
     req(reactiveTaxonomyData$taxa)
     req(input$grouping_column)
 
     selected_rows <- input$taxonomyTable_rows_selected
-
-    print('selected_rows')
-
-    print(selected_rows)
-
-
-    # Trigger the update function with the current grouping column and selected rows
     updateGroupingAndFilter(selected_rows, input$grouping_column)
 })
 
@@ -256,6 +205,22 @@ output$taxonomy_ready <- reactive({
   !is.null(reactiveTaxonomyData$taxa)
 })
 outputOptions(output, "taxonomy_ready", suspendWhenHidden = FALSE)
+
+# Clear row selection functionality
+observeEvent(input$clearSelection, {
+    selectedTaxonomyRows(NULL)
+    selectRows(proxy, NULL)  # Clear selection in the table using proxy
+})
+
+# Render the number of rows selected
+output$numSelectedRows <- renderText({
+    selected_rows <- input$taxonomyTable_rows_selected
+    if (is.null(selected_rows)) {
+        ""
+    } else {
+        paste(length(selected_rows), "rows selected.")
+    }
+})
 
 # Download taxonomy table handler
 output$download_taxonomy_table <- downloadHandler(
@@ -268,4 +233,43 @@ output$download_taxonomy_table <- downloadHandler(
         write.csv(output_table_wth_sequence, file, row.names = FALSE)
     }
 )
-    
+
+# Download taxonomy table as FASTA
+output$download_taxonomy_fasta <- downloadHandler(
+    filename = function() {
+        paste("taxonomy_table", Sys.Date(), ".fasta", sep = "")
+    },
+    content = function(file) {
+        selected_rows <- input$taxonomyTable_rows_selected
+            # If no rows are selected, select all rows by default
+        if (is.null(selected_rows) || length(selected_rows) == 0) {
+            selected_rows <- 1:nrow(reactiveTaxonomyData$taxa)
+        }
+
+        # Get the sequences corresponding to the selected rows
+        taxonomy <- reactiveTaxonomyData$taxa[selected_rows,]
+
+        output_table_with_sequence <- cbind(Sequence = rownames(taxonomy), taxonomy)
+        
+        # Open a connection to write to the file
+        fileConn <- file(file, open = "w")
+
+        print('taxonomy_table fasta')
+        
+        for (i in 1:nrow(output_table_with_sequence)) {
+            header <- paste0(">seq_",i,'_','taxonomy_table','_', paste(
+                colnames(output_table_with_sequence)[-1], 
+                output_table_with_sequence[i, -1], 
+                sep = ":", collapse = "; "
+            ))
+
+            # print(i)
+            # print(header)
+            # print(output_table_with_sequence[i, "Sequence"])
+
+            writeLines(header, fileConn)
+            writeLines(output_table_with_sequence[i, "Sequence"], fileConn)
+        }
+        close(fileConn)
+    }
+)

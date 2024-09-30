@@ -109,15 +109,20 @@ tabItem(
           ),
           column(
             12,
-            withSpinner(dataTableOutput("taxonomyTable"))
+            withSpinner(dataTableOutput("taxonomyTable")),
+            actionButton("clearSelection", "Clear Selection", class = "btn-primary", style = "margin-top: 10px;"), # Button to clear row selections
+            textOutput("numSelectedRows") # Display the number of rows selected
           ),
           column(
             12,
-            downloadButton("download_taxonomy_table", "Download Taxonomy Table", class = "btn-primary", style = "margin-top: 10px;")
+            downloadButton("download_taxonomy_table", "Download Taxonomy Table (csv)", class = "btn-primary", style = "margin-top: 10px;"),
+            downloadButton("download_taxonomy_fasta", "Download Taxonomy Table (fasta)", class = "btn-primary", style = "margin-top: 10px;")
           )
         )
       )
     ),
+    
+    # Grouping and Filter Controls
     fluidRow(
       column(
         12,
@@ -129,7 +134,6 @@ tabItem(
           collapsible = TRUE,
           collapsed = FALSE,
           selectInput("grouping_column", "Group By:", choices = NULL), # Grouping column input
-          # UI section for filtering grouped values
           selectInput("filter_values", "Filter Grouped Values:",
             choices = NULL, # Will be populated dynamically
             selected = NULL,
@@ -138,6 +142,8 @@ tabItem(
         )
       )
     ),
+
+    # Distribution Plot
     fluidRow(
       column(
         12,

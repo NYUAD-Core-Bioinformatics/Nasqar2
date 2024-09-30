@@ -11,18 +11,17 @@ tabItem(
                     c(
                         "Upload fastq File" = "upload_fastq_file",
                         "Example fastq file" = "example_fastq_file",
-                        "Mount remote server" = "mount_remote_server"
+                        "Download from remote server" = "download_remote_server"
                     ),
                     selected = "example_fastq_file"
                 ),
                 conditionalPanel(
-                    condition = "input.data_file_type=='mount_remote_server'",
-                    p("Upload ssh private key "),
-                    fileInput("id_rsa", ""),
-                    textInput("username", "User name", value = ""),
-                    textInput("hostname", "Server name", value = ""),
-                    textInput("mountpoint", "Directory to mount on remote server", value = ""),
-                    actionButton("connect_remote_server", "Connect")
+                    condition = "input.data_file_type=='download_remote_server'",
+                    textInput("folder_url", "Enter folder URL:", "")
+                    # actionButton("download_btn", "Download Files")
+                   
+                    
+                    # actionButton("connect_remote_server", "Connect")
                 ),
                 conditionalPanel(
                     condition = "input.data_file_type=='upload_fastq_file'",
@@ -39,7 +38,9 @@ tabItem(
                         "For details on this data, see ",
                         a(href = "https://mothur.org/wiki/miseq_sop/", target = "_blank", "this publication")
                     )
-                )
+                ),
+                 textOutput("status"),
+                    tags$style("#status { color: red; }")
             ),
             box(
                 title = "FASTQ File Pattern Input", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "qc_parameters", collapsed = F,
@@ -71,7 +72,8 @@ tabItem(
                     )
                 ),
                 actionButton("initFastq", "Load fastq files", class = "btn-info btn-success", style = "width: 100%"),
-                tags$div(class = "clearBoth"),
+                tags$div(class = "clearBoth")
+                
             )
 
 

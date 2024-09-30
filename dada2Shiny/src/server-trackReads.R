@@ -80,7 +80,7 @@ output$trackTable <- DT::renderDataTable(
         seqs <- colnames(seqtab.nochim)
         print(seqs)
         counts <- 1:length(colnames(seqtab.nochim))
-        fastaContent <- paste0(">seq", counts, '_', file ,"\n", seqs)
+        fastaContent <- paste0(">seq", counts, '_', 'nonchim.fasta' ,"\n", seqs)
         writeLines(fastaContent, con = file)
         # createZip("nonchim", seqtab.nochim, file)
       }

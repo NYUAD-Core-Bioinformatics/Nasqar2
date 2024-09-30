@@ -80,7 +80,7 @@ tabItem(
                             div(
                                 style = "text-align: center;",
                                 downloadButton("download_nonchim",
-                                    "Download Non-chimeric FastaP",
+                                    "Download Non-chimeric Fasta",
                                     class = "btn-block"
                                 )
                             )

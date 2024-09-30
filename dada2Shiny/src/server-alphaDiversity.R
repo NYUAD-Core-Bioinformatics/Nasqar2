@@ -55,7 +55,7 @@ observeEvent(input$runAlphaDiversity, {
 
     print("qiimeData()")
 
-    print(qiimeData())
+    # print(qiimeData())
 
     shiny::setProgress(value = 0.1, detail = "...creating phyloseq object")
 
@@ -71,7 +71,7 @@ observeEvent(input$runAlphaDiversity, {
     names(dna) <- taxa_names(ps)
     ps <- merge_phyloseq(ps, dna)
     taxa_names(ps) <- paste0("ASV", seq(ntaxa(ps)))
-    print(ps)
+    # print(ps)
     # Transform data to proportions as appropriate for Bray-Curtis distances
     ps.prop <- transform_sample_counts(ps, function(otu) otu / sum(otu))
     ord.nmds.bray <- ordinate(ps.prop, method = "NMDS", distance = "bray")

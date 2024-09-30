@@ -16,7 +16,7 @@ reactiveInputData <- eventReactive(input$runDADA2, {
     path <- my_values$base_dir
     sample.names <- row.names(my_values$samples_df)
 
-    print(my_values$samples_df)
+    # print(my_values$samples_df)
     fnFs <- file.path(path, my_values$samples_df[, "FASTQ_Fs"])
 
     filtFs <- file.path(path, "filtered", paste0(sample.names, "_F_filt.fastq.gz"))
@@ -87,7 +87,7 @@ reactiveInputData <- eventReactive(input$runDADA2, {
 
 
 
-            print(names(head(mergers)))
+            # print(names(head(mergers)))
             updateSelectInput(session, "selSample4margePairedReadsTab", choices = names(mergers))
         }
         shiny::setProgress(value = 0.7, detail = "...makeSequenceTable")
@@ -127,7 +127,7 @@ reactiveInputData <- eventReactive(input$runDADA2, {
 
 
         print("track")
-        print(head(track))
+        # print(head(track))
 
         print("taxa")
 

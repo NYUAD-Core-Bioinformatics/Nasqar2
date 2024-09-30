@@ -15,26 +15,78 @@ observe({
 
 my_values <- reactiveValues()
 my_values$mounted_dir <- FALSE
+my_values$downloaded_files <- FALSE
 
-observeEvent(input$connect_remote_server, {
-    print(input$username)
-    print(input$hostname)
-    print(input$mountpoint)
-    print(input$id_rsa$datapath)
-    my_values$mounted_dir <- FALSE
-
-
-    system(paste(
-        "sh generate_ssh_config.sh ", input$username, " ",
-        input$hostname, " ", input$mountpoint, " ",
-        input$id_rsa$datapath
-    ))
+# observeEvent(input$connect_remote_server, {
+#     print(input$username)
+#     print(input$hostname)
+#     print(input$mountpoint)
+#     print(input$id_rsa$datapath)
+#     my_values$mounted_dir <- FALSE
 
 
-    # Get the list of files in the directory
-    # files <- list.files(base_dir, full.names = FALSE)
-    my_values$mounted_dir <- TRUE
-})
+#     system(paste(
+#         "sh generate_ssh_config.sh ", input$username, " ",
+#         input$hostname, " ", input$mountpoint, " ",
+#         input$id_rsa$datapath
+#     ))
+
+
+#     # Get the list of files in the directory
+#     # files <- list.files(base_dir, full.names = FALSE)
+#     my_values$mounted_dir <- TRUE
+# })
+
+downloadFiles <- function(){
+    output$status <- renderText("Downloading files...")
+    
+    folder_url <- input$folder_url
+
+  
+    
+    # Specify the folder where files will be saved locally
+    download_path <- tempfile() 
+    dir.create(download_path)
+    my_values$download_path <- download_path
+    
+    # Example function to get list of files and download them
+    tryCatch({
+      # Assuming the server provides an index.html with links to files
+      response <- GET(folder_url)
+      page_content <- content(response, "text")
+      
+      # Extract file URLs (using regex or an HTML parser like xml2)
+      file_links <- regmatches(page_content, gregexpr("href=\"(.*?)\"", page_content))[[1]]
+      print(file_links)
+      file_links <- gsub("href=\"|\"", "", file_links) # Clean up URLs
+      
+      # Loop through and download each file
+      for (fname in file_links) {
+        print(fname)
+        print(download_path)
+        file_path <- file.path(download_path, basename(fname))
+        print(file_path)
+        file_url <- paste0(folder_url,'/', fname) 
+        download.file(file_url, file_path, mode = "wb")
+      }
+      my_values$downloaded_files <- TRUE
+      output$status <- renderText("Files downloaded successfully. Ready for analysis.")
+    }, error = function(e) {
+    #   output$status <- renderText(paste("Error downloading files:", e))
+      output$status <- renderText({
+        js$addStatusIcon("input_tab", "done")
+        js$addStatusIcon("input_tab", "next")
+        print('input$folder_url')
+        print(input$folder_url)
+       if (is.null(input$folder_url) | nchar(input$folder_url)  < 3){
+        return ('Please provide ur')
+       } 
+
+       return('Error downloading files from provided url')
+        
+        })
+    })
+  }
 
 qc_done <- reactiveVal(FALSE)
 
@@ -53,21 +105,21 @@ output$qc_result_available <- reactive({
 outputOptions(output, "qc_result_available", suspendWhenHidden = FALSE)
 
 
-observeEvent(input$initFastq, {
-    print("Load fastq files")
+# observeEvent(input$initFastq, {
+#     print("Load fastq files")
 
-    qc_done(FALSE)
+#     qc_done(FALSE)
 
-    shinyjs::hide(selector = "a[data-value=\"errorRatesTab\"]")
-    shinyjs::hide(selector = "a[data-value=\"margePairedReadsTab\"]")
-    shinyjs::hide(selector = "a[data-value=\"trackReadsTab\"]")
+#     shinyjs::hide(selector = "a[data-value=\"errorRatesTab\"]")
+#     shinyjs::hide(selector = "a[data-value=\"margePairedReadsTab\"]")
+#     shinyjs::hide(selector = "a[data-value=\"trackReadsTab\"]")
 
-    shinyjs::show(selector = "a[data-value=\"filter_and_trim_tab\"]")
-    shinyjs::show(selector = "a[data-value=\"qualityprofile_tab\"]")
-    shinyjs::show(selector = "a[data-value=\"input_tab\"]")
-    js$addStatusIcon("input_tab", "done")
-     js$addStatusIcon("filter_and_trim_tab", "next")
-})
+#     shinyjs::show(selector = "a[data-value=\"filter_and_trim_tab\"]")
+#     shinyjs::show(selector = "a[data-value=\"qualityprofile_tab\"]")
+#     shinyjs::show(selector = "a[data-value=\"input_tab\"]")
+#     js$addStatusIcon("input_tab", "done")
+#      js$addStatusIcon("filter_and_trim_tab", "next")
+# })
 
 # observeEvent(input$tx_db_input, {
 #     if(input$bs_genome_input != 'empty'){
@@ -85,24 +137,47 @@ input_files_reactive <- eventReactive(input$initFastq, {
     #         message = "Please select a file"
     #     )
     # )
-
-    shiny::validate(
-        need(identical(input$data_file_type, "example_fastq_file") | identical(input$data_file_type, "mount_remote_server") | (identical(input$data_file_type, "upload_fastq_file") & !is.null(input$fastq_files) & length(input$fastq_files$name) > 1),
-            message = "Please upload both R1 andd R2 fastq files "
-        )
-    )
+    qc_done(FALSE)
 
 
+    js$addStatusIcon("input_tab", "loading")
+   
+
+
+    if (identical(input$data_file_type, "upload_fastq_file") & (is.null(input$fastq_files) | length(input$fastq_files$name) < 1)){
+        js$addStatusIcon("input_tab", "done")
+        js$addStatusIcon("input_tab", "next")
+        output$status <- renderText({
+        
+        
+        validate(need(FALSE, 'Please upload files'))
+        
+        })
+        req(input$fastq_files)
+    
+    }
 
 
 
-    shiny::validate(
-        need(identical(input$data_file_type, "example_fastq_file") | identical(input$data_file_type, "upload_fastq_file") | identical(input$data_file_type, "mount_remote_server") & my_values$mounted_dir,
-            message = "Please connect to the server "
-        )
-    )
+
+    
+  
+    print('load')
 
 
+
+   if(identical(input$data_file_type, "download_remote_server")){
+    downloadFiles()
+    req(my_values$downloaded_files)
+   }  
+
+        
+
+        
+
+     
+
+     
 
 
     if (identical(input$data_file_type, "upload_fastq_file")) {
@@ -180,7 +255,7 @@ input_files_reactive <- eventReactive(input$initFastq, {
             fn_Rs <- stringr::str_replace_all(fn_Fs, input$forward_pattern, input$reverse_pattern)
         }
     } else {
-        base_dir <- "./mnt"
+        base_dir <- my_values$download_path
         print(base_dir)
         # Get the list of files in the directory
         files <- list.files(base_dir, full.names = FALSE)
@@ -238,11 +313,35 @@ input_files_reactive <- eventReactive(input$initFastq, {
     # bamfile <- my_values$bamfile
     print("sel_sample_for_npositioning")
 
+    js$addStatusIcon("input_tab", "done")
+    shinyjs::show(selector = "a[data-value=\"qualityprofile_tab\"]")
     js$addStatusIcon("qualityprofile_tab", "done")
+    shinyjs::show(selector = "a[data-value=\"filter_and_trim_tab\"]")
+    js$addStatusIcon("filter_and_trim_tab", "next")
+    shinyjs::show(selector = "a[data-value=\"input_tab\"]")
+    
     print(samples_df)
 
     samples_df
 })
+
+  output$result1 <- renderText({
+        # Ensure the input is between 1 and 10
+        shiny::validate(
+        need(identical(input$data_file_type, "example_fastq_file") | identical(input$data_file_type, "download_remote_server") | (identical(input$data_file_type, "upload_fastq_file") & !is.null(input$fastq_files) & length(input$fastq_files$name) > 1),
+            message = "Please upload both R1 andd R2 fastq files "
+        )
+    )
+
+    print('load')
+
+    shiny::validate(
+        need(identical(input$data_file_type, "example_fastq_file") | identical(input$data_file_type, "upload_fastq_file") | identical(input$data_file_type, "download_remote_server") & my_values$downloaded_files,
+            message = "Please connect to the server "
+        )
+    )
+        paste("You entered:", input$num)
+    })
 
 
 output$fastqfiles_uploaded <- reactive({
