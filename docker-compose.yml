@@ -28,3 +28,4 @@ services:
       context: ./app3
     ports:
       - "3003:3232"
+
