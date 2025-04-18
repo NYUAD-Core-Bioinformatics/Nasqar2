@@ -82,13 +82,17 @@ gseGoReactive <- eventReactive(input$initGo, {
                         # remove duplicate IDS (here I use "ENSEMBL", but it should be whatever was selected as keyType)
                         dedup_ids <- ids[!duplicated(ids[c(input$keytype)]), ]
 
+
                         # Create a new dataframe df2 which has only the genes which were successfully mapped using the bitr function above
                         # df2 = df[df$X %in% dedup_ids$ENSEMBL,]
                         # df2 = df[df$X %in% dedup_ids[,1],]
-                        df2 <- df[df[[input$geneColumn]] %in% dedup_ids[, 1], ]
+			df2 <- merge(df, dedup_ids, by.x = input$geneColumn, by.y = input$keytype)
+                        #df2 <- df[df[[input$geneColumn]] %in% dedup_ids[, 1], ]
 
                         # Create a new column in df2 with the corresponding ENTREZ IDs
-                        df2$Y <- dedup_ids$ENTREZID
+                        #df2$Y <- dedup_ids$ENTREZID
+                        df2$Y <- df2$ENTREZID
+
 
                         # Create a vector of the gene unuiverse
                         kegg_gene_list <- df2[[input$log2fcColumn]]
@@ -119,6 +123,7 @@ gseGoReactive <- eventReactive(input$initGo, {
                         #
                         # # filter on log2fold change (PARAMETER)
                         # kegg_genes <- names(kegg_genes)[abs(kegg_genes) > input$logfcCuttoff]
+			print('Performing KEGG ')
 
 
                         setProgress(value = 0.6, detail = "Performing KEGG enrichment analysis, please wait ...")
@@ -132,6 +137,14 @@ gseGoReactive <- eventReactive(input$initGo, {
                             "org.Pt.eg.db" = "ptr", "org.Ag.eg.db" = "aga", "org.Pf.plasmo.db" = "pfa",
                             "org.EcSakai.eg.db" = "ecs"
                         )
+
+			print('kegg_gene_list')
+			print(kegg_gene_list)
+			print('input$organismDb')
+			print(input$organismDb)
+			print('input$keggKeyType')
+			print(input$keggKeyType)
+
 
                         kegg_gse <- gseKEGG(
                             geneList = kegg_gene_list,
