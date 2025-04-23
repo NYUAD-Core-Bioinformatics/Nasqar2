@@ -15,7 +15,7 @@ docker run -p 80:80 nyuadcorebio/nasqarall:nasqar
 To run Nasqar2 on another port. for eg:- 8080
 
 ```
-docker run -p 8080:3232 nyuadcorebio/nasqarall:nasqar
+docker run -p 80:3232 nyuadcorebio/nasqarall:nasqar
 ```
 It can be access via http://localhost:8080
 
@@ -23,12 +23,7 @@ It can be access via http://localhost:8080
 If you want to customize the code and then build the docker image. Refer to below instructions. 
 
 
-Clone the git repository to your working directory.
-```
-git clone https://github.com/nyuad-corebio/Nasqar2/
-cd Nasqar2/
-sh download_data.sh
-```
+
 
 Build the docker image as follows:- 
 Note:- Make sure you have sufficient space. It will be around 10GB and takes an hour to finish. 
