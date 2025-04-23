@@ -1,36 +1,50 @@
-## Docker build
-docker build -t dada2 .
+# Nasqar2
+
+### Install locally with Docker
+Official Nasqar2 image is hosted in Dockerhub. Run Nasqar2 in a Docker container and access it at http://localhost:80.
+
+Make sure Docker software is up and running. 
+
+```
+docker run -p 80:80 nyuadcorebio/nasqarall:nasqar
+```
+
+- If you run this service on a server, specify the (IP-address or hostname):80 on the browser.
+- If you run this service on a standalone machine (e.g. laptop), specify localhost:80 on the browser.
+
+To run Nasqar2 on another port. for eg:- 8080
+
+```
+docker run -p 8080:3232 nyuadcorebio/nasqarall:nasqar
+```
+It can be access via http://localhost:8080
+
+### Build a local image with Docker ( Optional )
+If you want to customize the code and then build the docker image. Refer to below instructions. 
 
 
-## Docker run
+Clone the git repository to your working directory.
+```
+git clone https://github.com/nyuad-corebio/Nasqar2/
+cd Nasqar2/
+sh download_data.sh
+```
+
+Build the docker image as follows:- 
+Note:- Make sure you have sufficient space. It will be around 10GB and takes an hour to finish. 
+```
+docker build  --progress=plain  -t <specify-image-name> .
+```
+
+Verify the build image
+```
+docker image ls 
+```
+
+To start Nasqar2 using the build image.
+```
+docker run --name <specify-name-of-container>  -p 80:3232 -it <specify-image-name>
+```
+It can be access via http://localhost:80
 
 
-docker run  -p 8090:3232 dada2
-
-docker run  -p 8090:3232 --name dada2container dada2 
-docker ps
-docker stop dada2container
-
-
-#remove only stopped contatiners
-for i in `docker ps -a -q`
-do
-   docker rm $i
-done
-
-
-
-#Access bash program of a container
-
- docker exec -it dada2container bash
-
-
-
- conda env update -n v_dada2 --file environment.yaml 
-
-mamba env create -f environment.yaml
-
-conda activate v_deseq2
-
-#mamba insatll 
-mamba install -c bioconda -c conda-forge  bioconductor-dada2
