@@ -28,6 +28,7 @@ dependencies:
 - r-ggvis
 - r-gplots
 - r-heatmaply
+- r-httr
 - r-lme4
 - r-magrittr
 - r-markdown

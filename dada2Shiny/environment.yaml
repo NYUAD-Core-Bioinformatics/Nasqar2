@@ -12,5 +12,8 @@ dependencies:
   - r-shinyBS
   - r-shinycssloaders
   - r-DT
+  - r-markdown
+  - r-tidyr
+  - r-httr
   - bioconductor-dada2
   - bioconductor-phyloseq
