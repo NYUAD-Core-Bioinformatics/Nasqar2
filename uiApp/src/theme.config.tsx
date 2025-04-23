@@ -60,10 +60,20 @@ const config: DocsThemeConfig = {
     defaultTheme: 'light',
     forcedTheme: 'light',
 
-  }
-
-
-  
+  },
+  head: (
+    <>
+      <meta name="msapplication-TileColor" content="#fff" />
+      <meta http-equiv="Content-Language" content="en" />
+      <meta name="description" content="NASQAR2: Nucleic Acid SeQuence Analysis Resource" />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:site" content="@CGSB_NYU" />
+      <meta name="theme-color" content="#fff" />
+      <meta property="og:description" content="NASQAR2: Nucleic Acid SeQuence Analysis Resource" />
+      <meta property="og:title" content="NASQAR2: Nucleic Acid SeQuence Analysis Resource" />
+      <meta name="apple-mobile-web-app-title" content="NASQAR2" />
+    </>
+  ),
 }
 
 export default config
