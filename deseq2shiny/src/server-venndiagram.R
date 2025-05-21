@@ -539,7 +539,14 @@ observeEvent(input$evaluateExpression, {
             df[is.na(df)] <- 0
             df <- df[df$X %in% common_genes, ]
             # df <- df[ df$padj > 0, ]
-            df <- df[(df$padj < 1 / 10^as.numeric(venn_significance_threshold)) & abs(df$log2FoldChange) > as.numeric(venn_log_fold_change_threshold), ]
+            
+            # Use either the slider threshold or direct padj threshold based on user selection
+            if (isolate(input$venn_threshold_type) == "slider") {
+                df <- df[(df$padj < 1 / 10^as.numeric(venn_significance_threshold)) & abs(df$log2FoldChange) > as.numeric(venn_log_fold_change_threshold), ]
+            } else {
+                df <- df[(df$padj < as.numeric(isolate(input$venn_direct_padj))) & abs(df$log2FoldChange) > as.numeric(venn_log_fold_change_threshold), ]
+            }
+            
             df_list[[f]] <- df
         }
 
@@ -705,7 +712,14 @@ avo_venn_frames_data <- reactive({
         df <- read.csv(filelist$file_list[[f]])
         df <- na.omit(df)
         # df <- df[df$padj > 0, ]
-        df <- df[(df$padj < 1 / 10^as.numeric(venn_significance_threshold)) & abs(df$log2FoldChange) > as.numeric(venn_log_fold_change_threshold), ]
+        
+        # Use either the slider threshold or direct padj threshold based on user selection
+        if (isolate(input$venn_threshold_type) == "slider") {
+            df <- df[(df$padj < 1 / 10^as.numeric(venn_significance_threshold)) & abs(df$log2FoldChange) > as.numeric(venn_log_fold_change_threshold), ]
+        } else {
+            df <- df[(df$padj < as.numeric(isolate(input$venn_direct_padj))) & abs(df$log2FoldChange) > as.numeric(venn_log_fold_change_threshold), ]
+        }
+        
         if (input$venn_sig_genes_selection == "1") {
 
         }

@@ -8,6 +8,7 @@ tabItem(
                 fluidRow(
                     column(
                         6,
+                        h4(strong("Select differentially expressed data sets:")),
                         wellPanel(
                             uiOutput("select_ui"),
                             hr(),
@@ -27,13 +28,28 @@ tabItem(
                             condition = "input.select_avo_de_file &&input.select_avo_de_file != 'Select data'",
                             h4(strong("Threshold Settings:")),
                             wellPanel(
-                                sliderInput("significance_threshold",
-                                    label = h5("Significance threshold:"), min = 0,
-                                    max = 100, value = 3
+                                radioButtons("volcano_threshold_type", 
+                                    label = h5("Threshold input type:"), 
+                                    choices = list("Significance slider(-log10(padj))" = "slider", "Direct padj value" = "direct"),
+                                    selected = "slider"
+                                ),
+                                conditionalPanel(
+                                    condition = "input.volcano_threshold_type == 'slider'",
+                                    sliderInput("significance_threshold",
+                                        label = h5("Significance threshold:"), min = 0,
+                                        max = 100, value = 3
+                                    )
+                                ),
+                                conditionalPanel(
+                                    condition = "input.volcano_threshold_type == 'direct'",
+                                    numericInput("volcano_direct_padj",
+                                        label = h5("Direct padj threshold:"), 
+                                        min = 0, max = 1, value = 0.05, step = 0.001
+                                    )
                                 ),
                                 sliderInput("log_fold_change_threshold",
                                     label = h5("Fold Change threshold:"), min = 0,
-                                    max = 5, value = 3
+                                    max = 5, value = 3, step = 0.1
                                 )
                             )
                         )

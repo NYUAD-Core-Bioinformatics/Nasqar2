@@ -6,6 +6,7 @@ tabItem(
             fluidRow(
                 column(
                     6,
+                    h4(strong("Select differentially expressed data sets:")),
                     wellPanel(
                         column(
                             12,
@@ -48,16 +49,31 @@ tabItem(
                         fluidRow(
                             column(
                                 12,
-                                sliderInput("venn_significance_threshold",
-                                    label = h5("Significance threshold:"), min = 0,
-                                    max = 15, value = 3
+                                radioButtons("venn_threshold_type", 
+                                    label = h5("Threshold input type:"), 
+                                    choices = list("Significance slider(-log10(padj))" = "slider", "Direct padj value" = "direct"),
+                                    selected = "slider"
+                                ),
+                                conditionalPanel(
+                                    condition = "input.venn_threshold_type == 'slider'",
+                                    sliderInput("venn_significance_threshold",
+                                        label = h5("Significance threshold:"), min = 0,
+                                        max = 15, value = 3, step = 0.1
+                                    )
+                                ),
+                                conditionalPanel(
+                                    condition = "input.venn_threshold_type == 'direct'",
+                                    numericInput("venn_direct_padj",
+                                        label = h5("Direct padj threshold:"), 
+                                        min = 0, max = 1, value = 0.05, step = 0.001
+                                    )
                                 )
                             ),
                             column(
                                 12,
                                 sliderInput("venn_log_fold_change_threshold",
                                     label = h5("Fold Change threshold:"), min = 0,
-                                    max = 5, value = 3
+                                    max = 5, value = 3,step=0.1
                                 )
                             )
                         ),

@@ -55,7 +55,14 @@ avo_data <- reactive({
 all_genes <- reactive({
     df <- avo_data()
     print(as.numeric(input$log_fold_change_threshold))
-    df <- df[(df$padj < 1 / 10^as.numeric(input$significance_threshold)) & abs(df$log2FoldChange) > as.numeric(input$log_fold_change_threshold), ]
+    
+    # Use either the slider threshold or direct padj threshold based on user selection
+    if (input$volcano_threshold_type == "slider") {
+        df <- df[(df$padj < 1 / 10^as.numeric(input$significance_threshold)) & abs(df$log2FoldChange) > as.numeric(input$log_fold_change_threshold), ]
+    } else {
+        df <- df[(df$padj < as.numeric(input$volcano_direct_padj)) & abs(df$log2FoldChange) > as.numeric(input$log_fold_change_threshold), ]
+    }
+    
     # print(df)
     return(df)
 })
@@ -161,18 +168,25 @@ output$curve_plot <- renderPlot(
 
         print(df)
 
+        # Determine the padj cutoff based on user's selection
+        pCutoff <- if (input$volcano_threshold_type == "slider") {
+            1 / 10^as.numeric(input$significance_threshold)
+        } else {
+            as.numeric(input$volcano_direct_padj)
+        }
+
         if (input$gene_alias == "included") {
             return(EnhancedVolcano(df,
                 title = paste0("DESeq2 results of ", input$select_avo_de_file), subtitle = "",
                 lab = df$gene.name, x = "log2FoldChange", y = "padj",
-                pCutoff = 1 / 10^as.numeric(input$significance_threshold),
+                pCutoff = pCutoff,
                 FCcutoff = input$log_fold_change_threshold
             ))
         } else {
             return(EnhancedVolcano(df,
                 title = paste0("DESeq2 results of ", input$select_avo_de_file), subtitle = "",
                 lab = df$gene.id, x = "log2FoldChange", y = "padj",
-                pCutoff = 1 / 10^as.numeric(input$significance_threshold),
+                pCutoff = pCutoff,
                 FCcutoff = input$log_fold_change_threshold
             ))
         }
