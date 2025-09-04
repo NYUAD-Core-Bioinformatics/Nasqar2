@@ -6,7 +6,7 @@ Official Nasqar2 image is hosted in Dockerhub. Run Nasqar2 in a Docker container
 Make sure Docker software is up and running. 
 
 ```
-docker run -p 80:80 nyuadcorebio/nasqarall:nasqar
+docker run -p 80:80 nyuadcorebio/nasqarall:latest
 ```
 
 - If you run this service on a server, specify the (IP-address or hostname):80 on the browser.
@@ -15,7 +15,7 @@ docker run -p 80:80 nyuadcorebio/nasqarall:nasqar
 To run Nasqar2 on another port. for eg:- 8080
 
 ```
-docker run -p 80:3232 nyuadcorebio/nasqarall:nasqar
+docker run -p 80:3232 nyuadcorebio/nasqarall:latest
 ```
 It can be access via http://localhost:8080
 
