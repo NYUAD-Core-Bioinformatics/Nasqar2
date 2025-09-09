@@ -20,10 +20,10 @@ USER shiny
 WORKDIR /home/shiny
 
 # --- Install Mambaforge (replaces Miniconda + manual mamba install) ---
-RUN wget https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh \
+RUN wget https://github.com/conda-forge/miniforge/releases/download/25.3.1-0/Miniforge3-25.3.1-0-Linux-x86_64.sh \
     && mkdir -p /home/shiny/.conda \
-    && bash Mambaforge-Linux-x86_64.sh -b \
-    && rm -f Mambaforge-Linux-x86_64.sh
+    && bash Miniforge3-25.3.1-0-Linux-x86_64.sh -b \
+    && rm -f Miniforge3-25.3.1-0-Linux-x86_64.sh
 
 ENV PATH="/home/shiny/mambaforge/bin:$PATH"
 
