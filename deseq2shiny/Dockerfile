@@ -19,6 +19,14 @@ RUN wget \
     && bash Miniconda3-latest-Linux-x86_64.sh -b \
     && rm -f Miniconda3-latest-Linux-x86_64.sh
 ENV PATH="/home/shiny/miniconda3/bin:$PATH"
+
+# --- FIX: Configure conda to avoid Anaconda TOS error ---
+RUN conda config --remove-key channels || true && \
+    conda config --add channels conda-forge && \
+    conda config --add channels bioconda && \
+    conda config --set channel_priority strict && \
+    conda config --show
+    
 RUN conda install -c bioconda -c conda-forge mamba -y
 ADD environment.yaml environment.yaml
 RUN mamba env create -f environment.yaml
