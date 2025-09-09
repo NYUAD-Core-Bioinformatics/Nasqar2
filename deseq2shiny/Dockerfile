@@ -19,16 +19,19 @@ RUN mkdir /var/log/nasqar && chmod 777 /var/log/nasqar
 USER shiny
 WORKDIR /home/shiny
 
-# --- Install Mambaforge (replaces Miniconda + manual mamba install) ---
+# --- Install Miniforge (includes mamba by default) into /home/shiny/.conda ---
 RUN wget https://github.com/conda-forge/miniforge/releases/download/25.3.1-0/Miniforge3-25.3.1-0-Linux-x86_64.sh \
-    && mkdir -p /home/shiny/.conda \
-    && bash Miniforge3-25.3.1-0-Linux-x86_64.sh -b \
+    && bash Miniforge3-25.3.1-0-Linux-x86_64.sh -b -p /home/shiny/.conda \
     && rm -f Miniforge3-25.3.1-0-Linux-x86_64.sh
 
-ENV PATH="/home/shiny/mambaforge/bin:$PATH"
+# ✅ FIX: Correct PATH for .conda installation
+ENV PATH="/home/shiny/.conda/bin:$PATH"
 
-# Use bash as default shell for conda/mamba commands
+# ✅ Ensure bash login shell is used going forward
 SHELL ["/bin/bash", "-lc"]
+
+# --- Debug step to confirm mamba works ---
+RUN which mamba && mamba --version
 
 # --- Copy environment file early to leverage Docker cache ---
 ADD environment.yaml /home/shiny/environment.yaml
