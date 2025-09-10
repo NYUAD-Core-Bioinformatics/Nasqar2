@@ -13,19 +13,33 @@ observe({
     
     # mylevels <- factor(filtered[c(input$boxplotFill)], input$sel_factors)
     isolate({
-        tmpgroups <- input$sel_groups
-        mylevels <- unlist(lapply(tmpgroups, function(x) {
-            levels(myValues$DF[, x])
-        }))
-        # mylevels <- levels(myValues$DF[, input$boxplotFill])
-    # Generate random colors for each level if not already set
-    # if (length(custom_colors$colors) == 0) {
-        random_colors <- generate_random_colors(length(mylevels))
-        custom_colors$globalcolors <- setNames(as.list(random_colors), mylevels)
-        mylevels <- levels(myValues$DF[, input$boxplotFill])
-        custom_colors$colors <- custom_colors$globalcolors[mylevels]
-        
-        print(custom_colors$colors)
+        if (!is.null(myValues$DF) && !is.null(input$sel_groups)) {
+            tmpgroups <- input$sel_groups
+            mylevels <- unlist(lapply(tmpgroups, function(x) {
+                if (x %in% colnames(myValues$DF)) {
+                    levels(myValues$DF[, x])
+                } else {
+                    NULL
+                }
+            }))
+            # Remove NULL values
+            mylevels <- mylevels[!is.null(mylevels)]
+            
+            # mylevels <- levels(myValues$DF[, input$boxplotFill])
+        # Generate random colors for each level if not already set
+        # if (length(custom_colors$colors) == 0) {
+            if (length(mylevels) > 0) {
+                random_colors <- generate_random_colors(length(mylevels))
+                custom_colors$globalcolors <- setNames(as.list(random_colors), mylevels)
+                
+                if (!is.null(input$boxplotFill) && input$boxplotFill %in% colnames(myValues$DF)) {
+                    mylevels <- levels(myValues$DF[, input$boxplotFill])
+                    custom_colors$colors <- custom_colors$globalcolors[mylevels]
+                }
+                
+                print(custom_colors$colors)
+            }
+        }
     # }
     })
     
@@ -33,9 +47,11 @@ observe({
 
 observe({
     req(input$boxplotFill)
-    mylevels <- levels(myValues$DF[, input$boxplotFill])
-    custom_colors$colors <- custom_colors$globalcolors[mylevels]
-    updateSelectInput(session, "levelSelect", choices = mylevels)
+    if (!is.null(myValues$DF) && input$boxplotFill %in% colnames(myValues$DF)) {
+        mylevels <- levels(myValues$DF[, input$boxplotFill])
+        custom_colors$colors <- custom_colors$globalcolors[mylevels]
+        updateSelectInput(session, "levelSelect", choices = mylevels)
+    }
 })
 
 # Update the custom colors when the user clicks the apply button
@@ -75,25 +91,35 @@ observe({
     )
 })
 observe({
-    updateSelectInput(session, "boxplotX",
-        choices = colnames(myValues$DF),
-        selected = colnames(myValues$DF)[1]
-    )
+    if (!is.null(myValues$DF) && ncol(myValues$DF) > 0) {
+        updateSelectInput(session, "boxplotX",
+            choices = colnames(myValues$DF),
+            selected = colnames(myValues$DF)[1]
+        )
 
-    updateSelectInput(session, "boxplotFill",
-        choices = colnames(myValues$DF),
-        selected = colnames(myValues$DF)[1]
-    )
-    # tmpgroups = unique(myValues$DF$Conditions)
+        updateSelectInput(session, "boxplotFill",
+            choices = colnames(myValues$DF),
+            selected = colnames(myValues$DF)[1]
+        )
+        # tmpgroups = unique(myValues$DF$Conditions)
 
-    tmpgroups <- input$sel_groups
-    tmpgroups <- unlist(lapply(tmpgroups, function(x) {
-        levels(myValues$DF[, x])
-    }))
+        if (!is.null(input$sel_groups)) {
+            tmpgroups <- input$sel_groups
+            tmpgroups <- unlist(lapply(tmpgroups, function(x) {
+                if (x %in% colnames(myValues$DF)) {
+                    levels(myValues$DF[, x])
+                } else {
+                    NULL
+                }
+            }))
+            # Remove NULL values
+            tmpgroups <- tmpgroups[!is.null(tmpgroups)]
 
-    updateSelectizeInput(session, "sel_factors",
-        choices = tmpgroups, selected = tmpgroups, server = T
-    )
+            updateSelectizeInput(session, "sel_factors",
+                choices = tmpgroups, selected = tmpgroups, server = T
+            )
+        }
+    }
 })
 
 observe({

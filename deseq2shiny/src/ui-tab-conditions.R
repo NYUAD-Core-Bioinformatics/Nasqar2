@@ -58,6 +58,28 @@ tabItem(
                                     icon = icon("times")
                                 )
                             ),
+                            column(
+                                12,
+                                hr(),
+                                h5(strong("Exclude Samples (Outliers)")),
+                                p("Select samples to exclude from DESeq2 analysis:", style = "font-size: 12px; color: #666;"),
+                                selectizeInput(
+                                    "samplesToExclude",
+                                    "",
+                                    choices = NULL,
+                                    multiple = TRUE,
+                                    options = list(
+                                        placeholder = "Select samples to exclude...",
+                                        maxItems = NULL
+                                    )
+                                ),
+                                actionButton(
+                                    "clearExcludedSamples",
+                                    "Clear All",
+                                    class = "btn btn-warning btn-sm",
+                                    icon = icon("undo")
+                                )
+                            ),
                             tags$div(class = "clearBoth")
                         )
                     ),
@@ -87,6 +109,17 @@ tabItem(
                     actionButton("init_deseq2", "Initialize DESeq2",
                         class = "btn btn-success",
                         style = "width:100%;height:60px;"
+                    )
+                ),
+                conditionalPanel(
+                    "output.hasExcludedSamples",
+                    box(
+                        title = "Excluded Samples", solidHeader = T, status = "warning", width = 12,
+                        wellPanel(
+                            p(strong("Samples excluded from analysis:"), style = "color: #d9534f;"),
+                            verbatimTextOutput("excludedSamplesList", placeholder = FALSE),
+                            p("These samples will not be included in DESeq2 analysis.", style = "font-size: 12px; color: #777;")
+                        )
                     )
                 )
             ),

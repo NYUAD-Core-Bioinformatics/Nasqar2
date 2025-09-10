@@ -139,14 +139,24 @@ observeEvent(input$factorNameInput,
         print("factorNameInput")
         print(input$factorNameInput)
         print(myValues$DF)
+        
+        # Validate that the selected factor still exists in myValues$DF
+        if (is.null(myValues$DF) || is.null(input$factorNameInput) || input$factorNameInput == "") {
+            return()
+        }
+        
+        # Check if the selected column exists in the dataframe
+        if (!(input$factorNameInput %in% colnames(myValues$DF))) {
+            print(paste("Warning: Column", input$factorNameInput, "not found in myValues$DF"))
+            return()
+        }
+        
         myValues$DF[] <- lapply(myValues$DF, as.factor)
         # print(levels(factor(myValues$DF[,input$factorNameInput])))
-        if (input$factorNameInput != "") {
-            print("factorNameInput changed")
-            print(levels(myValues$DF[, input$factorNameInput]))
-            updateSelectInput(session, "condition1", choices = levels(myValues$DF[, input$factorNameInput]))
-            updateSelectInput(session, "condition2", choices = levels(myValues$DF[, input$factorNameInput]))
-        }
+        print("factorNameInput changed")
+        print(levels(myValues$DF[, input$factorNameInput]))
+        updateSelectInput(session, "condition1", choices = levels(myValues$DF[, input$factorNameInput]))
+        updateSelectInput(session, "condition2", choices = levels(myValues$DF[, input$factorNameInput]))
     },
     ignoreInit = T
 )
@@ -190,13 +200,13 @@ output$rlogPcaPlot <- renderPlotly({
             intgroups <- names(colData(myValues$dds))[1]
         }
 
-        print(paste("using ntop=500 top features by variance"))
 
-        # Use DESeq2's plotPCA with ntop=500 and returnData=TRUE to get the data
+
+        # Use DESeq2's plotPCA and returnData=TRUE to get the data
         rld <- myValues$rld
         
-        # Get PCA data from DESeq2 with ntop=500 (default)
-        pca_data <- DESeq2::plotPCA(rld, intgroup = intgroups, ntop = 500, returnData = TRUE)
+        # Get PCA data from DESeq2
+        pca_data <- DESeq2::plotPCA(rld, intgroup = intgroups, returnData = TRUE)
         percentVar <- attr(pca_data, "percentVar")
         
         # Add sample names for hover
@@ -241,7 +251,7 @@ output$rlogPcaPlot <- renderPlotly({
             marker = list(size = 8, opacity = 0.8)
         ) %>%
         layout(
-            title = "PCA Plot (using ntop=500 top features by variance)",
+            title = "PCA Plot",
             xaxis = list(title = paste0("PC1: ", round(percentVar[1] * 100, 1), "% variance")),
             yaxis = list(title = paste0("PC2: ", round(percentVar[2] * 100, 1), "% variance")),
             showlegend = TRUE,
@@ -280,13 +290,12 @@ output$vsdPcaPlot <- renderPlotly({
 
         print("colData")
         print(colData(myValues$dds))
-        print(paste("using ntop=500 top features by variance"))
 
-        # Use DESeq2's plotPCA with ntop=500 and returnData=TRUE to get the data
+
         vsd <- myValues$vsd
         
-        # Get PCA data from DESeq2 with ntop=500 (default)
-        pca_data <- DESeq2::plotPCA(vsd, intgroup = intgroups, ntop = 500, returnData = TRUE)
+        # Get PCA data from DESeq2  (default)
+        pca_data <- DESeq2::plotPCA(vsd, intgroup = intgroups, returnData = TRUE)
         percentVar <- attr(pca_data, "percentVar")
         
         # Add sample names for hover
@@ -331,7 +340,7 @@ output$vsdPcaPlot <- renderPlotly({
             marker = list(size = 8, opacity = 0.8)
         ) %>%
         layout(
-            title = "PCA Plot (using ntop=500 top features by variance)",
+            title = "PCA Plot",
             xaxis = list(title = paste0("PC1: ", round(percentVar[1] * 100, 1), "% variance")),
             yaxis = list(title = paste0("PC2: ", round(percentVar[2] * 100, 1), "% variance")),
             showlegend = TRUE,
