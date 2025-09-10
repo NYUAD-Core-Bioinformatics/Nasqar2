@@ -190,7 +190,65 @@ output$rlogPcaPlot <- renderPlotly({
             intgroups <- names(colData(myValues$dds))[1]
         }
 
-        DESeq2::plotPCA(myValues$rld, intgroup = intgroups)
+        print(paste("using ntop=500 top features by variance"))
+
+        # Use DESeq2's plotPCA with ntop=500 and returnData=TRUE to get the data
+        rld <- myValues$rld
+        
+        # Get PCA data from DESeq2 with ntop=500 (default)
+        pca_data <- DESeq2::plotPCA(rld, intgroup = intgroups, ntop = 500, returnData = TRUE)
+        percentVar <- attr(pca_data, "percentVar")
+        
+        # Add sample names for hover
+        pca_data$SampleName <- rownames(pca_data)
+        
+        # Create group column for coloring and display
+        if (length(intgroups) == 1) {
+            pca_data$group <- pca_data[[intgroups]]
+        } else {
+            # If multiple groups, combine them
+            pca_data$group <- pca_data$group  # DESeq2 already creates this
+        }
+        
+        # Prepare hover text with all available information
+        hover_text <- paste(
+            "Sample:", pca_data$SampleName,
+            "<br>Group of Interest:", pca_data$group
+        )
+        
+        # Add additional columns to hover if they exist
+        sample_data <- as.data.frame(colData(rld))
+        additional_cols <- setdiff(names(sample_data), c(intgroups, "sizeFactor", "replaceable"))
+        if (length(additional_cols) > 0) {
+            for (col in additional_cols) {
+                if (!is.null(sample_data[[col]])) {
+                    hover_text <- paste(hover_text, 
+                                      paste0("<br>", col, ":"), sample_data[[col]])
+                }
+            }
+        }
+        
+        # Create plotly visualization
+        p <- plot_ly(
+            data = pca_data,
+            x = ~PC1, 
+            y = ~PC2,
+            color = ~group,
+            text = hover_text,
+            hoverinfo = "text",
+            type = "scatter",
+            mode = "markers",
+            marker = list(size = 8, opacity = 0.8)
+        ) %>%
+        layout(
+            title = "PCA Plot (using ntop=500 top features by variance)",
+            xaxis = list(title = paste0("PC1: ", round(percentVar[1] * 100, 1), "% variance")),
+            yaxis = list(title = paste0("PC2: ", round(percentVar[2] * 100, 1), "% variance")),
+            showlegend = TRUE,
+            legend = list(title = list(text = "Group of Interest"))
+        )
+        
+        return(p)
     }
 })
 
@@ -220,7 +278,67 @@ output$vsdPcaPlot <- renderPlotly({
             intgroups <- names(colData(myValues$dds))[1]
         }
 
-        DESeq2::plotPCA(myValues$vsd, intgroup = intgroups)
+        print("colData")
+        print(colData(myValues$dds))
+        print(paste("using ntop=500 top features by variance"))
+
+        # Use DESeq2's plotPCA with ntop=500 and returnData=TRUE to get the data
+        vsd <- myValues$vsd
+        
+        # Get PCA data from DESeq2 with ntop=500 (default)
+        pca_data <- DESeq2::plotPCA(vsd, intgroup = intgroups, ntop = 500, returnData = TRUE)
+        percentVar <- attr(pca_data, "percentVar")
+        
+        # Add sample names for hover
+        pca_data$SampleName <- rownames(pca_data)
+        
+        # Create group column for coloring and display
+        if (length(intgroups) == 1) {
+            pca_data$group <- pca_data[[intgroups]]
+        } else {
+            # If multiple groups, combine them
+            pca_data$group <- pca_data$group  # DESeq2 already creates this
+        }
+        
+        # Prepare hover text with all available information
+        hover_text <- paste(
+            "Sample:", pca_data$SampleName,
+            "<br>Group of Interest:", pca_data$group
+        )
+        
+        # Add additional columns to hover if they exist
+        sample_data <- as.data.frame(colData(vsd))
+        additional_cols <- setdiff(names(sample_data), c(intgroups, "sizeFactor", "replaceable"))
+        if (length(additional_cols) > 0) {
+            for (col in additional_cols) {
+                if (!is.null(sample_data[[col]])) {
+                    hover_text <- paste(hover_text, 
+                                      paste0("<br>", col, ":"), sample_data[[col]])
+                }
+            }
+        }
+        
+        # Create plotly visualization
+        p <- plot_ly(
+            data = pca_data,
+            x = ~PC1, 
+            y = ~PC2,
+            color = ~group,
+            text = hover_text,
+            hoverinfo = "text",
+            type = "scatter",
+            mode = "markers",
+            marker = list(size = 8, opacity = 0.8)
+        ) %>%
+        layout(
+            title = "PCA Plot (using ntop=500 top features by variance)",
+            xaxis = list(title = paste0("PC1: ", round(percentVar[1] * 100, 1), "% variance")),
+            yaxis = list(title = paste0("PC2: ", round(percentVar[2] * 100, 1), "% variance")),
+            showlegend = TRUE,
+            legend = list(title = list(text = "Group of Interest"))
+        )
+        
+        return(p)
     }
 })
 
