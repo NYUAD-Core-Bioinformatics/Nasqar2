@@ -20,7 +20,9 @@ observe({
 })
 
 heatmapReactive <- reactive({
+    cat("DEBUG: heatmapReactive triggered, genHeatmap value:", input$genHeatmap, "\n")
     if (input$genHeatmap > 0) {
+        cat("DEBUG: genHeatmap > 0, proceeding with heatmap generation\n")
         isolate({
 
         updateActionButton(session, "genHeatmap",
@@ -93,8 +95,12 @@ heatmapReactive <- reactive({
 
             #generateHeatmapPdf(logNormCounts, Rowv, annLegend, annCol)
             #  shinyjs::enable("genHeatmap")
+            cat("DEBUG: Heatmap generation completed successfully\n")
             return(list("logNormCounts" = logNormCounts, "genesNotFound" = genesNotFound))
         })
+    } else {
+        cat("DEBUG: genHeatmap <= 0, returning NULL\n")
+        return(NULL)
     }
 
     #
