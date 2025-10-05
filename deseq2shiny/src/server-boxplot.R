@@ -147,7 +147,6 @@ observe({
     )
 })
 observe({
-<<<<<<< HEAD
     # Only trigger when data or sel_groups changes, not when other selections change
     myValues$DF
     sel_groups <- input$sel_groups
@@ -198,36 +197,6 @@ observe({
         updateSelectizeInput(session, "sel_factors",
             choices = tmpgroups, selected = factors_to_select, server = TRUE
         )
-=======
-    if (!is.null(myValues$DF) && ncol(myValues$DF) > 0) {
-        updateSelectInput(session, "boxplotX",
-            choices = colnames(myValues$DF),
-            selected = colnames(myValues$DF)[1]
-        )
-
-        updateSelectInput(session, "boxplotFill",
-            choices = colnames(myValues$DF),
-            selected = colnames(myValues$DF)[1]
-        )
-        # tmpgroups = unique(myValues$DF$Conditions)
-
-        if (!is.null(input$sel_groups)) {
-            tmpgroups <- input$sel_groups
-            tmpgroups <- unlist(lapply(tmpgroups, function(x) {
-                if (x %in% colnames(myValues$DF)) {
-                    levels(myValues$DF[, x])
-                } else {
-                    NULL
-                }
-            }))
-            # Remove NULL values
-            tmpgroups <- tmpgroups[!is.null(tmpgroups)]
-
-            updateSelectizeInput(session, "sel_factors",
-                choices = tmpgroups, selected = tmpgroups, server = T
-            )
-        }
->>>>>>> f271943811d08e126200ae377d53e9a4f589f168
     }
 })
 
