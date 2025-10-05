@@ -61,6 +61,11 @@ const config: DocsThemeConfig = {
     forcedTheme: 'light',
 
   },
+  useNextSeoProps() {
+    return {
+      titleTemplate: 'Nasqar2',
+    }
+  },
   head: (
     <>
       <meta name="msapplication-TileColor" content="#fff" />
@@ -72,6 +77,9 @@ const config: DocsThemeConfig = {
       <meta property="og:description" content="NASQAR2: Nucleic Acid SeQuence Analysis Resource" />
       <meta property="og:title" content="NASQAR2: Nucleic Acid SeQuence Analysis Resource" />
       <meta name="apple-mobile-web-app-title" content="NASQAR2" />
+      <link rel="icon" href="/CGSB-Logo.png" />
+      <link rel="apple-touch-icon" href="/CGSB-Logo.png" />
+      <link rel="shortcut icon" href="/CGSB-Logo.png" />
     </>
   ),
 }

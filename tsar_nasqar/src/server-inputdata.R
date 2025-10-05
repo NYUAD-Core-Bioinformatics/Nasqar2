@@ -205,7 +205,7 @@ analyzeDataReactive <-
                     if (sum(unlist(lapply(input, function(k) class(k) %in% c("numeric", "integer")))) == 0) {
                         "Your data does not appear to be formatted correctly (no numeric columns).
                         Please check your input file."
-                    } else if (input == "") {
+                    } else if (is.null(input) || nrow(input) == 0) {
                         FALSE
                     } else {
                         NULL
@@ -296,7 +296,7 @@ analyzeDataReactive <-
                 # add filter for max # counts
 
                 # handle NAs, update this later
-                countdata[which(is.na(countdata), arr.ind = T)] <- 0 # allow choice of this or removal
+                countdata[is.na(countdata)] <- 0 # allow choice of this or removal
                 rownames(countdata) <- geneids$unique_id
 
                 if (input$inputdat_type == "analyzed") {
@@ -432,7 +432,7 @@ analyzeDataReactive <-
                     } else {
                         lmobj_res <- list()
                         for (ii in 1:length(group_names)) {
-                            grp <- relevel(tmpgroup, ref = group_names[ii])
+                            grp <- relevel(as.factor(tmpgroup), ref = group_names[ii])
                             lm.obj <- lm(t(expr_data) ~ grp)
                             beta.lm <- t(lm.obj$coefficients)
                             pval.lm <- t(lm.pval(lm.obj)$pval)

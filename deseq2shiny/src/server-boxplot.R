@@ -54,46 +54,134 @@ observe({
   })
 
 observe({
-    # print('sel_gene')
-    # print(myValues)
+    # Only trigger when data or gene type changes, not when selections change
+    myValues$dataCounts
+    myValues$DF
+    input$box_plot_sel_gene_type
+    
+    cat("DEBUG: First boxplot observer triggered\n")
+    
+    # Isolate current selections to prevent reactive loops
+    current_sel_gene <- isolate(input$sel_gene)
+    current_sel_groups <- isolate(input$sel_groups)
+    
+    # Check if restoration is in progress and use saved values
+    if (exists("restoration_state") && restoration_state$in_progress) {
+        if (!is.null(restoration_state$saved_sel_gene)) {
+            current_sel_gene <- restoration_state$saved_sel_gene
+        }
+        if (!is.null(restoration_state$saved_sel_groups)) {
+            current_sel_groups <- restoration_state$saved_sel_groups
+        }
+        cat("DEBUG: Using restoration state values\n")
+    }
+    
+    cat("DEBUG: Current sel_gene:", if(is.null(current_sel_gene)) "NULL" else paste(current_sel_gene, collapse = ", "), "\n")
+    cat("DEBUG: Current sel_groups:", if(is.null(current_sel_groups)) "NULL" else paste(current_sel_groups, collapse = ", "), "\n")
+    
     if (input$box_plot_sel_gene_type == "gene.name") {
         genenames <- myValues$genenames[rownames(myValues$dataCounts), ]
+        
+        # Preserve existing valid selections
+        gene_selection <- if(!is.null(current_sel_gene) && all(current_sel_gene %in% genenames)) {
+            current_sel_gene
+        } else {
+            NULL
+        }
+        
+        cat("DEBUG: Updating sel_gene choices, preserving selection:", if(is.null(gene_selection)) "NULL" else paste(gene_selection, collapse = ", "), "\n")
+        
         updateSelectizeInput(session, "sel_gene",
             choices = genenames,
+            selected = gene_selection,
             server = TRUE
         )
     } else {
+        gene_ids <- rownames(myValues$dataCounts)
+        
+        # Preserve existing valid selections
+        gene_selection <- if(!is.null(current_sel_gene) && all(current_sel_gene %in% gene_ids)) {
+            current_sel_gene
+        } else {
+            NULL
+        }
+        
+        cat("DEBUG: Updating sel_gene choices (gene.id), preserving selection:", if(is.null(gene_selection)) "NULL" else paste(gene_selection, collapse = ", "), "\n")
+        
         updateSelectizeInput(session, "sel_gene",
-            choices = rownames(myValues$dataCounts),
+            choices = gene_ids,
+            selected = gene_selection,
             server = TRUE
         )
     }
 
+    # Preserve existing valid group selections
+    group_selection <- if(!is.null(current_sel_groups) && all(current_sel_groups %in% colnames(myValues$DF))) {
+        current_sel_groups
+    } else {
+        NULL
+    }
+    
+    cat("DEBUG: Updating sel_groups choices, preserving selection:", if(is.null(group_selection)) "NULL" else paste(group_selection, collapse = ", "), "\n")
+    
     updateSelectizeInput(session, "sel_groups",
         choices = colnames(myValues$DF),
+        selected = group_selection,
         server = TRUE
     )
 })
 observe({
+    # Only trigger when data or sel_groups changes, not when other selections change
+    myValues$DF
+    sel_groups <- input$sel_groups
+    
+    cat("DEBUG: Second boxplot observer triggered, sel_groups:", if(is.null(sel_groups)) "NULL" else paste(sel_groups, collapse = ", "), "\n")
+    
+    # Isolate current selections to prevent reactive loops
+    current_boxplotX <- isolate(input$boxplotX)
+    current_boxplotFill <- isolate(input$boxplotFill)
+    current_sel_factors <- isolate(input$sel_factors)
+    
+    # Check if restoration is in progress and use saved values
+    if (exists("restoration_state") && restoration_state$in_progress) {
+        if (!is.null(restoration_state$saved_sel_factors)) {
+            current_sel_factors <- restoration_state$saved_sel_factors
+        }
+        cat("DEBUG: Using restoration state for factors\n")
+    }
+    
+    cat("DEBUG: Current sel_factors:", if(is.null(current_sel_factors)) "NULL" else paste(current_sel_factors, collapse = ", "), "\n")
+    
     updateSelectInput(session, "boxplotX",
         choices = colnames(myValues$DF),
-        selected = colnames(myValues$DF)[1]
+        selected = if(!is.null(current_boxplotX) && current_boxplotX %in% colnames(myValues$DF)) current_boxplotX else colnames(myValues$DF)[1]
     )
 
     updateSelectInput(session, "boxplotFill",
         choices = colnames(myValues$DF),
-        selected = colnames(myValues$DF)[1]
+        selected = if(!is.null(current_boxplotFill) && current_boxplotFill %in% colnames(myValues$DF)) current_boxplotFill else colnames(myValues$DF)[1]
     )
-    # tmpgroups = unique(myValues$DF$Conditions)
+    
+    # Get available factors based on selected groups
+    if (!is.null(sel_groups) && length(sel_groups) > 0) {
+        tmpgroups <- unlist(lapply(sel_groups, function(x) {
+            levels(myValues$DF[, x])
+        }))
 
-    tmpgroups <- input$sel_groups
-    tmpgroups <- unlist(lapply(tmpgroups, function(x) {
-        levels(myValues$DF[, x])
-    }))
+        # Preserve existing factor selection if valid
+        # If no current selection or invalid selection, select all available factors
+        factors_to_select <- if(!is.null(current_sel_factors) && length(current_sel_factors) > 0 && all(current_sel_factors %in% tmpgroups)) {
+            current_sel_factors
+        } else if (!is.null(tmpgroups) && length(tmpgroups) > 0) {
+            tmpgroups
+        } else {
+            NULL
+        }
 
-    updateSelectizeInput(session, "sel_factors",
-        choices = tmpgroups, selected = tmpgroups, server = T
-    )
+        updateSelectizeInput(session, "sel_factors",
+            choices = tmpgroups, selected = factors_to_select, server = TRUE
+        )
+    }
 })
 
 observe({

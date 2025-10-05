@@ -3,7 +3,9 @@ observe({
 })
 
 compareReactive <- reactive({
+    cat("DEBUG: compareReactive triggered, getDiffResVs value:", input$getDiffResVs, "\n")
     if (input$getDiffResVs > 0) {
+        cat("DEBUG: getDiffResVs > 0, proceeding with DE analysis\n")
         withProgress(message = "Getting DESeq results , please wait ...", {
             isolate({
                 factorsStr <- "Intercept: no replicates"
@@ -19,6 +21,7 @@ compareReactive <- reactive({
                         myValues$vsResults <- results(myValues$dds, contrast = list(input$resultNamesInput))
                         factorsStr <- paste(list(input$resultNamesInput))
                     } else if (input$resultNameOrFactor == "Factors") {
+                        cat("DEBUG: Using Factors method with factorNameInput:", input$factorNameInput, "condition1:", input$condition1, "condition2:", input$condition2, "\n")
                         validate(
                             need((input$condition1 != input$condition2), message = "condition 1 must be different from condition 2")
                         )
@@ -26,23 +29,40 @@ compareReactive <- reactive({
 
                         myValues$vsResults <- results(myValues$dds, contrast = c(input$factorNameInput, input$condition1, input$condition2))
                         factorsStr <- paste(input$factorNameInput, " : ", input$condition1, input$condition2)
+                        cat("DEBUG: Factors analysis completed, factorsStr:", factorsStr, "\n")
                     }
                 }
 
 
                 js$addStatusIcon("resultsTab", "done")
-
+                
+                cat("DEBUG: DE analysis completed successfully\n")
                 return(list("results" = myValues$vsResults, "conditions" = factorsStr))
             })
         })
+    } else {
+        cat("DEBUG: getDiffResVs <= 0, returning NULL\n")
+        return(NULL)
     }
 })
 
 output$maPlot <- renderPlot({
-    if (!is.null(compareReactive())) {
+    cat("DEBUG: maPlot renderPlot called\n")
+    comparison_result <- compareReactive()
+    if (!is.null(comparison_result)) {
+        cat("DEBUG: compareReactive() returned valid results, generating MA plot\n")
         isolate({
-            plotMA(compareReactive()$results, main = "MA Plot", ylim = c(-input$ylim, input$ylim), alpha = input$alpha, colSig = "red")
+            plotMA(comparison_result$results, main = "MA Plot", ylim = c(-input$ylim, input$ylim), alpha = input$alpha, colSig = "red")
         })
+    } else {
+        cat("DEBUG: compareReactive() returned NULL, MA plot will be empty\n")
+        cat("DEBUG: Current state - getDiffResVs:", input$getDiffResVs, "vsResults exists:", !is.null(myValues$vsResults), "\n")
+        
+        # If we have stored results but compareReactive is returning NULL, try to use those directly
+        if (!is.null(myValues$vsResults)) {
+            cat("DEBUG: Using stored vsResults for MA plot\n")
+            plotMA(myValues$vsResults, main = "MA Plot (from stored results)", ylim = c(-input$ylim, input$ylim), alpha = input$alpha, colSig = "red")
+        }
     }
 })
 

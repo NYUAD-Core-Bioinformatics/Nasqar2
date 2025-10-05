@@ -74,7 +74,15 @@ ui <- tagList(
         # class = "hidden",
         dashboardPage(
             # skin = "purple",
-            dashboardHeader(title = "DESeq2 Shiny"),
+            dashboardHeader(
+                title = "DESeq2 Shiny",
+                # Add save/load button in header
+                tags$li(class = "dropdown", style = "margin-top: 8px; margin-right: 10px;",
+                    actionButton("showStateModal", "💾 Save/Load State", 
+                                class = "btn btn-info btn-sm",
+                                style = "color: white; background-color: #17a2b8; border-color: #17a2b8;")
+                )
+            ),
             dashboardSidebar(
                 sidebarMenu(
                     id = "tabs",
@@ -100,6 +108,12 @@ ui <- tagList(
                 tags$head(
                     tags$style(HTML(" .shiny-output-error-validation {color: darkred; } ")),
                     tags$style(".mybuttonclass{background-color:#CD0000;} .mybuttonclass{color: #fff;} .mybuttonclass{border-color: #9E0000;}"),
+                    tags$style(HTML("
+                        .state-modal-content { padding: 15px; }
+                        .state-modal-content .alert { margin-bottom: 15px; }
+                        .state-modal-content h4 { color: #333; margin-bottom: 15px; }
+                        .navbar-nav > li > a { padding: 15px 10px !important; }
+                    ")),
                     tags$link(rel = "stylesheet", type = "text/css", href = "custom.css")
                     # ,
                     # tags$link(rel = "stylesheet", type = "text/css", href = "loading.css")
@@ -117,6 +131,45 @@ ui <- tagList(
                     source("ui-tab-venndiagram.R", local = TRUE)$value,
                     source("ui-tab-boxplot.R", local = TRUE)$value,
                     source("ui-tab-heatmap.R", local = TRUE)$value
+                ),
+                
+                # Modal dialog for save/load state
+                bsModal("stateModal", "Save/Load Application State", "showStateModal", size = "medium",
+                    div(class = "state-modal-content",
+                        fluidRow(
+                            column(12,
+                                h4("💾 Save Current State"),
+                                conditionalPanel(
+                                    condition = "output.canSaveState",
+                                    p("Save all your analysis data, results, and plot configurations as an R object file."),
+                                    downloadButton("downloadState", "Download State File (.RData)",
+                                        class = "btn-primary",
+                                        style = "width: 100%; margin-bottom: 20px;"
+                                    )
+                                ),
+                                conditionalPanel(
+                                    condition = "!output.canSaveState",
+                                    div(class = "alert alert-warning",
+                                        icon("exclamation-triangle"), " No data to save. Please load data first."
+                                    )
+                                ),
+                                
+                                hr(),
+                                
+                                h4("📂 Load Previous State"),
+                                p("Load a previously saved application state to continue your analysis."),
+                                fileInput("loadStateFile", "Choose State File",
+                                    accept = ".RData",
+                                    buttonLabel = "Browse...",
+                                    placeholder = "Select .RData file",
+                                    width = "100%"
+                                ),
+                                div(class = "alert alert-info",
+                                    icon("info-circle"), " State files contain all your data, results, plot settings, and selections."
+                                )
+                            )
+                        )
+                    )
                 )
             )
         ),
