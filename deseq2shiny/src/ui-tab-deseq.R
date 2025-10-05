@@ -46,6 +46,12 @@ tabItem(
                     tags$div(
                         class = "BoxArea",
                         p(strong("Design Formula: "), textOutput("ddsDesignFormula")),
+                        conditionalPanel(
+                            "output.hasExcludedSamples",
+                            hr(),
+                            p(strong("Excluded Samples: "), style = "color: #d9534f;"),
+                            p(textOutput("excludedSamplesList2"), style = "font-size: 12px; color: #d9534f; margin-left: 15px;")
+                        ),
                         hr(),
                         p("Showing only the first 5 rows of ", strong("colData"), " table:"),
                         tableOutput("ddsColData")

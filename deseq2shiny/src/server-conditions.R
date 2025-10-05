@@ -1,6 +1,12 @@
 observe({
     colnamesChoices <- colnames(myValues$DF[!(names(myValues$DF) %in% c("Samples", "Groups"))])
     updateSelectInput(session, "colToRemove", choices = colnamesChoices, selected = NULL)
+    
+    # Update sample exclusion choices when DF changes
+    if (!is.null(myValues$DF)) {
+        sampleChoices <- rownames(myValues$DF)
+        updateSelectizeInput(session, "samplesToExclude", choices = sampleChoices, selected = input$samplesToExclude)
+    }
 })
 
 observeEvent(input$removeCol, {
@@ -18,6 +24,20 @@ observeEvent(input$removeCol, {
     myValues$DF <- hot_to_r(input$table)
     myValues$DF[, input$colToRemove] <- NULL
     updateDesignFormula()
+    
+    # Update factorNameInput choices only if DESeq2 analysis is completed
+    if (exists("input") && !is.null(input) && "factorNameInput" %in% names(input) && !is.null(myValues$dds)) {
+        factorChoices <- colnames(myValues$DF)
+        factorChoices <- factorChoices[!(factorChoices %in% c("sizeFactor", "replaceable"))]
+        
+        # Filter to only include categorical factors that are in the design formula
+        design_terms <- labels(terms(design(myValues$dds)))
+        validFactorChoices <- getValidCategoricalFactors(factorChoices, design_terms, myValues$DF)
+        
+        if (length(validFactorChoices) > 0) {
+            updateSelectizeInput(session, "factorNameInput", choices = validFactorChoices, selected = validFactorChoices[1])
+        }
+    }
 })
 
 observe({
@@ -142,7 +162,13 @@ metadataFileReactive <- reactive({
     metaData <- data.frame(fileContent[, colnames(fileContent)[-1]])
     colnames(metaData) <- colnames(fileContent)[-1]
 
-    metaData[] <- lapply(metaData, as.factor)
+    metaData[] <- lapply(metaData, function(x) {
+        if (is.character(x) || is.factor(x)) {
+            as.factor(x)
+        } else {
+            x
+        }
+    })
     print("metaData")
     print(fileContent[, 1])
     print("metaData")
@@ -161,6 +187,21 @@ metadataFileReactive <- reactive({
 observe({
     ddsInitReactive()
 })
+
+# Handle clearing excluded samples
+observeEvent(input$clearExcludedSamples, {
+    updateSelectizeInput(session, "samplesToExclude", selected = character(0))
+})
+
+# Initialize excluded samples reactive value
+if (!exists("myValues$excludedSamples")) {
+    myValues$excludedSamples <- character(0)
+}
+
+# Update excluded samples when selection changes
+observeEvent(input$samplesToExclude, {
+    myValues$excludedSamples <- input$samplesToExclude
+}, ignoreNULL = FALSE)
 
 
 ddsInitReactive <- eventReactive(input$init_deseq2, {
@@ -192,21 +233,37 @@ ddsInitReactive <- eventReactive(input$init_deseq2, {
 
         # print(rownames(myValues$dataCounts))
 
+        # Set up sample names properly first
+        rownames(samples) <- rownames(myValues$DF)
 
-        rownames(samples) <- samples$Samples
-        samples$Samples <- NULL
+        # Exclude selected samples after sample names are properly set
+        excludedSamples <- input$samplesToExclude
+        if (!is.null(excludedSamples) && length(excludedSamples) > 0) {
+            # Filter out excluded samples from both samples and dataCounts
+            samplesToKeep <- !rownames(samples) %in% excludedSamples
+            samples <- samples[samplesToKeep, , drop = FALSE]
+            
+            # Filter dataCounts by column names (sample names)
+            columnsToKeep <- !colnames(dataCounts) %in% excludedSamples
+            dataCounts <- dataCounts[, columnsToKeep, drop = FALSE]
+            
+            # Store excluded samples info for display
+            myValues$excludedSamplesInfo <- excludedSamples
+            
+            print(paste("Excluded samples:", paste(excludedSamples, collapse = ", ")))
+            print(paste("Remaining samples:", paste(rownames(samples), collapse = ", ")))
+        } else {
+            myValues$excludedSamplesInfo <- character(0)
+        }
 
         # convert factors to unordered
         # factor(samples, ordered = F)
-
 
         for (i in 1:ncol(samples)) {
             if (all(class(samples[, i]) %in% c("ordered", "factor"))) {
                 samples[, i] <- factor(samples[, i], ordered = F)
             }
         }
-
-        rownames(samples) <- rownames(myValues$DF)
 
         print("samples")
         print(samples)
@@ -248,6 +305,29 @@ output$ddsInitAvailable <- reactive({
 })
 outputOptions(output, "ddsInitAvailable", suspendWhenHidden = FALSE)
 
+# Display excluded samples
+output$excludedSamplesList <- renderText({
+    if (!is.null(myValues$excludedSamplesInfo) && length(myValues$excludedSamplesInfo) > 0) {
+        paste(myValues$excludedSamplesInfo, collapse = ", ")
+    } else {
+        "None"
+    }
+})
+
+# For the DESeq tab display
+output$excludedSamplesList2 <- renderText({
+    if (!is.null(myValues$excludedSamplesInfo) && length(myValues$excludedSamplesInfo) > 0) {
+        paste(myValues$excludedSamplesInfo, collapse = ", ")
+    } else {
+        ""
+    }
+})
+
+output$hasExcludedSamples <- reactive({
+    return(!is.null(myValues$excludedSamplesInfo) && length(myValues$excludedSamplesInfo) > 0)
+})
+outputOptions(output, "hasExcludedSamples", suspendWhenHidden = FALSE)
+
 
 
 
@@ -255,10 +335,18 @@ outputOptions(output, "ddsInitAvailable", suspendWhenHidden = FALSE)
 updateDesignFormula <- function() {
     isolate({
         print("updateDesignFormula")
+        
+        # Check if myValues$DF exists and has columns
+        if (is.null(myValues$DF) || ncol(myValues$DF) == 0) {
+            return()
+        }
+        
         groupvars <- colnames(myValues$DF)
 
         if (length(groupvars) == 1) {
-            if (length(levels(myValues$DF[, groupvars])) == nrow(myValues$DF)) {
+            # Validate that the column still exists
+            if (groupvars[1] %in% colnames(myValues$DF) && 
+                length(levels(myValues$DF[, groupvars])) == nrow(myValues$DF)) {
                 designFormula <- "~ 1"
             } else {
                 designFormula <- paste("~ ", groupvars)

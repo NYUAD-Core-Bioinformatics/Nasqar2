@@ -14,3 +14,7 @@ r-rstatix
 r-ggpubr
 
 
+To install smplot2 using R console
+```
+R -e "install.packages('smplot2', repos='http://cran.rstudio.com/')"
+```

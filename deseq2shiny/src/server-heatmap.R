@@ -3,14 +3,22 @@ observe({
     #                      choices= rownames(myValues$dataCounts),
     #                      server=TRUE)
     # browser()
-    tmpgroups <- colnames(myValues$DF)
-    tmpgroups <- unlist(lapply(tmpgroups, function(x) {
-        levels(myValues$DF[, x])
-    }))
+    if (!is.null(myValues$DF) && ncol(myValues$DF) > 0) {
+        tmpgroups <- colnames(myValues$DF)
+        tmpgroups <- unlist(lapply(tmpgroups, function(x) {
+            if (x %in% colnames(myValues$DF)) {
+                levels(myValues$DF[, x])
+            } else {
+                NULL
+            }
+        }))
+        # Remove NULL values
+        tmpgroups <- tmpgroups[!is.null(tmpgroups)]
 
-    updateSelectizeInput(session, "heat_group",
-        choices = tmpgroups, selected = tmpgroups, server = T
-    )
+        updateSelectizeInput(session, "heat_group",
+            choices = tmpgroups, selected = tmpgroups, server = T
+        )
+    }
 })
 
 observe({

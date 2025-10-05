@@ -34,3 +34,4 @@ dependencies:
   - bioconductor-enhancedvolcano
   - bioconductor-complexheatmap
   - bioconductor-interactivecomplexheatmap
+  - r-colourpicker
