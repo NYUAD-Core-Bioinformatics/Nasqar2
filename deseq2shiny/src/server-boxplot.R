@@ -77,20 +77,15 @@ observe({
     
     cat("DEBUG: First boxplot observer triggered\n")
     
+    # Check if restoration is in progress - if so, skip this observer
+    if (exists("restoration_state") && restoration_state$in_progress && !restoration_state$boxplot_restoration_done) {
+        cat("DEBUG: Skipping boxplot observer - restoration in progress\n")
+        return()
+    }
+    
     # Isolate current selections to prevent reactive loops
     current_sel_gene <- isolate(input$sel_gene)
     current_sel_groups <- isolate(input$sel_groups)
-    
-    # Check if restoration is in progress and use saved values
-    if (exists("restoration_state") && restoration_state$in_progress) {
-        if (!is.null(restoration_state$saved_sel_gene)) {
-            current_sel_gene <- restoration_state$saved_sel_gene
-        }
-        if (!is.null(restoration_state$saved_sel_groups)) {
-            current_sel_groups <- restoration_state$saved_sel_groups
-        }
-        cat("DEBUG: Using restoration state values\n")
-    }
     
     cat("DEBUG: Current sel_gene:", if(is.null(current_sel_gene)) "NULL" else paste(current_sel_gene, collapse = ", "), "\n")
     cat("DEBUG: Current sel_groups:", if(is.null(current_sel_groups)) "NULL" else paste(current_sel_groups, collapse = ", "), "\n")
@@ -153,18 +148,16 @@ observe({
     
     cat("DEBUG: Second boxplot observer triggered, sel_groups:", if(is.null(sel_groups)) "NULL" else paste(sel_groups, collapse = ", "), "\n")
     
+    # Check if restoration is in progress - if so, skip this observer
+    if (exists("restoration_state") && restoration_state$in_progress && !restoration_state$boxplot_restoration_done) {
+        cat("DEBUG: Skipping second boxplot observer - restoration in progress\n")
+        return()
+    }
+    
     # Isolate current selections to prevent reactive loops
     current_boxplotX <- isolate(input$boxplotX)
     current_boxplotFill <- isolate(input$boxplotFill)
     current_sel_factors <- isolate(input$sel_factors)
-    
-    # Check if restoration is in progress and use saved values
-    if (exists("restoration_state") && restoration_state$in_progress) {
-        if (!is.null(restoration_state$saved_sel_factors)) {
-            current_sel_factors <- restoration_state$saved_sel_factors
-        }
-        cat("DEBUG: Using restoration state for factors\n")
-    }
     
     cat("DEBUG: Current sel_factors:", if(is.null(current_sel_factors)) "NULL" else paste(current_sel_factors, collapse = ", "), "\n")
     
