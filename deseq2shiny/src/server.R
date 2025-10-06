@@ -1005,7 +1005,7 @@ server <- function(input, output, session) {
                                     # Check if gene type is set correctly first
                                     if (!is.null(inputs$box_plot_sel_gene_type)) {
                                         if (inputs$box_plot_sel_gene_type == "gene.name") {
-                                            genenames <- myValues$genenames[rownames(myValues$dataCounts), ]
+                                            genenames <- as.vector(myValues$genenames[rownames(myValues$dataCounts), ])
                                             if (all(sel_gene_safe %in% genenames)) {
                                                 updateSelectizeInput(session, "sel_gene", 
                                                     choices = genenames,
@@ -1017,7 +1017,7 @@ server <- function(input, output, session) {
                                                 cat("DEBUG: sel_gene values not found in genenames\n")
                                             }
                                         } else {
-                                            gene_ids <- rownames(myValues$dataCounts)
+                                            gene_ids <- as.vector(rownames(myValues$dataCounts))
                                             if (all(sel_gene_safe %in% gene_ids)) {
                                                 updateSelectizeInput(session, "sel_gene", 
                                                     choices = gene_ids,
@@ -1038,7 +1038,7 @@ server <- function(input, output, session) {
                                     cat("DEBUG: Restoring sel_groups (safe):", paste(sel_groups_safe, collapse = ", "), "\n")
                                     
                                     # Get available groups from DF columns
-                                    available_groups <- colnames(myValues$DF)
+                                    available_groups <- as.vector(colnames(myValues$DF))
                                     if (all(sel_groups_safe %in% available_groups)) {
                                         updateSelectizeInput(session, "sel_groups", 
                                             choices = available_groups,
@@ -1057,7 +1057,7 @@ server <- function(input, output, session) {
                                     cat("DEBUG: Restoring sel_factors (safe):", paste(sel_factors_safe, collapse = ", "), "\n")
                                     
                                     # Get available factors from DF columns
-                                    available_factors <- colnames(myValues$DF)
+                                    available_factors <- as.vector(colnames(myValues$DF))
                                     if (all(sel_factors_safe %in% available_factors)) {
                                         updateSelectizeInput(session, "sel_factors", 
                                             choices = available_factors,
@@ -1133,7 +1133,7 @@ server <- function(input, output, session) {
                                 myValues$DF[] <- lapply(myValues$DF, as.factor)
                                 
                                 if (inputs$factorNameInput %in% colnames(myValues$DF)) {
-                                    factor_levels <- levels(myValues$DF[, inputs$factorNameInput])
+                                    factor_levels <- as.vector(levels(myValues$DF[, inputs$factorNameInput]))
                                     cat("DEBUG: Available factor levels for", inputs$factorNameInput, ":", paste(factor_levels, collapse = ", "), "\n")
                                     
                                     # Manually update the condition choices

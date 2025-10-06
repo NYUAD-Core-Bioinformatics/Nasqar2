@@ -169,14 +169,17 @@ observe({
     
     cat("DEBUG: Current sel_factors:", if(is.null(current_sel_factors)) "NULL" else paste(current_sel_factors, collapse = ", "), "\n")
     
+    # Get column names as simple vector
+    df_cols <- as.vector(colnames(myValues$DF))
+    
     updateSelectInput(session, "boxplotX",
-        choices = colnames(myValues$DF),
-        selected = if(!is.null(current_boxplotX) && current_boxplotX %in% colnames(myValues$DF)) current_boxplotX else colnames(myValues$DF)[1]
+        choices = df_cols,
+        selected = if(!is.null(current_boxplotX) && current_boxplotX %in% df_cols) current_boxplotX else df_cols[1]
     )
 
     updateSelectInput(session, "boxplotFill",
-        choices = colnames(myValues$DF),
-        selected = if(!is.null(current_boxplotFill) && current_boxplotFill %in% colnames(myValues$DF)) current_boxplotFill else colnames(myValues$DF)[1]
+        choices = df_cols,
+        selected = if(!is.null(current_boxplotFill) && current_boxplotFill %in% df_cols) current_boxplotFill else df_cols[1]
     )
     
     # Get available factors based on selected groups
