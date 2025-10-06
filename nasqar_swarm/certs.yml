@@ -1,0 +1,22 @@
+http:
+  # Global HTTP -> HTTPS redirect
+  routers:
+    redirect-to-https:
+      rule: "HostRegexp(`{host:.+}`)"
+      entryPoints:
+        - web
+      middlewares:
+        - https-redirect
+      service: noop@internal
+
+  middlewares:
+    https-redirect:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+tls:
+  certificates:
+    - certFile: /certs/nasqar2.cer
+      keyFile:  /certs/nasqar2.key
+
