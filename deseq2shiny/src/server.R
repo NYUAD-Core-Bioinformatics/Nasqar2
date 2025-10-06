@@ -48,6 +48,26 @@ isCategoricalFactor <- function(factor_data, sample_count) {
         # Debug logging
         cat("DEBUG: safeInputValue - input type:", class(value), "length:", length(value), "\n")
         
+        # Handle complex objects that might be JavaScript objects or other non-serializable types
+        if (is.object(value) && !is.data.frame(value) && !is.factor(value)) {
+            cat("DEBUG: safeInputValue - detected complex object, attempting to extract values\n")
+            # Try to extract meaningful values from complex objects
+            if (is.list(value)) {
+                if (length(value) > 0) {
+                    # Try to extract the first meaningful element
+                    for (i in seq_along(value)) {
+                        if (!is.null(value[[i]]) && (is.character(value[[i]]) || is.numeric(value[[i]]) || is.logical(value[[i]]))) {
+                            cat("DEBUG: safeInputValue - extracted element", i, ":", paste(value[[i]], collapse = ", "), "\n")
+                            return(value[[i]])
+                        }
+                    }
+                }
+            }
+            # If we can't extract meaningful values, return NULL to avoid errors
+            cat("DEBUG: safeInputValue - complex object could not be processed, returning NULL\n")
+            return(NULL)
+        }
+        
         # If it's already a simple vector (character, numeric, logical), return as is
         if (is.vector(value) && !is.list(value) && (is.character(value) || is.numeric(value) || is.logical(value))) {
             cat("DEBUG: safeInputValue - returning simple vector:", paste(value, collapse = ", "), "\n")
@@ -59,14 +79,19 @@ isCategoricalFactor <- function(factor_data, sample_count) {
             cat("DEBUG: safeInputValue - processing list with", length(value), "elements\n")
             if (length(value) > 0) {
                 # If first element is a vector, use it
-                if (is.vector(value[[1]])) {
+                if (is.vector(value[[1]]) && (is.character(value[[1]]) || is.numeric(value[[1]]) || is.logical(value[[1]]))) {
                     cat("DEBUG: safeInputValue - returning first vector element:", paste(value[[1]], collapse = ", "), "\n")
                     return(value[[1]])
                 } else {
-                    # Convert to character
-                    char_value <- as.character(value[[1]])
-                    cat("DEBUG: safeInputValue - converted to character:", paste(char_value, collapse = ", "), "\n")
-                    return(char_value)
+                    # Convert to character only if it's a simple type
+                    tryCatch({
+                        char_value <- as.character(value[[1]])
+                        cat("DEBUG: safeInputValue - converted to character:", paste(char_value, collapse = ", "), "\n")
+                        return(char_value)
+                    }, error = function(e) {
+                        cat("DEBUG: safeInputValue - conversion failed:", e$message, "\n")
+                        return(NULL)
+                    })
                 }
             }
         }
@@ -81,10 +106,25 @@ isCategoricalFactor <- function(factor_data, sample_count) {
             }
         }
         
-        # Fallback: convert to character
-        char_value <- as.character(value)
-        cat("DEBUG: safeInputValue - fallback to character:", paste(char_value, collapse = ", "), "\n")
-        return(char_value)
+        # Fallback: convert to character with error handling
+        tryCatch({
+            char_value <- as.character(value)
+            cat("DEBUG: safeInputValue - fallback to character:", paste(char_value, collapse = ", "), "\n")
+            return(char_value)
+        }, error = function(e) {
+            cat("DEBUG: safeInputValue - fallback conversion failed:", e$message, "\n")
+            return(NULL)
+        })
+    }
+    
+    # Helper function to safely update Shiny inputs with error handling
+    safeUpdateInput <- function(update_func, session, input_id, ...) {
+        tryCatch({
+            update_func(session, input_id, ...)
+        }, error = function(e) {
+            cat("DEBUG: Failed to update", input_id, ":", e$message, "\n")
+            # Don't propagate the error, just log it
+        })
     }
     
     # Helper function to get valid categorical factors from design formula
@@ -189,61 +229,61 @@ server <- function(input, output, session) {
             # Current input selections for plots (capture key parameters)
             saved_inputs = list(
                 # Volcano plot parameters
-                volcano_significance_threshold = if(!is.null(input$significance_threshold)) input$significance_threshold else NULL,
-                volcano_log_fold_change_threshold = if(!is.null(input$log_fold_change_threshold)) input$log_fold_change_threshold else NULL,
-                volcano_threshold_type = if(!is.null(input$volcano_threshold_type)) input$volcano_threshold_type else NULL,
-                volcano_direct_padj = if(!is.null(input$volcano_direct_padj)) input$volcano_direct_padj else NULL,
-                select_avo_de_file = if(!is.null(input$select_avo_de_file)) input$select_avo_de_file else NULL,
-                sig_genes_selection = if(!is.null(input$sig_genes_selection)) input$sig_genes_selection else NULL,
+                volcano_significance_threshold = if(!is.null(input$significance_threshold)) safeInputValue(input$significance_threshold) else NULL,
+                volcano_log_fold_change_threshold = if(!is.null(input$log_fold_change_threshold)) safeInputValue(input$log_fold_change_threshold) else NULL,
+                volcano_threshold_type = if(!is.null(input$volcano_threshold_type)) safeInputValue(input$volcano_threshold_type) else NULL,
+                volcano_direct_padj = if(!is.null(input$volcano_direct_padj)) safeInputValue(input$volcano_direct_padj) else NULL,
+                select_avo_de_file = if(!is.null(input$select_avo_de_file)) safeInputValue(input$select_avo_de_file) else NULL,
+                sig_genes_selection = if(!is.null(input$sig_genes_selection)) safeInputValue(input$sig_genes_selection) else NULL,
                 
                 # Venn diagram parameters
-                venn_significance_threshold = if(!is.null(input$venn_significance_threshold)) input$venn_significance_threshold else NULL,
-                venn_log_fold_change_threshold = if(!is.null(input$venn_log_fold_change_threshold)) input$venn_log_fold_change_threshold else NULL,
-                venn_threshold_type = if(!is.null(input$venn_threshold_type)) input$venn_threshold_type else NULL,
-                venn_direct_padj = if(!is.null(input$venn_direct_padj)) input$venn_direct_padj else NULL,
-                venn_sig_genes_selection = if(!is.null(input$venn_sig_genes_selection)) input$venn_sig_genes_selection else NULL,
-                select_avo_de_venn_files = if(!is.null(input$select_avo_de_venn_files)) input$select_avo_de_venn_files else NULL,
-                venn_set_expression_input = if(!is.null(input$venn_set_expression_input)) input$venn_set_expression_input else NULL,
-                venn_sel_gene_type = if(!is.null(input$venn_sel_gene_type)) input$venn_sel_gene_type else NULL,
-                select_expression = if(!is.null(input$select_expression)) input$select_expression else NULL,
-                venn_gene_list = if(!is.null(input$venn_gene_list)) input$venn_gene_list else NULL,
-                venn_input_genes_sep = if(!is.null(input$venn_input_genes_sep)) input$venn_input_genes_sep else NULL,
-                evaluateExpression = if(!is.null(input$evaluateExpression)) input$evaluateExpression else NULL,
+                venn_significance_threshold = if(!is.null(input$venn_significance_threshold)) safeInputValue(input$venn_significance_threshold) else NULL,
+                venn_log_fold_change_threshold = if(!is.null(input$venn_log_fold_change_threshold)) safeInputValue(input$venn_log_fold_change_threshold) else NULL,
+                venn_threshold_type = if(!is.null(input$venn_threshold_type)) safeInputValue(input$venn_threshold_type) else NULL,
+                venn_direct_padj = if(!is.null(input$venn_direct_padj)) safeInputValue(input$venn_direct_padj) else NULL,
+                venn_sig_genes_selection = if(!is.null(input$venn_sig_genes_selection)) safeInputValue(input$venn_sig_genes_selection) else NULL,
+                select_avo_de_venn_files = if(!is.null(input$select_avo_de_venn_files)) safeInputValue(input$select_avo_de_venn_files) else NULL,
+                venn_set_expression_input = if(!is.null(input$venn_set_expression_input)) safeInputValue(input$venn_set_expression_input) else NULL,
+                venn_sel_gene_type = if(!is.null(input$venn_sel_gene_type)) safeInputValue(input$venn_sel_gene_type) else NULL,
+                select_expression = if(!is.null(input$select_expression)) safeInputValue(input$select_expression) else NULL,
+                venn_gene_list = if(!is.null(input$venn_gene_list)) safeInputValue(input$venn_gene_list) else NULL,
+                venn_input_genes_sep = if(!is.null(input$venn_input_genes_sep)) safeInputValue(input$venn_input_genes_sep) else NULL,
+                evaluateExpression = if(!is.null(input$evaluateExpression)) safeInputValue(input$evaluateExpression) else NULL,
                 
                 # Boxplot parameters
-                boxplotFill = if(!is.null(input$boxplotFill)) input$boxplotFill else NULL,
-                boxplotX = if(!is.null(input$boxplotX)) input$boxplotX else NULL,
-                sel_gene = if(!is.null(input$sel_gene)) input$sel_gene else NULL,
-                sel_groups = if(!is.null(input$sel_groups)) input$sel_groups else NULL,
-                sel_factors = if(!is.null(input$sel_factors)) input$sel_factors else NULL,
-                box_plot_sel_gene_type = if(!is.null(input$box_plot_sel_gene_type)) input$box_plot_sel_gene_type else NULL,
-                levelSelect = if(!is.null(input$levelSelect)) input$levelSelect else NULL,
-                levelColor = if(!is.null(input$levelColor)) input$levelColor else NULL,
-                applyColor = if(!is.null(input$applyColor)) input$applyColor else NULL,
+                boxplotFill = if(!is.null(input$boxplotFill)) safeInputValue(input$boxplotFill) else NULL,
+                boxplotX = if(!is.null(input$boxplotX)) safeInputValue(input$boxplotX) else NULL,
+                sel_gene = if(!is.null(input$sel_gene)) safeInputValue(input$sel_gene) else NULL,
+                sel_groups = if(!is.null(input$sel_groups)) safeInputValue(input$sel_groups) else NULL,
+                sel_factors = if(!is.null(input$sel_factors)) safeInputValue(input$sel_factors) else NULL,
+                box_plot_sel_gene_type = if(!is.null(input$box_plot_sel_gene_type)) safeInputValue(input$box_plot_sel_gene_type) else NULL,
+                levelSelect = if(!is.null(input$levelSelect)) safeInputValue(input$levelSelect) else NULL,
+                levelColor = if(!is.null(input$levelColor)) safeInputValue(input$levelColor) else NULL,
+                applyColor = if(!is.null(input$applyColor)) safeInputValue(input$applyColor) else NULL,
                 
                 # Heatmap parameters
-                numGenes = if(!is.null(input$numGenes)) input$numGenes else NULL,
-                subsetGenes = if(!is.null(input$subsetGenes)) input$subsetGenes else NULL,
-                listPasteGenes = if(!is.null(input$listPasteGenes)) input$listPasteGenes else NULL,
-                heatmap_sel_gene_type = if(!is.null(input$heatmap_sel_gene_type)) input$heatmap_sel_gene_type else NULL,
-                heat_group = if(!is.null(input$heat_group)) input$heat_group else NULL,
-                genHeatmap = if(!is.null(input$genHeatmap)) input$genHeatmap else NULL,
+                numGenes = if(!is.null(input$numGenes)) safeInputValue(input$numGenes) else NULL,
+                subsetGenes = if(!is.null(input$subsetGenes)) safeInputValue(input$subsetGenes) else NULL,
+                listPasteGenes = if(!is.null(input$listPasteGenes)) safeInputValue(input$listPasteGenes) else NULL,
+                heatmap_sel_gene_type = if(!is.null(input$heatmap_sel_gene_type)) safeInputValue(input$heatmap_sel_gene_type) else NULL,
+                heat_group = if(!is.null(input$heat_group)) safeInputValue(input$heat_group) else NULL,
+                genHeatmap = if(!is.null(input$genHeatmap)) safeInputValue(input$genHeatmap) else NULL,
                 
                 # Additional UI state
-                gene_alias = if(!is.null(input$gene_alias)) input$gene_alias else NULL,
-                no_replicates = if(!is.null(input$no_replicates)) input$no_replicates else NULL,
+                gene_alias = if(!is.null(input$gene_alias)) safeInputValue(input$gene_alias) else NULL,
+                no_replicates = if(!is.null(input$no_replicates)) safeInputValue(input$no_replicates) else NULL,
                 
                 # Differential Expression Analysis parameters
-                resultNameOrFactor = if(!is.null(input$resultNameOrFactor)) input$resultNameOrFactor else NULL,
-                resultNamesInput = if(!is.null(input$resultNamesInput)) input$resultNamesInput else NULL,
-                factorNameInput = if(!is.null(input$factorNameInput)) input$factorNameInput else NULL,
-                condition1 = if(!is.null(input$condition1)) input$condition1 else NULL,
-                condition2 = if(!is.null(input$condition2)) input$condition2 else NULL,
-                getDiffResVs = if(!is.null(input$getDiffResVs)) input$getDiffResVs else NULL,
+                resultNameOrFactor = if(!is.null(input$resultNameOrFactor)) safeInputValue(input$resultNameOrFactor) else NULL,
+                resultNamesInput = if(!is.null(input$resultNamesInput)) safeInputValue(input$resultNamesInput) else NULL,
+                factorNameInput = if(!is.null(input$factorNameInput)) safeInputValue(input$factorNameInput) else NULL,
+                condition1 = if(!is.null(input$condition1)) safeInputValue(input$condition1) else NULL,
+                condition2 = if(!is.null(input$condition2)) safeInputValue(input$condition2) else NULL,
+                getDiffResVs = if(!is.null(input$getDiffResVs)) safeInputValue(input$getDiffResVs) else NULL,
                 
                 # MA Plot parameters
-                alpha = if(!is.null(input$alpha)) input$alpha else NULL,
-                ylim = if(!is.null(input$ylim)) input$ylim else NULL,
+                alpha = if(!is.null(input$alpha)) safeInputValue(input$alpha) else NULL,
+                ylim = if(!is.null(input$ylim)) safeInputValue(input$ylim) else NULL,
                 
                 # Plot generation state
                 plot_generation_status = list(
@@ -339,7 +379,11 @@ server <- function(input, output, session) {
             sel_gene_safe <- safeInputValue(state_object$saved_inputs$sel_gene)
             if (!is.null(sel_gene_safe)) {
                 cat("DEBUG: Updating sel_gene with:", paste(sel_gene_safe, collapse = ", "), "\n")
-                updateSelectizeInput(session, "sel_gene", selected = sel_gene_safe)
+                tryCatch({
+                    updateSelectizeInput(session, "sel_gene", selected = sel_gene_safe)
+                }, error = function(e) {
+                    cat("DEBUG: Failed to update sel_gene:", e$message, "\n")
+                })
             } else {
                 cat("DEBUG: sel_gene_safe is NULL, skipping update\n")
             }
@@ -348,7 +392,11 @@ server <- function(input, output, session) {
             sel_groups_safe <- safeInputValue(state_object$saved_inputs$sel_groups)
             if (!is.null(sel_groups_safe)) {
                 cat("DEBUG: Updating sel_groups with:", paste(sel_groups_safe, collapse = ", "), "\n")
-                updateSelectizeInput(session, "sel_groups", selected = sel_groups_safe)
+                tryCatch({
+                    updateSelectizeInput(session, "sel_groups", selected = sel_groups_safe)
+                }, error = function(e) {
+                    cat("DEBUG: Failed to update sel_groups:", e$message, "\n")
+                })
             } else {
                 cat("DEBUG: sel_groups_safe is NULL, skipping update\n")
             }
@@ -357,7 +405,11 @@ server <- function(input, output, session) {
             sel_factors_safe <- safeInputValue(state_object$saved_inputs$sel_factors)
             if (!is.null(sel_factors_safe)) {
                 cat("DEBUG: Updating sel_factors with:", paste(sel_factors_safe, collapse = ", "), "\n")
-                updateSelectizeInput(session, "sel_factors", selected = sel_factors_safe)
+                tryCatch({
+                    updateSelectizeInput(session, "sel_factors", selected = sel_factors_safe)
+                }, error = function(e) {
+                    cat("DEBUG: Failed to update sel_factors:", e$message, "\n")
+                })
             } else {
                 cat("DEBUG: sel_factors_safe is NULL, skipping update\n")
             }
@@ -546,115 +598,131 @@ server <- function(input, output, session) {
             
             # Restore volcano plot parameters
             if (!is.null(inputs$volcano_significance_threshold)) {
-                updateNumericInput(session, "significance_threshold", value = inputs$volcano_significance_threshold)
+                safeUpdateInput(updateNumericInput, session, "significance_threshold", value = inputs$volcano_significance_threshold)
             }
             if (!is.null(inputs$volcano_log_fold_change_threshold)) {
-                updateNumericInput(session, "log_fold_change_threshold", value = inputs$volcano_log_fold_change_threshold)
+                safeUpdateInput(updateNumericInput, session, "log_fold_change_threshold", value = inputs$volcano_log_fold_change_threshold)
             }
             if (!is.null(inputs$volcano_threshold_type)) {
-                updateRadioButtons(session, "volcano_threshold_type", selected = inputs$volcano_threshold_type)
+                safeUpdateInput(updateRadioButtons, session, "volcano_threshold_type", selected = inputs$volcano_threshold_type)
             }
             if (!is.null(inputs$volcano_direct_padj)) {
-                updateNumericInput(session, "volcano_direct_padj", value = inputs$volcano_direct_padj)
+                safeUpdateInput(updateNumericInput, session, "volcano_direct_padj", value = inputs$volcano_direct_padj)
             }
             if (!is.null(inputs$select_avo_de_file) && !is.null(filelist$file_list)) {
                 select_avo_de_file_safe <- safeInputValue(inputs$select_avo_de_file)
-                updateSelectInput(session, "select_avo_de_file", selected = select_avo_de_file_safe)
+                if (!is.null(select_avo_de_file_safe)) {
+                    safeUpdateInput(updateSelectInput, session, "select_avo_de_file", selected = select_avo_de_file_safe)
+                }
             }
             if (!is.null(inputs$sig_genes_selection)) {
-                updateRadioButtons(session, "sig_genes_selection", selected = inputs$sig_genes_selection)
+                safeUpdateInput(updateRadioButtons, session, "sig_genes_selection", selected = inputs$sig_genes_selection)
             }
             
             # Restore Venn diagram parameters
             if (!is.null(inputs$venn_significance_threshold)) {
-                updateNumericInput(session, "venn_significance_threshold", value = inputs$venn_significance_threshold)
+                safeUpdateInput(updateNumericInput, session, "venn_significance_threshold", value = inputs$venn_significance_threshold)
             }
             if (!is.null(inputs$venn_log_fold_change_threshold)) {
-                updateNumericInput(session, "venn_log_fold_change_threshold", value = inputs$venn_log_fold_change_threshold)
+                safeUpdateInput(updateNumericInput, session, "venn_log_fold_change_threshold", value = inputs$venn_log_fold_change_threshold)
             }
             if (!is.null(inputs$venn_threshold_type)) {
-                updateRadioButtons(session, "venn_threshold_type", selected = inputs$venn_threshold_type)
+                safeUpdateInput(updateRadioButtons, session, "venn_threshold_type", selected = inputs$venn_threshold_type)
             }
             if (!is.null(inputs$venn_direct_padj)) {
-                updateNumericInput(session, "venn_direct_padj", value = inputs$venn_direct_padj)
+                safeUpdateInput(updateNumericInput, session, "venn_direct_padj", value = inputs$venn_direct_padj)
             }
             if (!is.null(inputs$venn_sig_genes_selection)) {
                 venn_sig_genes_selection_safe <- safeInputValue(inputs$venn_sig_genes_selection)
-                updateSelectInput(session, "venn_sig_genes_selection", selected = venn_sig_genes_selection_safe)
+                if (!is.null(venn_sig_genes_selection_safe)) {
+                    safeUpdateInput(updateSelectInput, session, "venn_sig_genes_selection", selected = venn_sig_genes_selection_safe)
+                }
             }
             # Note: select_avo_de_venn_files is dynamic and restored in restoreDelayedInputParameters
             if (!is.null(inputs$venn_set_expression_input)) {
                 venn_set_expression_input_safe <- safeInputValue(inputs$venn_set_expression_input)
-                updateTextInput(session, "venn_set_expression_input", value = venn_set_expression_input_safe)
+                if (!is.null(venn_set_expression_input_safe)) {
+                    safeUpdateInput(updateTextInput, session, "venn_set_expression_input", value = venn_set_expression_input_safe)
+                }
             }
             if (!is.null(inputs$venn_sel_gene_type)) {
-                updateRadioButtons(session, "venn_sel_gene_type", selected = inputs$venn_sel_gene_type)
+                safeUpdateInput(updateRadioButtons, session, "venn_sel_gene_type", selected = inputs$venn_sel_gene_type)
             }
             if (!is.null(inputs$select_expression)) {
                 select_expression_safe <- safeInputValue(inputs$select_expression)
-                updateSelectInput(session, "select_expression", selected = select_expression_safe)
+                if (!is.null(select_expression_safe)) {
+                    safeUpdateInput(updateSelectInput, session, "select_expression", selected = select_expression_safe)
+                }
             }
             if (!is.null(inputs$venn_gene_list)) {
                 venn_gene_list_safe <- safeInputValue(inputs$venn_gene_list)
-                updateTextAreaInput(session, "venn_gene_list", value = venn_gene_list_safe)
+                if (!is.null(venn_gene_list_safe)) {
+                    safeUpdateInput(updateTextAreaInput, session, "venn_gene_list", value = venn_gene_list_safe)
+                }
             }
             if (!is.null(inputs$venn_input_genes_sep)) {
-                updateRadioButtons(session, "venn_input_genes_sep", selected = inputs$venn_input_genes_sep)
+                safeUpdateInput(updateRadioButtons, session, "venn_input_genes_sep", selected = inputs$venn_input_genes_sep)
             }
             # Note: evaluateExpression is an action button, no update needed
             
             # Restore boxplot parameters (static ones only - dynamic ones handled later)
             if (!is.null(inputs$box_plot_sel_gene_type)) {
-                updateRadioButtons(session, "box_plot_sel_gene_type", selected = inputs$box_plot_sel_gene_type)
+                safeUpdateInput(updateRadioButtons, session, "box_plot_sel_gene_type", selected = inputs$box_plot_sel_gene_type)
             }
             if (!is.null(inputs$levelColor)) {
-                updateColourInput(session, "levelColor", value = inputs$levelColor)
+                safeUpdateInput(updateColourInput, session, "levelColor", value = inputs$levelColor)
             }
             # Note: Dynamic boxplot inputs (sel_gene, sel_groups, etc.) are restored in restoreDelayedInputParameters
             
             # Restore heatmap parameters
             if (!is.null(inputs$numGenes)) {
-                updateNumericInput(session, "numGenes", value = inputs$numGenes)
+                safeUpdateInput(updateNumericInput, session, "numGenes", value = inputs$numGenes)
             }
             if (!is.null(inputs$subsetGenes)) {
-                updateCheckboxInput(session, "subsetGenes", value = inputs$subsetGenes)
+                safeUpdateInput(updateCheckboxInput, session, "subsetGenes", value = inputs$subsetGenes)
             }
             if (!is.null(inputs$listPasteGenes)) {
                 listPasteGenes_safe <- safeInputValue(inputs$listPasteGenes)
-                updateTextAreaInput(session, "listPasteGenes", value = listPasteGenes_safe)
+                if (!is.null(listPasteGenes_safe)) {
+                    safeUpdateInput(updateTextAreaInput, session, "listPasteGenes", value = listPasteGenes_safe)
+                }
             }
             if (!is.null(inputs$heatmap_sel_gene_type)) {
-                updateRadioButtons(session, "heatmap_sel_gene_type", selected = inputs$heatmap_sel_gene_type)
+                safeUpdateInput(updateRadioButtons, session, "heatmap_sel_gene_type", selected = inputs$heatmap_sel_gene_type)
             }
             if (!is.null(inputs$heat_group)) {
                 heat_group_safe <- safeInputValue(inputs$heat_group)
-                updateSelectizeInput(session, "heat_group", selected = heat_group_safe)
+                if (!is.null(heat_group_safe)) {
+                    safeUpdateInput(updateSelectizeInput, session, "heat_group", selected = heat_group_safe)
+                }
             }
             
             # Restore global UI state
             if (!is.null(inputs$gene_alias)) {
-                updateRadioButtons(session, "gene_alias", selected = inputs$gene_alias)
+                safeUpdateInput(updateRadioButtons, session, "gene_alias", selected = inputs$gene_alias)
             }
             if (!is.null(inputs$no_replicates)) {
-                updateCheckboxInput(session, "no_replicates", value = inputs$no_replicates)
+                safeUpdateInput(updateCheckboxInput, session, "no_replicates", value = inputs$no_replicates)
             }
             
             # Restore Differential Expression Analysis parameters (static ones only)
             if (!is.null(inputs$resultNameOrFactor)) {
-                updateRadioButtons(session, "resultNameOrFactor", selected = inputs$resultNameOrFactor)
+                safeUpdateInput(updateRadioButtons, session, "resultNameOrFactor", selected = inputs$resultNameOrFactor)
             }
             if (!is.null(inputs$resultNamesInput)) {
                 resultNamesInput_safe <- safeInputValue(inputs$resultNamesInput)
-                updateSelectizeInput(session, "resultNamesInput", selected = resultNamesInput_safe)
+                if (!is.null(resultNamesInput_safe)) {
+                    safeUpdateInput(updateSelectizeInput, session, "resultNamesInput", selected = resultNamesInput_safe)
+                }
             }
             # Note: Dynamic DE inputs (factorNameInput, condition1, condition2) are restored in restoreDelayedInputParameters
             
             # Restore MA Plot parameters
             if (!is.null(inputs$alpha)) {
-                updateSliderInput(session, "alpha", value = inputs$alpha)
+                safeUpdateInput(updateSliderInput, session, "alpha", value = inputs$alpha)
             }
             if (!is.null(inputs$ylim)) {
-                updateNumericInput(session, "ylim", value = inputs$ylim)
+                safeUpdateInput(updateNumericInput, session, "ylim", value = inputs$ylim)
             }
             
             # Also try to restore dynamic parameters here (with error handling)
@@ -662,54 +730,67 @@ server <- function(input, output, session) {
                 # Restore boxplot dynamic selections
                 sel_gene_safe <- safeInputValue(inputs$sel_gene)
                 if (!is.null(sel_gene_safe)) {
-                    updateSelectizeInput(session, "sel_gene", selected = sel_gene_safe)
+                    safeUpdateInput(updateSelectizeInput, session, "sel_gene", selected = sel_gene_safe)
                 }
                 sel_groups_safe <- safeInputValue(inputs$sel_groups)
                 if (!is.null(sel_groups_safe)) {
-                    updateSelectizeInput(session, "sel_groups", selected = sel_groups_safe)
+                    safeUpdateInput(updateSelectizeInput, session, "sel_groups", selected = sel_groups_safe)
                 }
                 sel_factors_safe <- safeInputValue(inputs$sel_factors)
                 if (!is.null(sel_factors_safe)) {
-                    updateSelectizeInput(session, "sel_factors", selected = sel_factors_safe)
+                    safeUpdateInput(updateSelectizeInput, session, "sel_factors", selected = sel_factors_safe)
                 }
                 if (!is.null(inputs$boxplotX)) {
                     boxplotX_safe <- safeInputValue(inputs$boxplotX)
-                    updateSelectInput(session, "boxplotX", selected = boxplotX_safe)
+                    if (!is.null(boxplotX_safe)) {
+                        safeUpdateInput(updateSelectInput, session, "boxplotX", selected = boxplotX_safe)
+                    }
                 }
                 if (!is.null(inputs$boxplotFill)) {
                     boxplotFill_safe <- safeInputValue(inputs$boxplotFill)
-                    updateSelectInput(session, "boxplotFill", selected = boxplotFill_safe)
+                    if (!is.null(boxplotFill_safe)) {
+                        safeUpdateInput(updateSelectInput, session, "boxplotFill", selected = boxplotFill_safe)
+                    }
                 }
                 if (!is.null(inputs$levelSelect)) {
                     levelSelect_safe <- safeInputValue(inputs$levelSelect)
-                    updateSelectInput(session, "levelSelect", selected = levelSelect_safe)
+                    if (!is.null(levelSelect_safe)) {
+                        safeUpdateInput(updateSelectInput, session, "levelSelect", selected = levelSelect_safe)
+                    }
                 }
                 
                 # Restore DE analysis dynamic selections
                 factorNameInput_safe <- safeInputValue(inputs$factorNameInput)
                 if (!is.null(factorNameInput_safe)) {
-                    updateSelectizeInput(session, "factorNameInput", selected = factorNameInput_safe)
+                    safeUpdateInput(updateSelectizeInput, session, "factorNameInput", selected = factorNameInput_safe)
                 }
                 if (!is.null(inputs$condition1)) {
                     condition1_safe <- safeInputValue(inputs$condition1)
-                    updateSelectInput(session, "condition1", selected = condition1_safe)
+                    if (!is.null(condition1_safe)) {
+                        safeUpdateInput(updateSelectInput, session, "condition1", selected = condition1_safe)
+                    }
                 }
                 if (!is.null(inputs$condition2)) {
                     condition2_safe <- safeInputValue(inputs$condition2)
-                    updateSelectInput(session, "condition2", selected = condition2_safe)
+                    if (!is.null(condition2_safe)) {
+                        safeUpdateInput(updateSelectInput, session, "condition2", selected = condition2_safe)
+                    }
                 }
                 resultNamesInput_safe <- safeInputValue(inputs$resultNamesInput)
                 if (!is.null(resultNamesInput_safe)) {
-                    updateSelectizeInput(session, "resultNamesInput", selected = resultNamesInput_safe)
+                    safeUpdateInput(updateSelectizeInput, session, "resultNamesInput", selected = resultNamesInput_safe)
                 }
                 
                 # Restore Venn diagram dynamic selections
                 if (!is.null(inputs$select_avo_de_venn_files)) {
                     select_avo_de_venn_files_safe <- safeInputValue(inputs$select_avo_de_venn_files)
-                    updateSelectInput(session, "select_avo_de_venn_files", selected = select_avo_de_venn_files_safe)
+                    if (!is.null(select_avo_de_venn_files_safe)) {
+                        safeUpdateInput(updateSelectInput, session, "select_avo_de_venn_files", selected = select_avo_de_venn_files_safe)
+                    }
                 }
             }, error = function(e) {
                 # Dynamic restoration may fail if choices aren't populated yet - that's okay
+                cat("DEBUG: Dynamic restoration failed (expected):", e$message, "\n")
             })
         }
     }
