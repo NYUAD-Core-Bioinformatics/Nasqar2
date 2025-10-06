@@ -39,8 +39,56 @@ isCategoricalFactor <- function(factor_data, sample_count) {
     return(FALSE)
 }
 
-# Helper function to get valid categorical factors from design formula
-getValidCategoricalFactors <- function(factorChoices, design_terms, metadata_df) {
+    # Helper function to safely validate input values for restoration
+    safeInputValue <- function(value) {
+        if (is.null(value)) {
+            return(NULL)
+        }
+        
+        # Debug logging
+        cat("DEBUG: safeInputValue - input type:", class(value), "length:", length(value), "\n")
+        
+        # If it's already a simple vector (character, numeric, logical), return as is
+        if (is.vector(value) && !is.list(value) && (is.character(value) || is.numeric(value) || is.logical(value))) {
+            cat("DEBUG: safeInputValue - returning simple vector:", paste(value, collapse = ", "), "\n")
+            return(value)
+        }
+        
+        # If it's a list, try to extract meaningful values
+        if (is.list(value)) {
+            cat("DEBUG: safeInputValue - processing list with", length(value), "elements\n")
+            if (length(value) > 0) {
+                # If first element is a vector, use it
+                if (is.vector(value[[1]])) {
+                    cat("DEBUG: safeInputValue - returning first vector element:", paste(value[[1]], collapse = ", "), "\n")
+                    return(value[[1]])
+                } else {
+                    # Convert to character
+                    char_value <- as.character(value[[1]])
+                    cat("DEBUG: safeInputValue - converted to character:", paste(char_value, collapse = ", "), "\n")
+                    return(char_value)
+                }
+            }
+        }
+        
+        # If it's a data frame, try to get column names
+        if (is.data.frame(value)) {
+            cat("DEBUG: safeInputValue - processing data frame with", ncol(value), "columns\n")
+            if (ncol(value) > 0) {
+                col_names <- colnames(value)
+                cat("DEBUG: safeInputValue - returning column names:", paste(col_names, collapse = ", "), "\n")
+                return(col_names)
+            }
+        }
+        
+        # Fallback: convert to character
+        char_value <- as.character(value)
+        cat("DEBUG: safeInputValue - fallback to character:", paste(char_value, collapse = ", "), "\n")
+        return(char_value)
+    }
+    
+    # Helper function to get valid categorical factors from design formula
+    getValidCategoricalFactors <- function(factorChoices, design_terms, metadata_df) {
     # First filter by design formula presence
     validFactorChoices <- factorChoices[factorChoices %in% design_terms]
     
@@ -287,14 +335,31 @@ server <- function(input, output, session) {
         # Try immediate restoration of boxplot parameters (may fail if choices not ready)
         tryCatch({
             cat("DEBUG: Attempting immediate boxplot restoration\n")
-            if (!is.null(state_object$saved_inputs$sel_gene)) {
-                updateSelectizeInput(session, "sel_gene", selected = state_object$saved_inputs$sel_gene)
+            cat("DEBUG: Original sel_gene:", if(is.null(state_object$saved_inputs$sel_gene)) "NULL" else paste(state_object$saved_inputs$sel_gene, collapse = ", "), "\n")
+            sel_gene_safe <- safeInputValue(state_object$saved_inputs$sel_gene)
+            if (!is.null(sel_gene_safe)) {
+                cat("DEBUG: Updating sel_gene with:", paste(sel_gene_safe, collapse = ", "), "\n")
+                updateSelectizeInput(session, "sel_gene", selected = sel_gene_safe)
+            } else {
+                cat("DEBUG: sel_gene_safe is NULL, skipping update\n")
             }
-            if (!is.null(state_object$saved_inputs$sel_groups)) {
-                updateSelectizeInput(session, "sel_groups", selected = state_object$saved_inputs$sel_groups)
+            
+            cat("DEBUG: Original sel_groups:", if(is.null(state_object$saved_inputs$sel_groups)) "NULL" else paste(state_object$saved_inputs$sel_groups, collapse = ", "), "\n")
+            sel_groups_safe <- safeInputValue(state_object$saved_inputs$sel_groups)
+            if (!is.null(sel_groups_safe)) {
+                cat("DEBUG: Updating sel_groups with:", paste(sel_groups_safe, collapse = ", "), "\n")
+                updateSelectizeInput(session, "sel_groups", selected = sel_groups_safe)
+            } else {
+                cat("DEBUG: sel_groups_safe is NULL, skipping update\n")
             }
-            if (!is.null(state_object$saved_inputs$sel_factors)) {
-                updateSelectizeInput(session, "sel_factors", selected = state_object$saved_inputs$sel_factors)
+            
+            cat("DEBUG: Original sel_factors:", if(is.null(state_object$saved_inputs$sel_factors)) "NULL" else paste(state_object$saved_inputs$sel_factors, collapse = ", "), "\n")
+            sel_factors_safe <- safeInputValue(state_object$saved_inputs$sel_factors)
+            if (!is.null(sel_factors_safe)) {
+                cat("DEBUG: Updating sel_factors with:", paste(sel_factors_safe, collapse = ", "), "\n")
+                updateSelectizeInput(session, "sel_factors", selected = sel_factors_safe)
+            } else {
+                cat("DEBUG: sel_factors_safe is NULL, skipping update\n")
             }
         }, error = function(e) {
             cat("DEBUG: Immediate restoration failed (expected):", e$message, "\n")
@@ -440,14 +505,17 @@ server <- function(input, output, session) {
                             invalidateLater(500)
                             isolate({
                                 cat("DEBUG: Final restoration check - re-applying selections\n")
-                                if (!is.null(state_object$saved_inputs$sel_gene)) {
-                                    updateSelectizeInput(session, "sel_gene", selected = state_object$saved_inputs$sel_gene)
+                                sel_gene_safe <- safeInputValue(state_object$saved_inputs$sel_gene)
+                                if (!is.null(sel_gene_safe)) {
+                                    updateSelectizeInput(session, "sel_gene", selected = sel_gene_safe)
                                 }
-                                if (!is.null(state_object$saved_inputs$sel_groups)) {
-                                    updateSelectizeInput(session, "sel_groups", selected = state_object$saved_inputs$sel_groups)
+                                sel_groups_safe <- safeInputValue(state_object$saved_inputs$sel_groups)
+                                if (!is.null(sel_groups_safe)) {
+                                    updateSelectizeInput(session, "sel_groups", selected = sel_groups_safe)
                                 }
-                                if (!is.null(state_object$saved_inputs$sel_factors)) {
-                                    updateSelectizeInput(session, "sel_factors", selected = state_object$saved_inputs$sel_factors)
+                                sel_factors_safe <- safeInputValue(state_object$saved_inputs$sel_factors)
+                                if (!is.null(sel_factors_safe)) {
+                                    updateSelectizeInput(session, "sel_factors", selected = sel_factors_safe)
                                 }
                                 # Clear restoration state
                                 restoration_state$in_progress <- FALSE
@@ -490,7 +558,8 @@ server <- function(input, output, session) {
                 updateNumericInput(session, "volcano_direct_padj", value = inputs$volcano_direct_padj)
             }
             if (!is.null(inputs$select_avo_de_file) && !is.null(filelist$file_list)) {
-                updateSelectInput(session, "select_avo_de_file", selected = inputs$select_avo_de_file)
+                select_avo_de_file_safe <- safeInputValue(inputs$select_avo_de_file)
+                updateSelectInput(session, "select_avo_de_file", selected = select_avo_de_file_safe)
             }
             if (!is.null(inputs$sig_genes_selection)) {
                 updateRadioButtons(session, "sig_genes_selection", selected = inputs$sig_genes_selection)
@@ -510,20 +579,24 @@ server <- function(input, output, session) {
                 updateNumericInput(session, "venn_direct_padj", value = inputs$venn_direct_padj)
             }
             if (!is.null(inputs$venn_sig_genes_selection)) {
-                updateSelectInput(session, "venn_sig_genes_selection", selected = inputs$venn_sig_genes_selection)
+                venn_sig_genes_selection_safe <- safeInputValue(inputs$venn_sig_genes_selection)
+                updateSelectInput(session, "venn_sig_genes_selection", selected = venn_sig_genes_selection_safe)
             }
             # Note: select_avo_de_venn_files is dynamic and restored in restoreDelayedInputParameters
             if (!is.null(inputs$venn_set_expression_input)) {
-                updateTextInput(session, "venn_set_expression_input", value = inputs$venn_set_expression_input)
+                venn_set_expression_input_safe <- safeInputValue(inputs$venn_set_expression_input)
+                updateTextInput(session, "venn_set_expression_input", value = venn_set_expression_input_safe)
             }
             if (!is.null(inputs$venn_sel_gene_type)) {
                 updateRadioButtons(session, "venn_sel_gene_type", selected = inputs$venn_sel_gene_type)
             }
             if (!is.null(inputs$select_expression)) {
-                updateSelectInput(session, "select_expression", selected = inputs$select_expression)
+                select_expression_safe <- safeInputValue(inputs$select_expression)
+                updateSelectInput(session, "select_expression", selected = select_expression_safe)
             }
             if (!is.null(inputs$venn_gene_list)) {
-                updateTextAreaInput(session, "venn_gene_list", value = inputs$venn_gene_list)
+                venn_gene_list_safe <- safeInputValue(inputs$venn_gene_list)
+                updateTextAreaInput(session, "venn_gene_list", value = venn_gene_list_safe)
             }
             if (!is.null(inputs$venn_input_genes_sep)) {
                 updateRadioButtons(session, "venn_input_genes_sep", selected = inputs$venn_input_genes_sep)
@@ -547,13 +620,15 @@ server <- function(input, output, session) {
                 updateCheckboxInput(session, "subsetGenes", value = inputs$subsetGenes)
             }
             if (!is.null(inputs$listPasteGenes)) {
-                updateTextAreaInput(session, "listPasteGenes", value = inputs$listPasteGenes)
+                listPasteGenes_safe <- safeInputValue(inputs$listPasteGenes)
+                updateTextAreaInput(session, "listPasteGenes", value = listPasteGenes_safe)
             }
             if (!is.null(inputs$heatmap_sel_gene_type)) {
                 updateRadioButtons(session, "heatmap_sel_gene_type", selected = inputs$heatmap_sel_gene_type)
             }
             if (!is.null(inputs$heat_group)) {
-                updateSelectizeInput(session, "heat_group", selected = inputs$heat_group)
+                heat_group_safe <- safeInputValue(inputs$heat_group)
+                updateSelectizeInput(session, "heat_group", selected = heat_group_safe)
             }
             
             # Restore global UI state
@@ -569,7 +644,8 @@ server <- function(input, output, session) {
                 updateRadioButtons(session, "resultNameOrFactor", selected = inputs$resultNameOrFactor)
             }
             if (!is.null(inputs$resultNamesInput)) {
-                updateSelectizeInput(session, "resultNamesInput", selected = inputs$resultNamesInput)
+                resultNamesInput_safe <- safeInputValue(inputs$resultNamesInput)
+                updateSelectizeInput(session, "resultNamesInput", selected = resultNamesInput_safe)
             }
             # Note: Dynamic DE inputs (factorNameInput, condition1, condition2) are restored in restoreDelayedInputParameters
             
@@ -584,42 +660,53 @@ server <- function(input, output, session) {
             # Also try to restore dynamic parameters here (with error handling)
             tryCatch({
                 # Restore boxplot dynamic selections
-                if (!is.null(inputs$sel_gene)) {
-                    updateSelectizeInput(session, "sel_gene", selected = inputs$sel_gene)
+                sel_gene_safe <- safeInputValue(inputs$sel_gene)
+                if (!is.null(sel_gene_safe)) {
+                    updateSelectizeInput(session, "sel_gene", selected = sel_gene_safe)
                 }
-                if (!is.null(inputs$sel_groups)) {
-                    updateSelectizeInput(session, "sel_groups", selected = inputs$sel_groups)
+                sel_groups_safe <- safeInputValue(inputs$sel_groups)
+                if (!is.null(sel_groups_safe)) {
+                    updateSelectizeInput(session, "sel_groups", selected = sel_groups_safe)
                 }
-                if (!is.null(inputs$sel_factors)) {
-                    updateSelectizeInput(session, "sel_factors", selected = inputs$sel_factors)
+                sel_factors_safe <- safeInputValue(inputs$sel_factors)
+                if (!is.null(sel_factors_safe)) {
+                    updateSelectizeInput(session, "sel_factors", selected = sel_factors_safe)
                 }
                 if (!is.null(inputs$boxplotX)) {
-                    updateSelectInput(session, "boxplotX", selected = inputs$boxplotX)
+                    boxplotX_safe <- safeInputValue(inputs$boxplotX)
+                    updateSelectInput(session, "boxplotX", selected = boxplotX_safe)
                 }
                 if (!is.null(inputs$boxplotFill)) {
-                    updateSelectInput(session, "boxplotFill", selected = inputs$boxplotFill)
+                    boxplotFill_safe <- safeInputValue(inputs$boxplotFill)
+                    updateSelectInput(session, "boxplotFill", selected = boxplotFill_safe)
                 }
                 if (!is.null(inputs$levelSelect)) {
-                    updateSelectInput(session, "levelSelect", selected = inputs$levelSelect)
+                    levelSelect_safe <- safeInputValue(inputs$levelSelect)
+                    updateSelectInput(session, "levelSelect", selected = levelSelect_safe)
                 }
                 
                 # Restore DE analysis dynamic selections
-                if (!is.null(inputs$factorNameInput)) {
-                    updateSelectizeInput(session, "factorNameInput", selected = inputs$factorNameInput)
+                factorNameInput_safe <- safeInputValue(inputs$factorNameInput)
+                if (!is.null(factorNameInput_safe)) {
+                    updateSelectizeInput(session, "factorNameInput", selected = factorNameInput_safe)
                 }
                 if (!is.null(inputs$condition1)) {
-                    updateSelectInput(session, "condition1", selected = inputs$condition1)
+                    condition1_safe <- safeInputValue(inputs$condition1)
+                    updateSelectInput(session, "condition1", selected = condition1_safe)
                 }
                 if (!is.null(inputs$condition2)) {
-                    updateSelectInput(session, "condition2", selected = inputs$condition2)
+                    condition2_safe <- safeInputValue(inputs$condition2)
+                    updateSelectInput(session, "condition2", selected = condition2_safe)
                 }
-                if (!is.null(inputs$resultNamesInput)) {
-                    updateSelectizeInput(session, "resultNamesInput", selected = inputs$resultNamesInput)
+                resultNamesInput_safe <- safeInputValue(inputs$resultNamesInput)
+                if (!is.null(resultNamesInput_safe)) {
+                    updateSelectizeInput(session, "resultNamesInput", selected = resultNamesInput_safe)
                 }
                 
                 # Restore Venn diagram dynamic selections
                 if (!is.null(inputs$select_avo_de_venn_files)) {
-                    updateSelectInput(session, "select_avo_de_venn_files", selected = inputs$select_avo_de_venn_files)
+                    select_avo_de_venn_files_safe <- safeInputValue(inputs$select_avo_de_venn_files)
+                    updateSelectInput(session, "select_avo_de_venn_files", selected = select_avo_de_venn_files_safe)
                 }
             }, error = function(e) {
                 # Dynamic restoration may fail if choices aren't populated yet - that's okay
@@ -664,16 +751,17 @@ server <- function(input, output, session) {
                             tryCatch({
                                 # Restore sel_gene
                                 if (!is.null(inputs$sel_gene)) {
-                                    cat("DEBUG: Restoring sel_gene:", paste(inputs$sel_gene, collapse = ", "), "\n")
+                                    sel_gene_safe <- safeInputValue(inputs$sel_gene)
+                                    cat("DEBUG: Restoring sel_gene (safe):", paste(sel_gene_safe, collapse = ", "), "\n")
                                     
                                     # Check if gene type is set correctly first
                                     if (!is.null(inputs$box_plot_sel_gene_type)) {
                                         if (inputs$box_plot_sel_gene_type == "gene.name") {
                                             genenames <- myValues$genenames[rownames(myValues$dataCounts), ]
-                                            if (all(inputs$sel_gene %in% genenames)) {
+                                            if (all(sel_gene_safe %in% genenames)) {
                                                 updateSelectizeInput(session, "sel_gene", 
                                                     choices = genenames,
-                                                    selected = inputs$sel_gene,
+                                                    selected = sel_gene_safe,
                                                     server = TRUE
                                                 )
                                                 cat("DEBUG: sel_gene restored successfully\n")
@@ -682,10 +770,10 @@ server <- function(input, output, session) {
                                             }
                                         } else {
                                             gene_ids <- rownames(myValues$dataCounts)
-                                            if (all(inputs$sel_gene %in% gene_ids)) {
+                                            if (all(sel_gene_safe %in% gene_ids)) {
                                                 updateSelectizeInput(session, "sel_gene", 
                                                     choices = gene_ids,
-                                                    selected = inputs$sel_gene,
+                                                    selected = sel_gene_safe,
                                                     server = TRUE
                                                 )
                                                 cat("DEBUG: sel_gene restored successfully\n")
@@ -698,14 +786,15 @@ server <- function(input, output, session) {
                                 
                                 # Restore sel_groups
                                 if (!is.null(inputs$sel_groups)) {
-                                    cat("DEBUG: Restoring sel_groups:", paste(inputs$sel_groups, collapse = ", "), "\n")
+                                    sel_groups_safe <- safeInputValue(inputs$sel_groups)
+                                    cat("DEBUG: Restoring sel_groups (safe):", paste(sel_groups_safe, collapse = ", "), "\n")
                                     
                                     # Get available groups from DF columns
                                     available_groups <- colnames(myValues$DF)
-                                    if (all(inputs$sel_groups %in% available_groups)) {
+                                    if (all(sel_groups_safe %in% available_groups)) {
                                         updateSelectizeInput(session, "sel_groups", 
                                             choices = available_groups,
-                                            selected = inputs$sel_groups,
+                                            selected = sel_groups_safe,
                                             server = TRUE
                                         )
                                         cat("DEBUG: sel_groups restored successfully\n")
@@ -716,14 +805,15 @@ server <- function(input, output, session) {
                                 
                                 # Restore sel_factors
                                 if (!is.null(inputs$sel_factors)) {
-                                    cat("DEBUG: Restoring sel_factors:", paste(inputs$sel_factors, collapse = ", "), "\n")
+                                    sel_factors_safe <- safeInputValue(inputs$sel_factors)
+                                    cat("DEBUG: Restoring sel_factors (safe):", paste(sel_factors_safe, collapse = ", "), "\n")
                                     
                                     # Get available factors from DF columns
                                     available_factors <- colnames(myValues$DF)
-                                    if (all(inputs$sel_factors %in% available_factors)) {
+                                    if (all(sel_factors_safe %in% available_factors)) {
                                         updateSelectizeInput(session, "sel_factors", 
                                             choices = available_factors,
-                                            selected = inputs$sel_factors,
+                                            selected = sel_factors_safe,
                                             server = TRUE
                                         )
                                         cat("DEBUG: sel_factors restored successfully\n")
@@ -752,20 +842,24 @@ server <- function(input, output, session) {
             })
         }
         if (!is.null(inputs$boxplotX)) {
-            updateSelectInput(session, "boxplotX", selected = inputs$boxplotX)
+            boxplotX_safe <- safeInputValue(inputs$boxplotX)
+            updateSelectInput(session, "boxplotX", selected = boxplotX_safe)
         }
         if (!is.null(inputs$boxplotFill)) {
-            updateSelectInput(session, "boxplotFill", selected = inputs$boxplotFill)
+            boxplotFill_safe <- safeInputValue(inputs$boxplotFill)
+            updateSelectInput(session, "boxplotFill", selected = boxplotFill_safe)
         }
         if (!is.null(inputs$levelSelect)) {
-            updateSelectInput(session, "levelSelect", selected = inputs$levelSelect)
+            levelSelect_safe <- safeInputValue(inputs$levelSelect)
+            updateSelectInput(session, "levelSelect", selected = levelSelect_safe)
         }
         
         # Restore DE analysis selections (these depend on myValues$dds)
         # First restore factorNameInput, which will trigger condition choices to be populated
         if (!is.null(inputs$factorNameInput)) {
-            cat("DEBUG: Restoring factorNameInput:", inputs$factorNameInput, "\n")
-            updateSelectizeInput(session, "factorNameInput", selected = inputs$factorNameInput)
+            factorNameInput_safe <- safeInputValue(inputs$factorNameInput)
+            cat("DEBUG: Restoring factorNameInput:", factorNameInput_safe, "\n")
+            updateSelectizeInput(session, "factorNameInput", selected = factorNameInput_safe)
         }
         
         # Schedule condition restoration with multiple attempts and active monitoring
@@ -800,12 +894,14 @@ server <- function(input, output, session) {
                                     
                                     # Now restore the selected values
                                     if (!is.null(inputs$condition1) && inputs$condition1 %in% factor_levels) {
-                                        cat("DEBUG: Restoring condition1:", inputs$condition1, "\n")
-                                        updateSelectInput(session, "condition1", selected = inputs$condition1)
+                                        condition1_safe <- safeInputValue(inputs$condition1)
+                                        cat("DEBUG: Restoring condition1:", condition1_safe, "\n")
+                                        updateSelectInput(session, "condition1", selected = condition1_safe)
                                     }
                                     if (!is.null(inputs$condition2) && inputs$condition2 %in% factor_levels) {
-                                        cat("DEBUG: Restoring condition2:", inputs$condition2, "\n")
-                                        updateSelectInput(session, "condition2", selected = inputs$condition2)
+                                        condition2_safe <- safeInputValue(inputs$condition2)
+                                        cat("DEBUG: Restoring condition2:", condition2_safe, "\n")
+                                        updateSelectInput(session, "condition2", selected = condition2_safe)
                                     }
                                     
                                     # Mark as done if both conditions are valid
@@ -832,7 +928,8 @@ server <- function(input, output, session) {
         }
         
         if (!is.null(inputs$resultNamesInput)) {
-            updateSelectizeInput(session, "resultNamesInput", selected = inputs$resultNamesInput)
+            resultNamesInput_safe <- safeInputValue(inputs$resultNamesInput)
+            updateSelectizeInput(session, "resultNamesInput", selected = resultNamesInput_safe)
         }
         
         # Restore Venn diagram dynamic selections
