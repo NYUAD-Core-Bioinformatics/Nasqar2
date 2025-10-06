@@ -219,12 +219,13 @@ server <- function(input, output, session) {
             return(FALSE)
         }
         
-        # Load all state components back into myValues
+        # Load core data components
         if (!is.null(state_object$dataCounts)) myValues$dataCounts <- state_object$dataCounts
         if (!is.null(state_object$fileContent)) myValues$fileContent <- state_object$fileContent
         if (!is.null(state_object$DF)) myValues$DF <- state_object$DF
         if (!is.null(state_object$conditions)) myValues$conditions <- state_object$conditions
         
+        # Load gene information
         if (!is.null(state_object$geneids)) myValues$geneids <- state_object$geneids
         if (!is.null(state_object$genenames)) myValues$genenames <- state_object$genenames
         if (!is.null(state_object$selected_genes)) myValues$selected_genes <- state_object$selected_genes
@@ -409,7 +410,8 @@ server <- function(input, output, session) {
                 in_progress = FALSE,
                 saved_sel_gene = NULL,
                 saved_sel_groups = NULL,
-                saved_sel_factors = NULL
+                saved_sel_factors = NULL,
+                boxplot_restoration_done = FALSE
             )
         }
         
@@ -418,6 +420,7 @@ server <- function(input, output, session) {
         restoration_state$saved_sel_gene <- state_object$saved_inputs$sel_gene
         restoration_state$saved_sel_groups <- state_object$saved_inputs$sel_groups
         restoration_state$saved_sel_factors <- state_object$saved_inputs$sel_factors
+        restoration_state$boxplot_restoration_done <- FALSE
         
         observe({
             # Check if the required data is available and we haven't triggered restoration yet
@@ -448,7 +451,9 @@ server <- function(input, output, session) {
                                 }
                                 # Clear restoration state
                                 restoration_state$in_progress <- FALSE
+                                restoration_state$boxplot_restoration_done <- TRUE
                                 final_restore$done <- TRUE
+                                cat("DEBUG: Restoration state cleared - observers can now run normally\n")
                             })
                         }
                     })
@@ -641,23 +646,111 @@ server <- function(input, output, session) {
             # Silently continue if notification fails
         })
         
-        # Restore boxplot selections (these depend on myValues$DF and dynamic choices)
-        tryCatch({
-            if (!is.null(inputs$sel_gene)) {
-                cat("DEBUG: Restoring sel_gene:", paste(inputs$sel_gene, collapse = ", "), "\n")
-                updateSelectizeInput(session, "sel_gene", selected = inputs$sel_gene)
-            }
-            if (!is.null(inputs$sel_groups)) {
-                cat("DEBUG: Restoring sel_groups:", paste(inputs$sel_groups, collapse = ", "), "\n")
-                updateSelectizeInput(session, "sel_groups", selected = inputs$sel_groups)
-            }
-            if (!is.null(inputs$sel_factors)) {
-                cat("DEBUG: Restoring sel_factors:", paste(inputs$sel_factors, collapse = ", "), "\n")
-                updateSelectizeInput(session, "sel_factors", selected = inputs$sel_factors)
-            }
-        }, error = function(e) {
-            cat("DEBUG: Error in boxplot restoration:", e$message, "\n")
-        })
+        # Restore boxplot selections with dedicated observer to avoid conflicts
+        if (!is.null(inputs$sel_gene) || !is.null(inputs$sel_groups) || !is.null(inputs$sel_factors)) {
+            boxplot_restore_observer <- reactiveValues(done = FALSE, attempts = 0)
+            
+            observe({
+                if (!boxplot_restore_observer$done && boxplot_restore_observer$attempts < 10) {
+                    invalidateLater(1000)  # Check every second
+                    isolate({
+                        boxplot_restore_observer$attempts <- boxplot_restore_observer$attempts + 1
+                        cat("DEBUG: Boxplot restoration attempt", boxplot_restore_observer$attempts, "\n")
+                        
+                        # Check if data is ready
+                        if (!is.null(myValues$dataCounts) && !is.null(myValues$DF)) {
+                            cat("DEBUG: Data is ready, attempting boxplot restoration\n")
+                            
+                            tryCatch({
+                                # Restore sel_gene
+                                if (!is.null(inputs$sel_gene)) {
+                                    cat("DEBUG: Restoring sel_gene:", paste(inputs$sel_gene, collapse = ", "), "\n")
+                                    
+                                    # Check if gene type is set correctly first
+                                    if (!is.null(inputs$box_plot_sel_gene_type)) {
+                                        if (inputs$box_plot_sel_gene_type == "gene.name") {
+                                            genenames <- myValues$genenames[rownames(myValues$dataCounts), ]
+                                            if (all(inputs$sel_gene %in% genenames)) {
+                                                updateSelectizeInput(session, "sel_gene", 
+                                                    choices = genenames,
+                                                    selected = inputs$sel_gene,
+                                                    server = TRUE
+                                                )
+                                                cat("DEBUG: sel_gene restored successfully\n")
+                                            } else {
+                                                cat("DEBUG: sel_gene values not found in genenames\n")
+                                            }
+                                        } else {
+                                            gene_ids <- rownames(myValues$dataCounts)
+                                            if (all(inputs$sel_gene %in% gene_ids)) {
+                                                updateSelectizeInput(session, "sel_gene", 
+                                                    choices = gene_ids,
+                                                    selected = inputs$sel_gene,
+                                                    server = TRUE
+                                                )
+                                                cat("DEBUG: sel_gene restored successfully\n")
+                                            } else {
+                                                cat("DEBUG: sel_gene values not found in gene_ids\n")
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                # Restore sel_groups
+                                if (!is.null(inputs$sel_groups)) {
+                                    cat("DEBUG: Restoring sel_groups:", paste(inputs$sel_groups, collapse = ", "), "\n")
+                                    
+                                    # Get available groups from DF columns
+                                    available_groups <- colnames(myValues$DF)
+                                    if (all(inputs$sel_groups %in% available_groups)) {
+                                        updateSelectizeInput(session, "sel_groups", 
+                                            choices = available_groups,
+                                            selected = inputs$sel_groups,
+                                            server = TRUE
+                                        )
+                                        cat("DEBUG: sel_groups restored successfully\n")
+                                    } else {
+                                        cat("DEBUG: sel_groups values not found in available groups\n")
+                                    }
+                                }
+                                
+                                # Restore sel_factors
+                                if (!is.null(inputs$sel_factors)) {
+                                    cat("DEBUG: Restoring sel_factors:", paste(inputs$sel_factors, collapse = ", "), "\n")
+                                    
+                                    # Get available factors from DF columns
+                                    available_factors <- colnames(myValues$DF)
+                                    if (all(inputs$sel_factors %in% available_factors)) {
+                                        updateSelectizeInput(session, "sel_factors", 
+                                            choices = available_factors,
+                                            selected = inputs$sel_factors,
+                                            server = TRUE
+                                        )
+                                        cat("DEBUG: sel_factors restored successfully\n")
+                                    } else {
+                                        cat("DEBUG: sel_factors values not found in available factors\n")
+                                    }
+                                }
+                                
+                                # Mark as done
+                                restoration_state$boxplot_restoration_done <- TRUE
+                                boxplot_restore_observer$done <- TRUE
+                                cat("DEBUG: Boxplot restoration completed successfully\n")
+                                
+                            }, error = function(e) {
+                                cat("DEBUG: Boxplot restoration attempt failed:", e$message, "\n")
+                            })
+                        }
+                        
+                        # Give up after 10 attempts
+                        if (boxplot_restore_observer$attempts >= 10) {
+                            cat("DEBUG: Giving up on boxplot restoration after 10 attempts\n")
+                            boxplot_restore_observer$done <- TRUE
+                        }
+                    })
+                }
+            })
+        }
         if (!is.null(inputs$boxplotX)) {
             updateSelectInput(session, "boxplotX", selected = inputs$boxplotX)
         }
@@ -912,8 +1005,31 @@ server <- function(input, output, session) {
             paste0("deseq2shiny_state_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".RData")
         },
         content = function(file) {
-            state_object <- saveAppState()
-            save(state_object, file = file)
+            withProgress(message = "Saving application state...", value = 0, {
+                # Step 1: Collecting core data
+                setProgress(value = 0.1, detail = "Collecting core data...")
+                
+                # Step 2: Collecting DESeq2 objects
+                setProgress(value = 0.3, detail = "Collecting DESeq2 objects...")
+                
+                # Step 3: Collecting analysis results
+                setProgress(value = 0.5, detail = "Collecting analysis results...")
+                
+                # Step 4: Collecting UI inputs
+                setProgress(value = 0.7, detail = "Collecting UI inputs...")
+                
+                # Step 5: Creating state object
+                setProgress(value = 0.8, detail = "Creating state object...")
+                state_object <- saveAppState()
+                
+                # Step 6: Writing to file
+                setProgress(value = 0.9, detail = "Writing state file...")
+                save(state_object, file = file)
+                
+                # Step 7: Complete
+                setProgress(value = 1.0, detail = "State saved successfully!")
+            })
+            
             showNotification("Application state saved successfully!", type = "default", duration = 3)
         }
     )
@@ -922,37 +1038,72 @@ server <- function(input, output, session) {
     observeEvent(input$loadStateFile, {
         req(input$loadStateFile)
         
-        tryCatch({
-            # Load the state file
-            load(input$loadStateFile$datapath)
-            
-            # Check if state_object exists in the loaded file
-            if (!exists("state_object")) {
-                showNotification("Invalid state file: 'state_object' not found", type = "error", duration = 5)
-                return()
-            }
-            
-            # Load the state
-            success <- loadAppState(state_object)
-            
-            if (success) {
-                # Navigate to appropriate tab
-                if (!is.null(myValues$vsResults)) {
-                    updateTabItems(session, "tabs", "resultsTab")
-                } else if (!is.null(myValues$dds)) {
-                    updateTabItems(session, "tabs", "deseqTab")
-                } else if (!is.null(myValues$DF)) {
-                    updateTabItems(session, "tabs", "conditionsTab")
-                } else {
-                    updateTabItems(session, "tabs", "inputdata")
+        withProgress(message = "Loading application state...", value = 0, {
+            tryCatch({
+                # Step 1: Reading state file
+                setProgress(value = 0.1, detail = "Reading state file...")
+                load(input$loadStateFile$datapath)
+                
+                # Step 2: Validating state object
+                setProgress(value = 0.2, detail = "Validating state file...")
+                if (!exists("state_object")) {
+                    showNotification("Invalid state file: 'state_object' not found", type = "error", duration = 5)
+                    return()
                 }
-            }
-            
-        }, error = function(e) {
-            showNotification(
-                paste("Error loading state file:", e$message),
-                type = "error", duration = 5
-            )
+                
+                # Step 3: Loading core data
+                setProgress(value = 0.3, detail = "Loading core data...")
+                
+                # Load DESeq2 objects
+                setProgress(value = 0.4, detail = "Loading DESeq2 objects...")
+                if (!is.null(state_object$dds)) myValues$dds <- state_object$dds
+                if (!is.null(state_object$ddsSva)) myValues$ddsSva <- state_object$ddsSva
+                if (!is.null(state_object$ddsAddSV)) myValues$ddsAddSV <- state_object$ddsAddSV
+                
+                # Load analysis results
+                setProgress(value = 0.5, detail = "Loading analysis results...")
+                if (!is.null(state_object$vsResults)) myValues$vsResults <- state_object$vsResults
+                if (!is.null(state_object$vsResultsSva)) myValues$vsResultsSva <- state_object$vsResultsSva
+                if (!is.null(state_object$vsResultsAddSV)) myValues$vsResultsAddSV <- state_object$vsResultsAddSV
+                
+                # Load transformations
+                setProgress(value = 0.55, detail = "Loading transformations...")
+                if (!is.null(state_object$rlogTransformation)) myValues$rlogTransformation <- state_object$rlogTransformation
+                if (!is.null(state_object$vstTransformation)) myValues$vstTransformation <- state_object$vstTransformation
+                
+                # Load other components
+                setProgress(value = 0.6, detail = "Loading additional components...")
+                success <- loadAppState(state_object)
+                
+                if (success) {
+                    # Step 4: Restoring UI inputs
+                    setProgress(value = 0.7, detail = "Restoring UI inputs...")
+                    
+                    # Step 5: Determining navigation
+                    setProgress(value = 0.85, detail = "Preparing interface...")
+                    
+                    # Step 6: Navigate to appropriate tab
+                    setProgress(value = 0.95, detail = "Finalizing restoration...")
+                    if (!is.null(myValues$vsResults)) {
+                        updateTabItems(session, "tabs", "resultsTab")
+                    } else if (!is.null(myValues$dds)) {
+                        updateTabItems(session, "tabs", "deseqTab")
+                    } else if (!is.null(myValues$DF)) {
+                        updateTabItems(session, "tabs", "conditionsTab")
+                    } else {
+                        updateTabItems(session, "tabs", "inputdata")
+                    }
+                    
+                    # Step 7: Complete
+                    setProgress(value = 1.0, detail = "State loaded successfully!")
+                }
+                
+            }, error = function(e) {
+                showNotification(
+                    paste("Error loading state file:", e$message),
+                    type = "error", duration = 5
+                )
+            })
         })
     })
     
