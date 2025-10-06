@@ -788,13 +788,13 @@ output$gene_data_sets <- DT::renderDataTable(
         d <- avo_venn_frames_data()
 
         df <- data.frame("File Name" = d[[2]], "Label" = names(d[[1]]))
-        set_names <- names(d[[1]])
+        set_names <- as.vector(names(d[[1]]))  # Ensure simple vector
 
         combinations <- generateBinaryMatrix(set_names)
-        set_expressions <- rownames(combinations[-1, ])
+        set_expressions <- as.vector(rownames(combinations[-1, ]))  # Ensure simple vector
         updateSelectInput(session, "select_expression",
             choices = set_expressions,
-            selected = set_expressions[length(set_expressions)][]
+            selected = set_expressions[length(set_expressions)]
         )
 
 
