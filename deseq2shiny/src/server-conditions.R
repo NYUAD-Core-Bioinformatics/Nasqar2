@@ -1,11 +1,13 @@
 observe({
-    colnamesChoices <- colnames(myValues$DF[!(names(myValues$DF) %in% c("Samples", "Groups"))])
+    colnamesChoices <- as.vector(colnames(myValues$DF[!(names(myValues$DF) %in% c("Samples", "Groups"))]))
     updateSelectInput(session, "colToRemove", choices = colnamesChoices, selected = NULL)
     
     # Update sample exclusion choices when DF changes
     if (!is.null(myValues$DF)) {
         sampleChoices <- as.vector(rownames(myValues$DF))  # Ensure simple vector
-        updateSelectizeInput(session, "samplesToExclude", choices = sampleChoices, selected = input$samplesToExclude)
+        # Ensure selected value is also a simple vector
+        selectedSamples <- if(!is.null(input$samplesToExclude)) as.vector(input$samplesToExclude) else NULL
+        updateSelectizeInput(session, "samplesToExclude", choices = sampleChoices, selected = selectedSamples)
     }
 })
 
