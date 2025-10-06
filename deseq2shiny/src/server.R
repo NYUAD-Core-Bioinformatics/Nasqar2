@@ -48,6 +48,21 @@ isCategoricalFactor <- function(factor_data, sample_count) {
         # Debug logging
         cat("DEBUG: safeInputValue - input type:", class(value), "length:", length(value), "\n")
         
+        # First, try to serialize and deserialize to catch any serialization issues
+        tryCatch({
+            # Test if the value can be serialized to JSON (which is what Shiny uses)
+            json_value <- jsonlite::toJSON(value, auto_unbox = TRUE)
+            parsed_value <- jsonlite::fromJSON(json_value)
+            
+            # If it's a simple value after JSON round-trip, use it
+            if (is.atomic(parsed_value) && (is.character(parsed_value) || is.numeric(parsed_value) || is.logical(parsed_value))) {
+                cat("DEBUG: safeInputValue - JSON round-trip successful:", paste(parsed_value, collapse = ", "), "\n")
+                return(parsed_value)
+            }
+        }, error = function(e) {
+            cat("DEBUG: safeInputValue - JSON serialization failed:", e$message, "\n")
+        })
+        
         # Handle complex objects that might be JavaScript objects or other non-serializable types
         if (is.object(value) && !is.data.frame(value) && !is.factor(value)) {
             cat("DEBUG: safeInputValue - detected complex object, attempting to extract values\n")
@@ -57,8 +72,14 @@ isCategoricalFactor <- function(factor_data, sample_count) {
                     # Try to extract the first meaningful element
                     for (i in seq_along(value)) {
                         if (!is.null(value[[i]]) && (is.character(value[[i]]) || is.numeric(value[[i]]) || is.logical(value[[i]]))) {
-                            cat("DEBUG: safeInputValue - extracted element", i, ":", paste(value[[i]], collapse = ", "), "\n")
-                            return(value[[i]])
+                            # Test JSON serialization of extracted value
+                            tryCatch({
+                                json_test <- jsonlite::toJSON(value[[i]], auto_unbox = TRUE)
+                                cat("DEBUG: safeInputValue - extracted element", i, ":", paste(value[[i]], collapse = ", "), "\n")
+                                return(value[[i]])
+                            }, error = function(e) {
+                                cat("DEBUG: safeInputValue - extracted element", i, "failed JSON test:", e$message, "\n")
+                            })
                         }
                     }
                 }
@@ -68,10 +89,25 @@ isCategoricalFactor <- function(factor_data, sample_count) {
             return(NULL)
         }
         
-        # If it's already a simple vector (character, numeric, logical), return as is
+        # If it's already a simple vector (character, numeric, logical), test JSON serialization
         if (is.vector(value) && !is.list(value) && (is.character(value) || is.numeric(value) || is.logical(value))) {
-            cat("DEBUG: safeInputValue - returning simple vector:", paste(value, collapse = ", "), "\n")
-            return(value)
+            tryCatch({
+                json_test <- jsonlite::toJSON(value, auto_unbox = TRUE)
+                cat("DEBUG: safeInputValue - returning simple vector:", paste(value, collapse = ", "), "\n")
+                return(value)
+            }, error = function(e) {
+                cat("DEBUG: safeInputValue - simple vector failed JSON test:", e$message, "\n")
+                # Try to convert to character and test again
+                tryCatch({
+                    char_value <- as.character(value)
+                    json_test <- jsonlite::toJSON(char_value, auto_unbox = TRUE)
+                    cat("DEBUG: safeInputValue - converted to character and passed JSON test:", paste(char_value, collapse = ", "), "\n")
+                    return(char_value)
+                }, error = function(e2) {
+                    cat("DEBUG: safeInputValue - character conversion also failed:", e2$message, "\n")
+                    return(NULL)
+                })
+            })
         }
         
         # If it's a list, try to extract meaningful values
@@ -80,12 +116,18 @@ isCategoricalFactor <- function(factor_data, sample_count) {
             if (length(value) > 0) {
                 # If first element is a vector, use it
                 if (is.vector(value[[1]]) && (is.character(value[[1]]) || is.numeric(value[[1]]) || is.logical(value[[1]]))) {
-                    cat("DEBUG: safeInputValue - returning first vector element:", paste(value[[1]], collapse = ", "), "\n")
-                    return(value[[1]])
+                    tryCatch({
+                        json_test <- jsonlite::toJSON(value[[1]], auto_unbox = TRUE)
+                        cat("DEBUG: safeInputValue - returning first vector element:", paste(value[[1]], collapse = ", "), "\n")
+                        return(value[[1]])
+                    }, error = function(e) {
+                        cat("DEBUG: safeInputValue - first vector element failed JSON test:", e$message, "\n")
+                    })
                 } else {
                     # Convert to character only if it's a simple type
                     tryCatch({
                         char_value <- as.character(value[[1]])
+                        json_test <- jsonlite::toJSON(char_value, auto_unbox = TRUE)
                         cat("DEBUG: safeInputValue - converted to character:", paste(char_value, collapse = ", "), "\n")
                         return(char_value)
                     }, error = function(e) {
@@ -101,14 +143,21 @@ isCategoricalFactor <- function(factor_data, sample_count) {
             cat("DEBUG: safeInputValue - processing data frame with", ncol(value), "columns\n")
             if (ncol(value) > 0) {
                 col_names <- colnames(value)
-                cat("DEBUG: safeInputValue - returning column names:", paste(col_names, collapse = ", "), "\n")
-                return(col_names)
+                tryCatch({
+                    json_test <- jsonlite::toJSON(col_names, auto_unbox = TRUE)
+                    cat("DEBUG: safeInputValue - returning column names:", paste(col_names, collapse = ", "), "\n")
+                    return(col_names)
+                }, error = function(e) {
+                    cat("DEBUG: safeInputValue - column names failed JSON test:", e$message, "\n")
+                    return(NULL)
+                })
             }
         }
         
         # Fallback: convert to character with error handling
         tryCatch({
             char_value <- as.character(value)
+            json_test <- jsonlite::toJSON(char_value, auto_unbox = TRUE)
             cat("DEBUG: safeInputValue - fallback to character:", paste(char_value, collapse = ", "), "\n")
             return(char_value)
         }, error = function(e) {
@@ -120,11 +169,94 @@ isCategoricalFactor <- function(factor_data, sample_count) {
     # Helper function to safely update Shiny inputs with error handling
     safeUpdateInput <- function(update_func, session, input_id, ...) {
         tryCatch({
-            update_func(session, input_id, ...)
+            # Extract the arguments
+            args <- list(...)
+            
+            # Validate all arguments that might be sent to the client
+            validated_args <- list()
+            for (arg_name in names(args)) {
+                if (arg_name %in% c("selected", "value", "choices")) {
+                    # These are the arguments that get sent to the client
+                    validated_value <- validateForClient(args[[arg_name]])
+                    if (!is.null(validated_value)) {
+                        validated_args[[arg_name]] <- validated_value
+                    } else {
+                        cat("DEBUG: safeUpdateInput - skipping", arg_name, "due to validation failure\n")
+                        return() # Skip this update entirely
+                    }
+                } else {
+                    # Other arguments (like choices for selectize) can be complex
+                    validated_args[[arg_name]] <- args[[arg_name]]
+                }
+            }
+            
+            # Call the update function with validated arguments
+            do.call(update_func, c(list(session, input_id), validated_args))
         }, error = function(e) {
             cat("DEBUG: Failed to update", input_id, ":", e$message, "\n")
             # Don't propagate the error, just log it
         })
+    }
+    
+    # Helper function to validate values before sending to client (SSL-safe)
+    validateForClient <- function(value) {
+        if (is.null(value)) {
+            return(NULL)
+        }
+        
+        # Test JSON serialization which is what Shiny uses for client communication
+        tryCatch({
+            # Test the exact serialization that Shiny will use
+            json_value <- jsonlite::toJSON(value, auto_unbox = TRUE, null = "null")
+            
+            # Try to parse it back to ensure it's valid
+            parsed_value <- jsonlite::fromJSON(json_value)
+            
+            # Additional check: ensure it's not a complex object
+            if (is.atomic(parsed_value) || (is.list(parsed_value) && all(sapply(parsed_value, function(x) is.atomic(x) || is.null(x))))) {
+                return(value)
+            } else {
+                cat("DEBUG: validateForClient - value contains non-atomic elements, returning NULL\n")
+                return(NULL)
+            }
+        }, error = function(e) {
+            cat("DEBUG: validateForClient - JSON serialization failed:", e$message, "\n")
+            return(NULL)
+        })
+    }
+    
+    # Helper function to clean state object and remove problematic values
+    cleanStateObject <- function(state_obj) {
+        if (!is.list(state_obj)) {
+            return(state_obj)
+        }
+        
+        # Clean the saved_inputs section specifically
+        if (!is.null(state_obj$saved_inputs) && is.list(state_obj$saved_inputs)) {
+            cat("DEBUG: Cleaning saved_inputs section\n")
+            cleaned_inputs <- list()
+            
+            for (input_name in names(state_obj$saved_inputs)) {
+                input_value <- state_obj$saved_inputs[[input_name]]
+                cleaned_value <- safeInputValue(input_value)
+                
+                if (!is.null(cleaned_value)) {
+                    # Double-check with client validation
+                    if (!is.null(validateForClient(cleaned_value))) {
+                        cleaned_inputs[[input_name]] <- cleaned_value
+                        cat("DEBUG: Cleaned input", input_name, "successfully\n")
+                    } else {
+                        cat("DEBUG: Input", input_name, "failed client validation, skipping\n")
+                    }
+                } else {
+                    cat("DEBUG: Input", input_name, "could not be cleaned, skipping\n")
+                }
+            }
+            
+            state_obj$saved_inputs <- cleaned_inputs
+        }
+        
+        return(state_obj)
     }
     
     # Helper function to get valid categorical factors from design formula
@@ -158,6 +290,17 @@ isCategoricalFactor <- function(factor_data, sample_count) {
 
 
 server <- function(input, output, session) {
+    # Add error handling for client-side communication issues
+    session$onFlushed(function() {
+        # This runs after the session is flushed to the client
+        # Add any post-flush validation here if needed
+    })
+    
+    # Add error handling for session errors
+    session$onSessionEnded(function() {
+        # Clean up any resources
+    })
+    
     source("server-inputdata.R", local = TRUE)
 
     source("server-conditions.R", local = TRUE)
@@ -307,6 +450,9 @@ server <- function(input, output, session) {
             return(FALSE)
         }
         
+        # Clean the state object to remove any problematic values
+        state_object <- cleanStateObject(state_object)
+        
         # Load core data components
         if (!is.null(state_object$dataCounts)) myValues$dataCounts <- state_object$dataCounts
         if (!is.null(state_object$fileContent)) myValues$fileContent <- state_object$fileContent
@@ -375,43 +521,41 @@ server <- function(input, output, session) {
         # Try immediate restoration of boxplot parameters (may fail if choices not ready)
         tryCatch({
             cat("DEBUG: Attempting immediate boxplot restoration\n")
-            cat("DEBUG: Original sel_gene:", if(is.null(state_object$saved_inputs$sel_gene)) "NULL" else paste(state_object$saved_inputs$sel_gene, collapse = ", "), "\n")
-            sel_gene_safe <- safeInputValue(state_object$saved_inputs$sel_gene)
-            if (!is.null(sel_gene_safe)) {
-                cat("DEBUG: Updating sel_gene with:", paste(sel_gene_safe, collapse = ", "), "\n")
-                tryCatch({
-                    updateSelectizeInput(session, "sel_gene", selected = sel_gene_safe)
-                }, error = function(e) {
-                    cat("DEBUG: Failed to update sel_gene:", e$message, "\n")
-                })
-            } else {
-                cat("DEBUG: sel_gene_safe is NULL, skipping update\n")
+            
+            # Restore sel_gene with enhanced validation
+            if (!is.null(state_object$saved_inputs$sel_gene)) {
+                cat("DEBUG: Original sel_gene:", paste(state_object$saved_inputs$sel_gene, collapse = ", "), "\n")
+                sel_gene_safe <- safeInputValue(state_object$saved_inputs$sel_gene)
+                if (!is.null(sel_gene_safe) && !is.null(validateForClient(sel_gene_safe))) {
+                    cat("DEBUG: Updating sel_gene with:", paste(sel_gene_safe, collapse = ", "), "\n")
+                    safeUpdateInput(updateSelectizeInput, session, "sel_gene", selected = sel_gene_safe)
+                } else {
+                    cat("DEBUG: sel_gene_safe failed validation, skipping update\n")
+                }
             }
             
-            cat("DEBUG: Original sel_groups:", if(is.null(state_object$saved_inputs$sel_groups)) "NULL" else paste(state_object$saved_inputs$sel_groups, collapse = ", "), "\n")
-            sel_groups_safe <- safeInputValue(state_object$saved_inputs$sel_groups)
-            if (!is.null(sel_groups_safe)) {
-                cat("DEBUG: Updating sel_groups with:", paste(sel_groups_safe, collapse = ", "), "\n")
-                tryCatch({
-                    updateSelectizeInput(session, "sel_groups", selected = sel_groups_safe)
-                }, error = function(e) {
-                    cat("DEBUG: Failed to update sel_groups:", e$message, "\n")
-                })
-            } else {
-                cat("DEBUG: sel_groups_safe is NULL, skipping update\n")
+            # Restore sel_groups with enhanced validation
+            if (!is.null(state_object$saved_inputs$sel_groups)) {
+                cat("DEBUG: Original sel_groups:", paste(state_object$saved_inputs$sel_groups, collapse = ", "), "\n")
+                sel_groups_safe <- safeInputValue(state_object$saved_inputs$sel_groups)
+                if (!is.null(sel_groups_safe) && !is.null(validateForClient(sel_groups_safe))) {
+                    cat("DEBUG: Updating sel_groups with:", paste(sel_groups_safe, collapse = ", "), "\n")
+                    safeUpdateInput(updateSelectizeInput, session, "sel_groups", selected = sel_groups_safe)
+                } else {
+                    cat("DEBUG: sel_groups_safe failed validation, skipping update\n")
+                }
             }
             
-            cat("DEBUG: Original sel_factors:", if(is.null(state_object$saved_inputs$sel_factors)) "NULL" else paste(state_object$saved_inputs$sel_factors, collapse = ", "), "\n")
-            sel_factors_safe <- safeInputValue(state_object$saved_inputs$sel_factors)
-            if (!is.null(sel_factors_safe)) {
-                cat("DEBUG: Updating sel_factors with:", paste(sel_factors_safe, collapse = ", "), "\n")
-                tryCatch({
-                    updateSelectizeInput(session, "sel_factors", selected = sel_factors_safe)
-                }, error = function(e) {
-                    cat("DEBUG: Failed to update sel_factors:", e$message, "\n")
-                })
-            } else {
-                cat("DEBUG: sel_factors_safe is NULL, skipping update\n")
+            # Restore sel_factors with enhanced validation
+            if (!is.null(state_object$saved_inputs$sel_factors)) {
+                cat("DEBUG: Original sel_factors:", paste(state_object$saved_inputs$sel_factors, collapse = ", "), "\n")
+                sel_factors_safe <- safeInputValue(state_object$saved_inputs$sel_factors)
+                if (!is.null(sel_factors_safe) && !is.null(validateForClient(sel_factors_safe))) {
+                    cat("DEBUG: Updating sel_factors with:", paste(sel_factors_safe, collapse = ", "), "\n")
+                    safeUpdateInput(updateSelectizeInput, session, "sel_factors", selected = sel_factors_safe)
+                } else {
+                    cat("DEBUG: sel_factors_safe failed validation, skipping update\n")
+                }
             }
         }, error = function(e) {
             cat("DEBUG: Immediate restoration failed (expected):", e$message, "\n")
