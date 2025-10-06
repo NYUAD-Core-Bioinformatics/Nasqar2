@@ -109,7 +109,7 @@ ddsReactive <- eventReactive(input$run_deseq2, {
         }
 
 
-        factorChoices <- colnames(colData(dds))
+        factorChoices <- as.vector(colnames(colData(dds)))  # Ensure simple vector
 
         # print('factorChoices')
         # print(factorChoices)
@@ -226,7 +226,7 @@ observeEvent(input$factorNameInput,
             factor_data <- as.factor(factor_data)
         }
         
-        factor_levels <- levels(factor_data)
+        factor_levels <- as.vector(levels(factor_data))  # Ensure simple vector
         print(paste("Factor levels:", paste(factor_levels, collapse = ", ")))
         
         # Only populate if there are at least 2 levels for comparison
