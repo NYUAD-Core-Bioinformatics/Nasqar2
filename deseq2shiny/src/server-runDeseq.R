@@ -138,13 +138,17 @@ ddsReactive <- eventReactive(input$run_deseq2, {
             validFactorChoices <- factorChoices
         }
 
-        updateSelectizeInput(session, "resultNamesInput", choices = resultsNames(dds), selected = NULL)
-        updateSelectizeInput(session, "factorNameInput", choices = validFactorChoices, selected = if(length(validFactorChoices) > 0) validFactorChoices[1] else NULL)
+        # Ensure simple vectors for updateSelectizeInput
+        result_names <- as.vector(resultsNames(dds))
+        valid_factors <- as.vector(validFactorChoices)
+        
+        updateSelectizeInput(session, "resultNamesInput", choices = result_names, selected = NULL)
+        updateSelectizeInput(session, "factorNameInput", choices = valid_factors, selected = if(length(valid_factors) > 0) valid_factors[1] else NULL)
 
         # Update condition dropdowns now that DESeq2 analysis is complete
         if (!is.null(input$factorNameInput) && input$factorNameInput != "" && 
-            input$factorNameInput %in% validFactorChoices) {
-            factor_levels <- levels(myValues$DF[, input$factorNameInput])
+            input$factorNameInput %in% valid_factors) {
+            factor_levels <- as.vector(levels(myValues$DF[, input$factorNameInput]))
             if (length(factor_levels) >= 2) {
                 updateSelectInput(session, "condition1", choices = factor_levels)
                 updateSelectInput(session, "condition2", choices = factor_levels)

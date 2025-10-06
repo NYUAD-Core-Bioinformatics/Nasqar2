@@ -48,6 +48,23 @@ isCategoricalFactor <- function(factor_data, sample_count) {
         # Debug logging
         cat("DEBUG: safeInputValue - input type:", class(value), "length:", length(value), "\n")
         
+        # CRITICAL: Strip all attributes first to avoid object issues
+        # This ensures we're working with simple values only
+        if (!is.null(value) && !is.function(value) && !is.environment(value)) {
+            # For lists, process recursively
+            if (is.list(value) && !is.data.frame(value)) {
+                value <- lapply(value, function(x) {
+                    if (is.atomic(x)) {
+                        as.vector(x)  # Strip all attributes
+                    } else {
+                        x
+                    }
+                })
+            } else if (is.atomic(value)) {
+                value <- as.vector(value)  # Strip all attributes including names, dims, etc.
+            }
+        }
+        
         # First, try to serialize and deserialize to catch any serialization issues
         tryCatch({
             # Test if the value can be serialized to JSON (which is what Shiny uses)
@@ -56,8 +73,10 @@ isCategoricalFactor <- function(factor_data, sample_count) {
             
             # If it's a simple value after JSON round-trip, use it
             if (is.atomic(parsed_value) && (is.character(parsed_value) || is.numeric(parsed_value) || is.logical(parsed_value))) {
-                cat("DEBUG: safeInputValue - JSON round-trip successful:", paste(parsed_value, collapse = ", "), "\n")
-                return(parsed_value)
+                # Ensure it's a simple vector with no attributes
+                result <- as.vector(parsed_value)
+                cat("DEBUG: safeInputValue - JSON round-trip successful:", paste(result, collapse = ", "), "\n")
+                return(result)
             }
         }, error = function(e) {
             cat("DEBUG: safeInputValue - JSON serialization failed:", e$message, "\n")
@@ -93,13 +112,15 @@ isCategoricalFactor <- function(factor_data, sample_count) {
         if (is.vector(value) && !is.list(value) && (is.character(value) || is.numeric(value) || is.logical(value))) {
             tryCatch({
                 json_test <- jsonlite::toJSON(value, auto_unbox = TRUE)
-                cat("DEBUG: safeInputValue - returning simple vector:", paste(value, collapse = ", "), "\n")
-                return(value)
+                # Ensure it's a simple vector with no attributes
+                result <- as.vector(value)
+                cat("DEBUG: safeInputValue - returning simple vector:", paste(result, collapse = ", "), "\n")
+                return(result)
             }, error = function(e) {
                 cat("DEBUG: safeInputValue - simple vector failed JSON test:", e$message, "\n")
                 # Try to convert to character and test again
                 tryCatch({
-                    char_value <- as.character(value)
+                    char_value <- as.vector(as.character(value))
                     json_test <- jsonlite::toJSON(char_value, auto_unbox = TRUE)
                     cat("DEBUG: safeInputValue - converted to character and passed JSON test:", paste(char_value, collapse = ", "), "\n")
                     return(char_value)
@@ -118,15 +139,17 @@ isCategoricalFactor <- function(factor_data, sample_count) {
                 if (is.vector(value[[1]]) && (is.character(value[[1]]) || is.numeric(value[[1]]) || is.logical(value[[1]]))) {
                     tryCatch({
                         json_test <- jsonlite::toJSON(value[[1]], auto_unbox = TRUE)
-                        cat("DEBUG: safeInputValue - returning first vector element:", paste(value[[1]], collapse = ", "), "\n")
-                        return(value[[1]])
+                        # Ensure it's a simple vector with no attributes
+                        result <- as.vector(value[[1]])
+                        cat("DEBUG: safeInputValue - returning first vector element:", paste(result, collapse = ", "), "\n")
+                        return(result)
                     }, error = function(e) {
                         cat("DEBUG: safeInputValue - first vector element failed JSON test:", e$message, "\n")
                     })
                 } else {
                     # Convert to character only if it's a simple type
                     tryCatch({
-                        char_value <- as.character(value[[1]])
+                        char_value <- as.vector(as.character(value[[1]]))
                         json_test <- jsonlite::toJSON(char_value, auto_unbox = TRUE)
                         cat("DEBUG: safeInputValue - converted to character:", paste(char_value, collapse = ", "), "\n")
                         return(char_value)
@@ -156,7 +179,7 @@ isCategoricalFactor <- function(factor_data, sample_count) {
         
         # Fallback: convert to character with error handling
         tryCatch({
-            char_value <- as.character(value)
+            char_value <- as.vector(as.character(value))
             json_test <- jsonlite::toJSON(char_value, auto_unbox = TRUE)
             cat("DEBUG: safeInputValue - fallback to character:", paste(char_value, collapse = ", "), "\n")
             return(char_value)
@@ -1192,13 +1215,13 @@ server <- function(input, output, session) {
             
             # Update factor choices for analysis
             if (!is.null(myValues$dds)) {
-                factorChoices <- colnames(colData(myValues$dds))
+                factorChoices <- as.vector(colnames(colData(myValues$dds)))
                 factorChoices <- factorChoices[!grepl("^SV[::digit::]*", factorChoices)]
                 factorChoices <- factorChoices[!(factorChoices %in% c("sizeFactor", "replaceable"))]
                 
                 updateSelectInput(session, "rlogIntGroupsInput", choices = factorChoices, selected = factorChoices[1])
                 updateSelectInput(session, "vsdIntGroupsInput", choices = factorChoices, selected = factorChoices[1])
-                updateSelectizeInput(session, "resultNamesInput", choices = resultsNames(myValues$dds), selected = NULL)
+                updateSelectizeInput(session, "resultNamesInput", choices = as.vector(resultsNames(myValues$dds)), selected = NULL)
                 updateSelectizeInput(session, "factorNameInput", choices = factorChoices, selected = factorChoices[1])
             }
         }

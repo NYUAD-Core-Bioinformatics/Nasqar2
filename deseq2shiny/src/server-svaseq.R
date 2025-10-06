@@ -42,14 +42,17 @@ svaReactive <- eventReactive(input$runSVA, {
 
                         myValues$ddsSva <- dds
 
+                        # Ensure simple vectors for all update functions
+                        col_data_names <- as.vector(colnames(colData(dds)))
+                        
                         updateTextInput(session, "newFormulaSva", value = svaFormula)
-                        updateSelectInput(session, "xaxisSva", choices = colnames(colData(dds)), selected = "SV1")
-                        updateSelectInput(session, "yaxisSva", choices = colnames(colData(dds)), selected = "SV2")
-                        updateSelectInput(session, "colorBy", choices = colnames(colData(dds)), selected = colnames(colData(dds))[1])
+                        updateSelectInput(session, "xaxisSva", choices = col_data_names, selected = "SV1")
+                        updateSelectInput(session, "yaxisSva", choices = col_data_names, selected = "SV2")
+                        updateSelectInput(session, "colorBy", choices = col_data_names, selected = col_data_names[1])
 
-                        updateSelectizeInput(session, "varsToRegress", choices = colnames(colData(dds)), selected = c("SV1", "SV2"))
+                        updateSelectizeInput(session, "varsToRegress", choices = col_data_names, selected = c("SV1", "SV2"))
 
-                        updateSelectizeInput(session, "factorNameInputSva", choices = colnames(colData(dds)), selected = colnames(colData(dds))[1])
+                        updateSelectizeInput(session, "factorNameInputSva", choices = col_data_names, selected = col_data_names[1])
 
                         js$addStatusIcon("svaseqTab", "done")
                         return(list("svafit" = svafit, "ddsSva" = dds))
