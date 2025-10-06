@@ -14,7 +14,7 @@ observe({
     # mylevels <- factor(filtered[c(input$boxplotFill)], input$sel_factors)
     isolate({
         if (!is.null(myValues$DF) && !is.null(input$sel_groups)) {
-            tmpgroups <- input$sel_groups
+            tmpgroups <- as.vector(input$sel_groups)  # Ensure simple vector
             mylevels <- unlist(lapply(tmpgroups, function(x) {
                 if (x %in% colnames(myValues$DF)) {
                     levels(myValues$DF[, x])
@@ -22,8 +22,9 @@ observe({
                     NULL
                 }
             }))
-            # Remove NULL values
+            # Remove NULL values and strip attributes
             mylevels <- mylevels[!is.null(mylevels)]
+            mylevels <- as.vector(mylevels)  # Ensure simple vector
             
             # mylevels <- levels(myValues$DF[, input$boxplotFill])
         # Generate random colors for each level if not already set
@@ -33,7 +34,7 @@ observe({
                 custom_colors$globalcolors <- setNames(as.list(random_colors), mylevels)
                 
                 if (!is.null(input$boxplotFill) && input$boxplotFill %in% colnames(myValues$DF)) {
-                    mylevels <- levels(myValues$DF[, input$boxplotFill])
+                    mylevels <- as.vector(levels(myValues$DF[, input$boxplotFill]))
                     custom_colors$colors <- custom_colors$globalcolors[mylevels]
                 }
                 
@@ -48,7 +49,7 @@ observe({
 observe({
     req(input$boxplotFill)
     if (!is.null(myValues$DF) && input$boxplotFill %in% colnames(myValues$DF)) {
-        mylevels <- levels(myValues$DF[, input$boxplotFill])
+        mylevels <- as.vector(levels(myValues$DF[, input$boxplotFill]))  # Ensure simple vector
         custom_colors$colors <- custom_colors$globalcolors[mylevels]
         updateSelectInput(session, "levelSelect", choices = mylevels)
     }
@@ -92,10 +93,12 @@ observe({
     
     if (input$box_plot_sel_gene_type == "gene.name") {
         genenames <- myValues$genenames[rownames(myValues$dataCounts), ]
+        # CRITICAL: Strip all attributes to ensure it's a simple vector
+        genenames <- as.vector(genenames)
         
         # Preserve existing valid selections
         gene_selection <- if(!is.null(current_sel_gene) && all(current_sel_gene %in% genenames)) {
-            current_sel_gene
+            as.vector(current_sel_gene)  # Ensure simple vector
         } else {
             NULL
         }
@@ -109,10 +112,12 @@ observe({
         )
     } else {
         gene_ids <- rownames(myValues$dataCounts)
+        # CRITICAL: Strip all attributes to ensure it's a simple vector
+        gene_ids <- as.vector(gene_ids)
         
         # Preserve existing valid selections
         gene_selection <- if(!is.null(current_sel_gene) && all(current_sel_gene %in% gene_ids)) {
-            current_sel_gene
+            as.vector(current_sel_gene)  # Ensure simple vector
         } else {
             NULL
         }
@@ -126,9 +131,12 @@ observe({
         )
     }
 
+    # Get column names and strip attributes
+    df_colnames <- as.vector(colnames(myValues$DF))
+    
     # Preserve existing valid group selections
-    group_selection <- if(!is.null(current_sel_groups) && all(current_sel_groups %in% colnames(myValues$DF))) {
-        current_sel_groups
+    group_selection <- if(!is.null(current_sel_groups) && all(current_sel_groups %in% df_colnames)) {
+        as.vector(current_sel_groups)  # Ensure simple vector
     } else {
         NULL
     }
@@ -136,7 +144,7 @@ observe({
     cat("DEBUG: Updating sel_groups choices, preserving selection:", if(is.null(group_selection)) "NULL" else paste(group_selection, collapse = ", "), "\n")
     
     updateSelectizeInput(session, "sel_groups",
-        choices = colnames(myValues$DF),
+        choices = df_colnames,
         selected = group_selection,
         server = TRUE
     )
@@ -176,11 +184,14 @@ observe({
         tmpgroups <- unlist(lapply(sel_groups, function(x) {
             levels(myValues$DF[, x])
         }))
+        
+        # CRITICAL: Strip all attributes to ensure it's a simple vector
+        tmpgroups <- as.vector(tmpgroups)
 
         # Preserve existing factor selection if valid
         # If no current selection or invalid selection, select all available factors
         factors_to_select <- if(!is.null(current_sel_factors) && length(current_sel_factors) > 0 && all(current_sel_factors %in% tmpgroups)) {
-            current_sel_factors
+            as.vector(current_sel_factors)  # Ensure simple vector
         } else if (!is.null(tmpgroups) && length(tmpgroups) > 0) {
             tmpgroups
         } else {

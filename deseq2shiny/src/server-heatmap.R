@@ -12,8 +12,9 @@ observe({
                 NULL
             }
         }))
-        # Remove NULL values
+        # Remove NULL values and strip attributes
         tmpgroups <- tmpgroups[!is.null(tmpgroups)]
+        tmpgroups <- as.vector(tmpgroups)  # CRITICAL: Strip all attributes to ensure it's a simple vector
 
         updateSelectizeInput(session, "heat_group",
             choices = tmpgroups, selected = tmpgroups, server = T

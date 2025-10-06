@@ -4,7 +4,7 @@ observe({
     
     # Update sample exclusion choices when DF changes
     if (!is.null(myValues$DF)) {
-        sampleChoices <- rownames(myValues$DF)
+        sampleChoices <- as.vector(rownames(myValues$DF))  # Ensure simple vector
         updateSelectizeInput(session, "samplesToExclude", choices = sampleChoices, selected = input$samplesToExclude)
     }
 })
@@ -35,6 +35,8 @@ observeEvent(input$removeCol, {
         validFactorChoices <- getValidCategoricalFactors(factorChoices, design_terms, myValues$DF)
         
         if (length(validFactorChoices) > 0) {
+            # Ensure simple vector
+            validFactorChoices <- as.vector(validFactorChoices)
             updateSelectizeInput(session, "factorNameInput", choices = validFactorChoices, selected = validFactorChoices[1])
         }
     }
