@@ -1396,28 +1396,8 @@ server <- function(input, output, session) {
                     return()
                 }
                 
-                # Step 3: Loading core data
-                setProgress(value = 0.3, detail = "Loading core data...")
-                
-                # Load DESeq2 objects
-                setProgress(value = 0.4, detail = "Loading DESeq2 objects...")
-                if (!is.null(state_object$dds)) myValues$dds <- state_object$dds
-                if (!is.null(state_object$ddsSva)) myValues$ddsSva <- state_object$ddsSva
-                if (!is.null(state_object$ddsAddSV)) myValues$ddsAddSV <- state_object$ddsAddSV
-                
-                # Load analysis results
-                setProgress(value = 0.5, detail = "Loading analysis results...")
-                if (!is.null(state_object$vsResults)) myValues$vsResults <- state_object$vsResults
-                if (!is.null(state_object$vsResultsSva)) myValues$vsResultsSva <- state_object$vsResultsSva
-                if (!is.null(state_object$vsResultsAddSV)) myValues$vsResultsAddSV <- state_object$vsResultsAddSV
-                
-                # Load transformations
-                setProgress(value = 0.55, detail = "Loading transformations...")
-                if (!is.null(state_object$rlogTransformation)) myValues$rlogTransformation <- state_object$rlogTransformation
-                if (!is.null(state_object$vstTransformation)) myValues$vstTransformation <- state_object$vstTransformation
-                
-                # Load other components
-                setProgress(value = 0.6, detail = "Loading additional components...")
+                # Step 3: Load all components using the comprehensive loadAppState function
+                setProgress(value = 0.4, detail = "Restoring application state...")
                 success <- loadAppState(state_object)
                 
                 if (success) {
@@ -1441,6 +1421,12 @@ server <- function(input, output, session) {
                     
                     # Step 7: Complete
                     setProgress(value = 1.0, detail = "State loaded successfully!")
+                    showNotification("Application state loaded successfully!", type = "message", duration = 3)
+                    
+                    # Close the modal
+                    removeModal()
+                } else {
+                    showNotification("State loaded with some errors. Please check your data.", type = "warning", duration = 5)
                 }
                 
             }, error = function(e) {
@@ -1452,11 +1438,44 @@ server <- function(input, output, session) {
         })
     })
     
-    # Check if state can be saved (has meaningful data)
-    output$canSaveState <- reactive({
-        return(!is.null(myValues$dataCounts) || !is.null(myValues$dds))
+    # Observer for showing state modal using Shiny's native modal (better nginx support)
+    observeEvent(input$showStateModal, {
+        canSave <- !is.null(myValues$dataCounts) || !is.null(myValues$dds)
+        
+        showModal(modalDialog(
+            title = "Save/Load Application State",
+            size = "m",
+            easyClose = TRUE,
+            footer = modalButton("Close"),
+            
+            fluidRow(
+                column(12,
+                    h4("💾 Save Current State"),
+                    if (canSave) {
+                        tagList(
+                            p("Save all your analysis data, results, and plot configurations as an R object file."),
+                            downloadButton("downloadState", "Download State File (.RData)", class = "btn btn-primary btn-sm"),
+                            br(), br()
+                        )
+                    } else {
+                        div(class = "alert alert-warning",
+                            icon("exclamation-triangle"), " No data to save. Please load data first."
+                        )
+                    },
+                    
+                    hr(),
+                    
+                    h4("📂 Load Previous State"),
+                    p("Load a previously saved application state to continue your analysis."),
+                    fileInput("loadStateFile", "Choose State File (.RData)",
+                        accept = c(".RData", ".rdata"),
+                        multiple = FALSE
+                    ),
+                    div(class = "alert alert-info",
+                        icon("info-circle"), " State files contain all your data, results, plot settings, and selections."
+                    )
+                )
+            )
+        ))
     })
-    outputOptions(output, "canSaveState", suspendWhenHidden = FALSE)
-    
-    # Observer for showing state modal (no action needed as bsModal handles it automatically)
 }
