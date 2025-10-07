@@ -76,7 +76,7 @@ ui <- tagList(
             # skin = "purple",
             dashboardHeader(
                 title = "DESeq2 Shiny",
-                # Add save/load button in header
+                # # Add save/load button in header
                 tags$li(class = "dropdown", style = "margin-top: 8px; margin-right: 10px;",
                     actionButton("showStateModal", "💾 Save/Load State", 
                                 class = "btn btn-info btn-sm",
@@ -131,45 +131,6 @@ ui <- tagList(
                     source("ui-tab-venndiagram.R", local = TRUE)$value,
                     source("ui-tab-boxplot.R", local = TRUE)$value,
                     source("ui-tab-heatmap.R", local = TRUE)$value
-                ),
-                
-                # Modal dialog for save/load state
-                bsModal("stateModal", "Save/Load Application State", "showStateModal", size = "medium",
-                    div(class = "state-modal-content",
-                        fluidRow(
-                            column(12,
-                                h4("💾 Save Current State"),
-                                conditionalPanel(
-                                    condition = "output.canSaveState",
-                                    p("Save all your analysis data, results, and plot configurations as an R object file."),
-                                    downloadButton("downloadState", "Download State File (.RData)",
-                                        class = "btn-primary",
-                                        style = "width: 100%; margin-bottom: 20px;"
-                                    )
-                                ),
-                                conditionalPanel(
-                                    condition = "!output.canSaveState",
-                                    div(class = "alert alert-warning",
-                                        icon("exclamation-triangle"), " No data to save. Please load data first."
-                                    )
-                                ),
-                                
-                                hr(),
-                                
-                                h4("📂 Load Previous State"),
-                                p("Load a previously saved application state to continue your analysis."),
-                                fileInput("loadStateFile", "Choose State File",
-                                    accept = ".RData",
-                                    buttonLabel = "Browse...",
-                                    placeholder = "Select .RData file",
-                                    width = "100%"
-                                ),
-                                div(class = "alert alert-info",
-                                    icon("info-circle"), " State files contain all your data, results, plot settings, and selections."
-                                )
-                            )
-                        )
-                    )
                 )
             )
         ),
