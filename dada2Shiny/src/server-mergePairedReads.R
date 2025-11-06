@@ -4,7 +4,7 @@ output$mergerTable <- DT::renderDataTable(
         print("mergerTable")
         # print(mergers)
         sample <- input$selSample4margePairedReadsTab
-        merger <- mergers[[sample]]
+        merger <- if (is.data.frame(mergers)) mergers else mergers[[sample]]
           # Server logic to download the track reads table
         output$download_merger_table <- downloadHandler(
           
