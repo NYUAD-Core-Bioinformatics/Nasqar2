@@ -114,36 +114,58 @@ observe({
         # Extract abundance of the selected sequences across samples
         seq_abundance <- (seqtab.nochim[, selected_sequences, drop = FALSE] > 0) * 1  # Presence/Absence matrix
 
-        # Initialize an empty data frame for storing plot data
-        plot_data <- data.frame(Sample = character(), Abundance = numeric(), stringsAsFactors = FALSE)
+        # Initialize vectors for each column
+        samples_vec <- c()
+        abundance_vec <- c()
+        filter_data <- list()
+        for (name in input$filter_values) {
+            filter_data[[name]] <- c()
+        }
 
-        # Loop through each row of seq_abundance and add frequency information to plot_data
+        # Loop through each row of seq_abundance and add frequency information
         for (i in 1:nrow(seq_abundance)) {
-            cols_with_one <- which(seq_abundance[i, selected_sequences] == 1)  # Find columns with 1 in the current row
-
-            seq_with_one <- colnames(seq_abundance)[cols_with_one]  # Get column names (sequences) with 1
-
-            selected_column_values <- taxonomy[seq_with_one, input$grouping_column, drop = TRUE]
-            frequency_table <- table(selected_column_values)
-
             if (sum(seq_abundance[i, ]) > 0){
-                
-            
+                cols_with_one <- which(seq_abundance[i, selected_sequences] == 1)  # Find columns with 1 in the current row
 
-                # Add row to plot_data with the total abundance (sum of 1's) and frequency table
-                new_row <- data.frame(
-                    Sample = rownames(seq_abundance)[i],  # Current sample name
-                    Abundance = sum(seq_abundance[i, ]),
-                    stringsAsFactors = FALSE
-                )
+                seq_with_one <- colnames(seq_abundance)[cols_with_one]  # Get column names (sequences) with 1
 
+                selected_column_values <- taxonomy[seq_with_one, input$grouping_column, drop = TRUE]
+                frequency_table <- table(selected_column_values)
+
+                # Add sample and abundance
+                samples_vec <- c(samples_vec, rownames(seq_abundance)[i])
+                abundance_vec <- c(abundance_vec, sum(seq_abundance[i, ]))
+
+                # Add frequency values for each filter
                 for (name in input$filter_values) {
-                    new_row[[name]] <- ifelse(name %in% names(frequency_table), frequency_table[name], 0)
+                    count_value <- if (name %in% names(frequency_table)) {
+                        as.numeric(frequency_table[name])
+                    } else {
+                        0
+                    }
+                    filter_data[[name]] <- c(filter_data[[name]], count_value)
                 }
-
-                # Bind new_row to plot_data
-                plot_data <- rbind(plot_data, new_row)
             }
+        }
+
+        # Check if we have any data
+        if (length(samples_vec) == 0) {
+            # Return an empty plot with a message
+            return(ggplot() + 
+                   annotate("text", x = 0.5, y = 0.5, label = "No data to display", size = 6) +
+                   theme_void())
+        }
+
+        # Build data frame from vectors
+        plot_data <- data.frame(
+            Sample = samples_vec,
+            Abundance = abundance_vec,
+            stringsAsFactors = FALSE
+        )
+        
+        # Add filter columns
+        for (name in input$filter_values) {
+            plot_data[[name]] <- filter_data[[name]]
         }
 
         # Convert the data into a long format for plotting

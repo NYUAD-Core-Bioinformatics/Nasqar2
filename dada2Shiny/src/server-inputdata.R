@@ -138,6 +138,21 @@ input_files_reactive <- eventReactive(input$initFastq, {
     #     )
     # )
     qc_done(FALSE)
+    divergen_done(FALSE)
+    
+    # Clear all reactive values from downstream processing
+    if (exists("reactiveTaxonomyData")) {
+        reactiveTaxonomyData$taxa <- NULL
+    }
+    if (exists("selectedTaxonomyRows")) {
+        selectedTaxonomyRows(NULL)
+    }
+    if (exists("alphaDiversityResults")) {
+        alphaDiversityResults$ps <- NULL
+        alphaDiversityResults$ps.prop <- NULL
+        alphaDiversityResults$ord.nmds.bray <- NULL
+        alphaDiversityResults$ps.top20 <- NULL
+    }
 
 
     js$addStatusIcon("input_tab", "loading")

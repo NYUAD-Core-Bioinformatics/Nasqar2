@@ -1,5 +1,21 @@
 reactiveInputData <- eventReactive(input$runDADA2, {
     qc_done(FALSE)
+    divergen_done(FALSE)
+    
+    # Clear all reactive values from downstream processing to ensure clean state
+    if (exists("reactiveTaxonomyData")) {
+        reactiveTaxonomyData$taxa <- NULL
+    }
+    if (exists("selectedTaxonomyRows")) {
+        selectedTaxonomyRows(NULL)
+    }
+    if (exists("alphaDiversityResults")) {
+        alphaDiversityResults$ps <- NULL
+        alphaDiversityResults$ps.prop <- NULL
+        alphaDiversityResults$ord.nmds.bray <- NULL
+        alphaDiversityResults$ps.top20 <- NULL
+    }
+    
     #    shinyjs::hide(selector = "a[data-value=\"qualityprofile_tab\"]")
     shinyjs::hide(selector = "a[data-value=\"errorRatesTab\"]")
     # shinyjs::hide(selector = "a[data-value=\"filter_and_trim_tab\"]")
@@ -115,12 +131,18 @@ reactiveInputData <- eventReactive(input$runDADA2, {
         getN <- function(x) sum(getUniques(x))
 
         if (input$seq_type == "paired") {
-            track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
+
+            denoisedF <- if (inherits(dadaFs, "dada")) getN(dadaFs) else sapply(dadaFs, getN)
+            denoisedR <- if (inherits(dadaRs, "dada")) getN(dadaRs) else sapply(dadaRs, getN)
+            merged <- if (is.data.frame(mergers)) getN(mergers) else sapply(mergers, getN)
+
+            track <- cbind(out, denoisedF, denoisedR, merged, rowSums(seqtab.nochim))
             # If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
             colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
             rownames(track) <- sample.names
         } else {
-            track <- cbind(out, sapply(dadaFs, getN), rowSums(seqtab.nochim))
+            denoisedF <- if (inherits(dadaFs, "dada")) getN(dadaFs) else sapply(dadaFs, getN)
+            track <- cbind(out, denoisedF, rowSums(seqtab.nochim))
             # If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
             colnames(track) <- c("input", "filtered", "denoisedF", "nonchim")
             rownames(track) <- sample.names

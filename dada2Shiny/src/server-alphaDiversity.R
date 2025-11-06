@@ -19,12 +19,27 @@ qiimeData <- reactive({
 
 
 
+# Reactive values to store alpha diversity results
+alphaDiversityResults <- reactiveValues(
+    ps = NULL,
+    ps.prop = NULL,
+    ord.nmds.bray = NULL,
+    ps.top20 = NULL
+)
+
 # Run Alpha Diversity analysis when the button is clicked
 observeEvent(input$runAlphaDiversity, {
 
     withProgress(message = "Running AlphaDiversity , ..please wait", {
     print("runAlphaDiversity")
     divergen_done(FALSE)
+    
+    # Clear previous results
+    alphaDiversityResults$ps <- NULL
+    alphaDiversityResults$ps.prop <- NULL
+    alphaDiversityResults$ord.nmds.bray <- NULL
+    alphaDiversityResults$ps.top20 <- NULL
+    
     req(qiimeData())
 
     seqtab.nochim <- reactiveInputData()$seqtab.nochim
@@ -80,7 +95,14 @@ observeEvent(input$runAlphaDiversity, {
     top20 <- names(sort(taxa_sums(ps), decreasing = TRUE))[1:20]
     ps.top20 <- transform_sample_counts(ps, function(OTU) OTU / sum(OTU))
     ps.top20 <- prune_taxa(top20, ps.top20)
-    shiny::setProgress(value = 1,0, detail = "done")
+    
+    # Store results in reactive values
+    alphaDiversityResults$ps <- ps
+    alphaDiversityResults$ps.prop <- ps.prop
+    alphaDiversityResults$ord.nmds.bray <- ord.nmds.bray
+    alphaDiversityResults$ps.top20 <- ps.top20
+    
+    shiny::setProgress(value = 1.0, detail = "done")
 
     })
 
@@ -92,26 +114,29 @@ observeEvent(input$runAlphaDiversity, {
     shinyjs::show(selector = "a[data-value=\"alphaDiversityTab\"]")
     js$addStatusIcon("alphaDiversityTab", "done")
     divergen_done(TRUE)
-
-    output$plotAlphaDiversity <- renderPlot({
-        plot_richness(ps, x = "Day", measures = c("Shannon", "Simpson"), color = "When")
-    })
-
-    # Placeholder for ordination and bar plot (replace with actual analysis)
-    output$plotOrdination <- renderPlot({
-        ps.prop <- ps.prop
-        # ord.nmds.bray <- ord.nmds.bray
-
-        plot_ordination(ps.prop, ord.nmds.bray, color = "When", title = "Bray NMDS")
-    })
-
-    output$plotBar <- renderPlot({
-        # ps.top20<- ps.top20
-        plot_bar(ps.top20, x = "Day", fill = "Family") + facet_wrap(~When, scales = "free_x")
-    })
 })
 
+# Reactive plot outputs that depend on stored results
+output$plotAlphaDiversity <- renderPlot({
+    req(alphaDiversityResults$ps)
+    req(divergen_done())
+    plot_richness(alphaDiversityResults$ps, x = "Day", measures = c("Shannon", "Simpson"), color = "When")
+})
 
+output$plotOrdination <- renderPlot({
+    req(alphaDiversityResults$ps.prop)
+    req(alphaDiversityResults$ord.nmds.bray)
+    req(divergen_done())
+    plot_ordination(alphaDiversityResults$ps.prop, alphaDiversityResults$ord.nmds.bray, 
+                    color = "When", title = "Bray NMDS")
+})
+
+output$plotBar <- renderPlot({
+    req(alphaDiversityResults$ps.top20)
+    req(divergen_done())
+    plot_bar(alphaDiversityResults$ps.top20, x = "Day", fill = "Family") + 
+        facet_wrap(~When, scales = "free_x")
+})
 
 
 # output$plotAlphaDiversity <-  renderPlot({

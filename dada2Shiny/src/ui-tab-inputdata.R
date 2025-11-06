@@ -71,7 +71,7 @@ tabItem(
                         placeholder = "Enter pattern for reverse reads (e.g., _R2_001.fastq)"
                     )
                 ),
-                actionButton("initFastq", "Load fastq files", class = "btn-info btn-success", style = "width: 100%"),
+                actionButton("initFastq", "Run QC", class = "btn-info btn-success", style = "width: 100%"),
                 tags$div(class = "clearBoth")
                 
             )
