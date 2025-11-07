@@ -44,14 +44,11 @@ const config: DocsThemeConfig = {
     }
   },
   project: {
-    link: 'https://github.com/nabilr/nasqar2app',
+    link: 'https://github.com/NYUAD-Core-Bioinformatics/Nasqar2',
   },
-  chat: {
-    link: 'https://discord.com',
-  },
-  docsRepositoryBase: 'https://github.com/nabilr/nasqar2app/tree/main',
+  docsRepositoryBase: 'https://github.com/NYUAD-Core-Bioinformatics/Nasqar2/tree/main',
   footer: {
-    text: 'Nextra Docs Template',
+    text: 'Core Bioinformatics, Center for Genomics and Systems Biology, NYU Abu Dhabi',
   },
 
 
