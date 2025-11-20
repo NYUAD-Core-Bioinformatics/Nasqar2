@@ -6,9 +6,11 @@
 
 Welcome to our platform! Here, we offer a diverse range of web-based Bioinformatics analysis and visualization applications. Whether you prefer running apps online or downloading them to run on your local machine, we provide both options.
 
+To install NASQAR2 on your local system, please follow the instructions on our [Installation Guide](/quickstart/Installation) or visit our [GitHub page](https://github.com/NYUAD-Core-Bioinformatics/Nasqar2).
+
 The field of high-throughput sequencing is continually evolving, resulting in a rapid increase in both the quantity and diversity of sequence-based data. This growth necessitates the development of new software libraries and tools for effective data analysis and visualization. However, utilizing these tools often requires computational skills beyond the expertise of the average researcher.
 
-To address this challenge, we introduce NASQAR, a dynamic web-based platform designed to lower the computational barrier. NASQAR features an intuitive interface that enables users to easily and efficiently explore their data interactively. Our platform integrates popular tools tailored for various applications, including Transcriptome Data Preprocessing, RNAseq Analysis (including Single-cell RNAseq), Metagenomics, and Gene Enrichment. Explore your data seamlessly and unlock insights with NASQAR.
+To address this challenge, we introduce NASQAR2, a dynamic web-based platform designed to lower the computational barrier. NASQAR2 features an intuitive interface that enables users to easily and efficiently explore their data interactively. Our platform integrates popular tools tailored for various applications, including Transcriptome Data Preprocessing, RNAseq Analysis (including Single-cell RNAseq), Metagenomics, and Gene Enrichment. Explore your data seamlessly and unlock insights with NASQAR.
 
 
 ## Applications
@@ -23,33 +25,14 @@ import { AppStampsGrid } from '../components/app-stamps'
 ## Citation
 
 
-When incorporating any of the apps from our portal into a publication, kindly ensure to include the proper citation for NASQAR, as detailed below:
+When incorporating any of the apps from our portal into a publication, kindly ensure to include the proper citation for NASQAR2, as detailed below:
 
-{/* Import CSS modules */}
-import styles from '../components/counters.module.css'
+> **NASQAR2: A web-based platform for High-throughput sequencing data analysis and visualization**
+> 
+> Ayman Yousif, Nizar Drou, Jillian Rowe, Mohammed Khalfan, Kristin C. Gunsalus
+> 
+> bioRxiv 709980; doi: https://doi.org/10.1101/709980
 
-export const Citation = () => {
-
-  return (
-    <div className={styles.citation}>
-     
-
-
-<div >NASQAR: A web-based platform for High-throughput sequencing data analysis and visualization</div>
-
-Ayman Yousif, Nizar Drou, Jillian Rowe, Mohammed Khalfan, Kristin C. Gunsalus
-
-
-<div> bioRxiv 709980; doi: https://doi.org/10.1101/709980 </div>
-
-
-
-    </div>
-  );
-};
-
-
-<Citation/>
 Additionally, please remember to include the appropriate citation for the open-source apps hosted on our platform, which are prominently displayed on the individual app pages or GitHub repositories.
 
 
@@ -59,27 +42,26 @@ Additionally, please remember to include the appropriate citation for the open-s
 
 **R version:** 4.2.3
 
-**GeneCountMerger:**
+**New Applications:**
 
-* Added Wormbase ID to SYMBOL mapping.
+* **Dada2** - DADA2 for microbiome analysis and ASV inference
+* **ATacseqQc** - Quality control and analysis for ATAC-seq data
+* **Animalcules** - Interactive microbiome analysis and visualization
 
-**DEseq2shiny:**
+**Updates to Existing Applications:**
 
-* Volcano plot
-* Venn Diagram
-* Input data now takes gene.id and gene.name together with Gene count data
+* **Seurat** - Upgraded to Seurat V5 for enhanced single-cell analysis
+* **DEseq2shiny** - Added save state information feature for preserving analysis sessions; Volcano plot; Venn Diagram; Input data now takes gene.id and gene.name together with Gene count data
+* **GeneCountMerger** - Added option to include gene symbol in output
+* **ClusterProfShinyORA** - Selective selection of interested pathways for plotting
 
-**ClusterProfShinyORA:**
-
-* Selective selection of interested pathways for plotting
-
-These updates bring exciting new features and improvements to NASAQ2, enhancing its capabilities and usability.
+These updates bring exciting new features and improvements to NASQAR2, enhancing its capabilities and usability.
 
 
 
 ## Data Privacy
 
 Although data uploaded for analysis on the online instance of 
-NASQAR (at http://nasqar.abudhabi.nyu.edu/) is by default discarded after a users session ends, this does not guarantee total data privacy. In cases where data privacy is a concern (e.g. patient or pilot data), it is recommended that NASQAR is deployed on a local intranet for private users, or on a personal computer. A Docker image of NASQAR is publicly available through DockerHub and can be used to deploy the application seamlessly on any system with Docker installed, whether a local computer, a public internet server, or a private server (e.g. research institutions intranet).
+NASQAR2 (at http://nasqar2.abudhabi.nyu.edu/) is by default discarded after a users session ends, this does not guarantee total data privacy. In cases where data privacy is a concern (e.g. patient or pilot data), it is recommended that NASQAR2 is deployed on a local intranet for private users, or on a personal computer. A Docker image of NASQAR2 is publicly available through DockerHub and can be used to deploy the application seamlessly on any system with Docker installed, whether a local computer, a public internet server, or a private server (e.g. research institutions intranet).
 
 

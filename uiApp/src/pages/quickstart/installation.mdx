@@ -1,0 +1,270 @@
+
+## Installation
+
+NASQAR2 can be installed on any platform using different methods. Choose the installation method that best fits your needs.
+
+## Installation Options
+
+NASQAR2 offers multiple installation approaches:
+
+### [Option 1: Pull Prebuilt Docker from Cloud](#option-1-pull-prebuilt-docker-from-cloud) (Recommended - Fastest)
+Pull and run the complete NASQAR2 suite with all applications in a single Docker container. No building required - just pull and run!
+
+### [Option 2: Build All-in-One Docker from Source](#option-2-build-all-in-one-docker-from-source)
+Build the complete NASQAR2 Docker container with all applications from source code.
+
+### [Option 3: Build Individual Docker Containers from Source](#option-3-build-individual-docker-containers-from-source)
+Build and run specific NASQAR2 applications (e.g., DESeq2, DADA2, Seurat) as separate Docker containers from source. Useful for specific tools or resource optimization.
+
+### [Option 4: Local Installation with Anaconda](#option-4-local-installation-with-anaconda)
+Install and run individual applications directly on your system using Anaconda. Provides full control over the environment.
+
+---
+
+## Prerequisites
+
+**Docker Installation**: Docker (version >= 17.03.0-ce)
+
+You can install the latest version of **Docker** from [here](https://www.docker.com/products/docker-desktop/)
+
+<b style={{color:"red", font: "bold"}}></b>
+
+---
+
+## Option 1: Pull Prebuilt Docker from Cloud
+
+We provide prebuilt Docker images with all NASQAR2 applications bundled together. This is the fastest and easiest way to get started.
+
+**To run NASQAR2 on port 80:**
+
+```bash
+docker run -p 80:3232 nyuadcorebio/nasqarall:nasqar
+```
+
+**To run NASQAR2 on a different port** (e.g., port 8083):
+
+```bash
+docker run -p 8083:3232 nyuadcorebio/nasqarall:nasqar
+```
+
+Access via web browser at `http://localhost/` or `http://localhost:8083/` depending on the port used.
+
+---
+
+## Option 2: Build All-in-One Docker from Source
+
+Build the complete NASQAR2 Docker container with all applications from source code.
+
+1. **Clone NASQAR2 Repository:**
+
+```bash
+git clone https://github.com/nyuadcorebio/nasqar2.git
+cd nasqar2
+```
+
+2. **Build Docker Image:**
+
+```bash
+docker build -t nasqar2-all .
+```
+
+3. **Run Docker Container:**
+
+```bash
+docker run -p 80:3232 nasqar2-all
+```
+
+Access via web browser at `http://localhost/`
+
+---
+
+## Option 3: Build Individual Docker Containers from Source
+
+Each NASQAR2 application can be run as a standalone Docker container. This is useful for running specific tools independently or reducing resource usage.
+
+**Note**: Individual Docker containers are only available by building from source. Prebuilt images are not provided in the cloud repository.
+
+### Available Applications
+
+NASQAR2 includes the following applications that can be built individually:
+
+- `animalcules` - Microbiome analysis
+- `ATACseqQCShniy` - ATAC-seq quality control
+- `ClusterProfShinyGSEA` - Gene Set Enrichment Analysis
+- `ClusterProfShinyORA` - Over-Representation Analysis
+- `dada2Shiny` - 16S/ITS amplicon sequencing analysis
+- `DEBrowser` - Differential expression analysis browser
+- `deseq2shiny` - DESeq2 differential expression analysis
+- `GeneCountMerger` - Merge gene count matrices
+- `monocle3` - Single-cell trajectory analysis
+- `SeuratV5Shiny` - Single-cell RNA-seq analysis
+- `tsar_nasqar` - Time series analysis
+
+### Build Individual Docker from Source
+
+1. **Clone NASQAR2 Repository:**
+
+```bash
+git clone https://github.com/nyuadcorebio/nasqar2.git
+cd nasqar2
+```
+
+2. **Navigate to the specific application directory:**
+
+**Example for DESeq2:**
+```bash
+cd deseq2shiny
+```
+
+**Example for DADA2:**
+```bash
+cd dada2Shiny
+```
+
+**Example for Seurat:**
+```bash
+cd SeuratV5Shiny
+```
+
+3. **Build the Docker image:**
+
+```bash
+docker build -t nasqar-deseq2 .
+```
+
+4. **Run the container:**
+
+```bash
+docker run -p 9001:3232 nasqar-deseq2
+```
+
+Access the application at `http://localhost:9001/`
+
+---
+
+## Option 4: Local Installation with Anaconda
+
+Run individual applications directly on your system without Docker. Each application has its own conda environment with specific dependencies.
+
+### Prerequisites
+
+- **Anaconda** or **Miniconda** installed on your system
+- Download from [Anaconda](https://www.anaconda.com/products/distribution) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
+
+### Setup Application-Specific Environment
+
+Each NASQAR2 application has its own `environment.yaml` file for creating an isolated conda environment.
+
+**Example: Setting up DESeq2 application:**
+
+1. **Clone NASQAR2 Repository:**
+
+```bash
+git clone https://github.com/nyuadcorebio/nasqar2.git
+cd nasqar2
+```
+
+2. **Navigate to the application directory:**
+
+```bash
+cd deseq2shiny
+```
+
+3. **Install mamba (if not already installed):**
+
+```bash
+conda install -c bioconda -c conda-forge mamba -y
+```
+
+4. **Create application-specific conda environment:**
+
+```bash
+mamba env create -f environment.yaml
+```
+
+5. **Activate the environment:**
+
+```bash
+conda activate deseq2shiny
+```
+
+6. **Navigate to the src directory:**
+
+```bash
+cd src
+```
+
+7. **Run the application:**
+
+```bash
+R -e "shiny::runApp('.', port = 9001, host = '0.0.0.0')"
+```
+
+Access the application at `http://localhost:9001/`
+
+### Running Different Applications
+
+**Example: Setting up DADA2 application:**
+
+```bash
+cd nasqar2/dada2Shiny
+mamba env create -f environment.yaml
+conda activate dada2Shiny
+cd src
+R -e "shiny::runApp('.', port = 9002, host = '0.0.0.0')"
+```
+
+**Example: Setting up Seurat application:**
+
+```bash
+cd nasqar2/SeuratV5Shiny
+mamba env create -f environment.yaml
+conda activate SeuratV5Shiny
+cd src
+R -e "shiny::runApp('.', port = 9003, host = '0.0.0.0')"
+```
+
+**Note**: Each application maintains its own isolated environment to avoid dependency conflicts.
+
+---
+
+## Choosing the Right Installation Method
+
+<div style={{marginTop: '1.5rem'}}>
+<table style={{width: '100%', borderCollapse: 'collapse', border: '1px solid #e5e7eb'}}>
+  <thead>
+    <tr style={{backgroundColor: '#f3f4f6'}}>
+      <th style={{padding: '12px', textAlign: 'left', borderBottom: '2px solid #d1d5db', borderRight: '1px solid #d1d5db', fontWeight: '600'}}>Method</th>
+      <th style={{padding: '12px', textAlign: 'left', borderBottom: '2px solid #d1d5db', borderRight: '1px solid #d1d5db', fontWeight: '600'}}>Best For</th>
+      <th style={{padding: '12px', textAlign: 'left', borderBottom: '2px solid #d1d5db', borderRight: '1px solid #d1d5db', fontWeight: '600'}}>Pros</th>
+      <th style={{padding: '12px', textAlign: 'left', borderBottom: '2px solid #d1d5db', fontWeight: '600'}}>Cons</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr style={{borderBottom: '1px solid #e5e7eb'}}>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb', fontWeight: '600'}}>Prebuilt Docker (Cloud)</td>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>First-time users, quick start</td>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Fastest setup, single command, all apps included</td>
+      <td style={{padding: '12px'}}>Larger image size (~2-3 GB)</td>
+    </tr>
+    <tr style={{borderBottom: '1px solid #e5e7eb'}}>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb', fontWeight: '600'}}>Build All-in-One Docker</td>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Custom builds, latest updates</td>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Full control, all apps, modify source</td>
+      <td style={{padding: '12px'}}>Requires source code, longer build time</td>
+    </tr>
+    <tr style={{borderBottom: '1px solid #e5e7eb'}}>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb', fontWeight: '600'}}>Individual Docker Build</td>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Specific tool usage, resource optimization</td>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Lightweight, isolated apps, smaller footprint</td>
+      <td style={{padding: '12px'}}>Requires building from source, manage multiple containers</td>
+    </tr>
+    <tr>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb', fontWeight: '600'}}>Anaconda Local</td>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Development, customization, debugging</td>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Full control, easy debugging, direct code access</td>
+      <td style={{padding: '12px'}}>Manual setup, dependency management per app</td>
+    </tr>
+  </tbody>
+</table>
+</div>

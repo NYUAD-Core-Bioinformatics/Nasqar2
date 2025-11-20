@@ -1,25 +1,14 @@
+## Merge FPKMs
 
+This is a simple preprocessing tool to merge individual gene FPKM files (e.g., FPKM files from cufflinks).
 
-## Gene Count Merger
+We provide an interactive web-based application for merging FPKM files.
 
-import * as React from 'react';
-import Button from '@mui/material/Button';
-import { Link } from 'react-router-dom';
+**Note**: The first column must contain the genes. If the gene columns do not match in all files, this tool will not work.
 
-export const MyApp = () => {
-
-  return (
-     <Button href="/mergeFPKMs/"   target="_blank"  variant="outlined" size="small"  style={{ marginTop:"10px"}} >
-          Launch mergeFPKMs
-        </Button>
-  );
-};
-
-
-This is a simple preprocessing tool to merge individual gene FPKM files (Eg. fpkm files from cufflinks)
-
-NOTE: first column must contain the genes. If the gene columns do not match in all files, this tool will not work
-<MyApp/>
+<a href="/mergeFPKMs/" target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
+  Launch Merge FPKMs
+</a>
 
 
 

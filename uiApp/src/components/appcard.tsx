@@ -174,7 +174,7 @@ export  function NizarCard() {
         Nizar Drou
         </Typography>
         <Typography variant="body2" color="text.secondary">
-        Core Bioinformatics Lead Developer
+        Core Bioinformatics Lead
         </Typography>
       </CardContent>
       </CardActionArea>
@@ -268,7 +268,7 @@ export  function NabilCard() {
         Nabil Rahiman
         </Typography>
         <Typography variant="body2" color="text.secondary">
-        Bioiformatics Full Stack Developer
+       Research Data Engineer
         </Typography>
       </CardContent>
       </CardActionArea>

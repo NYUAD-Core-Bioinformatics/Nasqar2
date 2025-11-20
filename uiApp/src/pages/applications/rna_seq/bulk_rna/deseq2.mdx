@@ -1,24 +1,21 @@
+## DESeq2
 
+This Shiny app is a wrapper around DESeq2, an R package for "Differential gene expression analysis based on the negative binomial distribution".
 
-## DEseq2 App
+We provide an interactive web-based application for DESeq2 analysis.
 
-import * as React from 'react';
-import Button from '@mui/material/Button';
-import { Link } from 'react-router-dom';
+For more information about DESeq2, visit the [official documentation](https://bioconductor.org/packages/release/bioc/html/DESeq2.html).
 
-export const Deseq2App = () => {
+<a href="/deseq2shiny/" target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
+  Launch DESeq2
+</a>
 
-  return (
-     <Button href="/deseq2shiny/"   target="_blank"  variant="outlined" size="small"  style={{ marginTop:"10px"}} >
-          Launch DEseq2
-        </Button>
-  );
-};
+## Citation
 
+When using DESeq2 in your analysis, please cite the following publication:
 
-
-This Shiny app is a wrapper around DESeq2, an R package for “Differential gene expression analysis based on the negative binomial distribution” 
-<Deseq2App/>
-
-
+> **Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2**
+> 
+> Love, M.I., Huber, W. & Anders, S. Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2. *Genome Biology* 15, 550 (2014).  
+> https://doi.org/10.1186/s13059-014-0550-8
 

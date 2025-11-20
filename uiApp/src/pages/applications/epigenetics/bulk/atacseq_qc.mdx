@@ -1,39 +1,21 @@
-
-
 ## ATACseqQC
 
-import * as React from 'react';
-import Button from '@mui/material/Button';
-import { Link } from 'react-router-dom';
+ATACseqQC is a tool specifically designed for the quality control (QC) analysis of ATAC-seq (Assay for Transposase-Accessible Chromatin using sequencing) data. It offers a range of functions and metrics to assess the quality and reliability of ATAC-seq experiments. ATAC-seq is a powerful technique used to study chromatin accessibility, which provides insights into the regulatory regions of the genome.
 
-export const MyApp = () => {
+We provide an interactive web-based application for ATAC-seq quality control analysis.
 
-  return (
-     <Button href="/ATACseqQCShniy/"   target="_blank"  variant="outlined" size="small"  style={{ marginTop:"10px"}} >
-          Launch ATACseqQC
-        </Button>
-  );
-};
+For more information about ATACseqQC, visit the [official documentation](https://bioconductor.org/packages/release/bioc/html/ATACseqQC.html).
 
-**ATACseqQC** is  tool specifically designed for the quality control (QC)
-analysis of ATAC-seq (Assay for Transposase-Accessible Chromatin using sequencing) data. 
-It offers a range of functions and metrics to assess the quality and reliability of 
-ATAC-seq experiments. ATAC-seq is a powerful technique used to study chromatin accessibility,
-which provides insights into the regulatory regions of the genome.
+<a href="/ATACseqQCShniy/" target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
+  Launch ATACseqQC
+</a>
 
-**Key features of ATACseqQC include:**
+## Citation
 
-- Basic statistics summarizing the data, such as read counts and fragment length distributions.
-- Assessment of fragment size distribution, PCR amplification biases, and potential PCR duplicates.
-- Evaluation of GC content bias and nucleosome positioning analysis.
-- Calculation of signal-to-noise ratio and fragment enrichment in specific genomic regions.
+When using ATACseqQC in your analysis, please cite the following publication:
 
-
-<MyApp/>
-
-
-
-
-
-
+> **ATACseqQC: a Bioconductor package for post-alignment quality assessment of ATAC-seq data**
+> 
+> Ou, J., Liu, H., Yu, J. et al. ATACseqQC: a Bioconductor package for post-alignment quality assessment of ATAC-seq data. *BMC Genomics* 19, 169 (2018).  
+> https://doi.org/10.1186/s12864-018-4559-3
 

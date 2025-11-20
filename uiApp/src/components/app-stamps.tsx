@@ -1,34 +1,18 @@
 import React from 'react';
 import { Card, CardContent, Typography, Box, Grid } from '@mui/material';
-import {
-  Science,
-  Biotech,
-  Dns,
-  Analytics,
-  Transform,
-  CallMerge,
-  Search,
-  Assessment,
-  BubbleChart,
-  ScatterPlot,
-  SettingsInputAntenna,
-  BiotechOutlined
-} from '@mui/icons-material';
 
 interface AppStampProps {
   title: string;
   href: string;
-  icon: React.ReactNode;
 }
 
-function AppStamp({ title, href, icon }: AppStampProps) {
+function AppStamp({ title, href }: AppStampProps) {
   return (
     <Card
       sx={{
-        width: 140,
-        height: 120,
+        width: '100%',
+        minHeight: 60,
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         cursor: 'pointer',
@@ -41,11 +25,8 @@ function AppStamp({ title, href, icon }: AppStampProps) {
       component="a"
       href={href}
     >
-      <CardContent sx={{ textAlign: 'center', p: 1 }}>
-        <Box sx={{ mb: 1, color: 'primary.main' }}>
-          {icon}
-        </Box>
-        <Typography variant="body2" component="div" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
+      <CardContent sx={{ textAlign: 'center', p: '8px !important', width: '100%' }}>
+        <Typography variant="body2" component="div" sx={{ fontSize: '0.875rem', fontWeight: 500 }}>
           {title}
         </Typography>
       </CardContent>
@@ -54,35 +35,82 @@ function AppStamp({ title, href, icon }: AppStampProps) {
 }
 
 export function AppStampsGrid() {
-  const apps = [
-    // Data Preprocessing & QC
-    { title: 'Gene Count Merger', href: '/applications/data_preprocessing_and_qc/gene_count_merger', icon: <CallMerge sx={{ fontSize: 32 }} /> },
-    { title: 'Merge FPKMS', href: '/applications/data_preprocessing_and_qc/merge_fpkms', icon: <Transform sx={{ fontSize: 32 }} /> },
-
-    // RNA Seq - Bulk RNA
-    { title: 'Debrowser', href: '/applications/rna_seq/bulk_rna/debrowser', icon: <Analytics sx={{ fontSize: 32 }} /> },
-    { title: 'DEseq2', href: '/applications/rna_seq/bulk_rna/deseq2', icon: <Assessment sx={{ fontSize: 32 }} /> },
-    { title: 'STARTApp', href: '/applications/rna_seq/bulk_rna/startapp', icon: <Science sx={{ fontSize: 32 }} /> },
-    { title: 'Enrichment', href: '/applications/rna_seq/bulk_rna/enrichment', icon: <Search sx={{ fontSize: 32 }} /> },
-
-    // RNA Seq - Single Cell
-    { title: 'Monocle3', href: '/applications/rna_seq/single_cell/monocle3', icon: <BubbleChart sx={{ fontSize: 32 }} /> },
-    { title: 'Seuart V5', href: '/applications/rna_seq/single_cell/seuartV5', icon: <ScatterPlot sx={{ fontSize: 32 }} /> },
-
-    // Meta Genomics
-    { title: 'DADA2', href: '/applications/meta_genomics/dada2', icon: <Dns sx={{ fontSize: 32 }} /> },
-    { title: 'Animalcules', href: '/applications/meta_genomics/animalcules', icon: <Biotech sx={{ fontSize: 32 }} /> },
-
-    // Epigenetics
-    { title: 'Atacseq QC', href: '/applications/epigenetics/bulk/atacseq_qc', icon: <SettingsInputAntenna sx={{ fontSize: 32 }} /> },
+  const categories = [
+    {
+      name: 'Bulk RNA Seq',
+      apps: [
+        { title: 'DEseq2', href: '/applications/rna_seq/bulk_rna/deseq2' },
+        { title: 'STARTApp', href: '/applications/rna_seq/bulk_rna/startapp' },
+        { title: 'DeBrowser', href: '/applications/rna_seq/bulk_rna/debrowser' },
+      ]
+    },
+    {
+      name: 'Single Cell',
+      apps: [
+        { title: 'Monocle3', href: '/applications/rna_seq/single_cell/monocle3' },
+        { title: 'Seurat V5', href: '/applications/rna_seq/single_cell/seuartV5' },
+      ]
+    },
+    {
+      name: 'Metagenomic',
+      apps: [
+        { title: 'DADA2', href: '/applications/meta_genomics/dada2' },
+        { title: 'Animalcules', href: '/applications/meta_genomics/animalcules' },
+      ]
+    },
+    {
+      name: 'Epigenetic',
+      apps: [
+        { title: 'AtacseqQC', href: '/applications/epigenetics/bulk/atacseq_qc' },
+      ]
+    },
+    {
+      name: 'Data Preprocessing & QC',
+      apps: [
+        { title: 'GeneCountMerger', href: '/applications/data_preprocessing_and_qc/gene_count_merger' },
+        { title: 'Merge FPKMS', href: '/applications/data_preprocessing_and_qc/merge_fpkms' },
+      ]
+    },
   ];
 
   return (
     <Box sx={{ flexGrow: 1, p: 2 }}>
-      <Grid container spacing={2} justifyContent="center">
-        {apps.map((app, index) => (
-          <Grid item key={index}>
-            <AppStamp title={app.title} href={app.href} icon={app.icon} />
+      <Grid container spacing={3}>
+        {categories.map((category, categoryIndex) => (
+          <Grid item xs={12} sm={6} md={4} key={categoryIndex}>
+            <Box 
+              sx={{ 
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 2,
+                overflow: 'hidden',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <Box 
+                sx={{ 
+                  p: 2, 
+                  backgroundColor: 'grey.100',
+                  borderBottom: 1,
+                  borderColor: 'divider',
+                }}
+              >
+                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem', color: 'text.primary' }}>
+                  {category.name}
+                </Typography>
+              </Box>
+              <Box sx={{ p: 2, flexGrow: 1 }}>
+                <Grid container spacing={1.5}>
+                  {category.apps.map((app, appIndex) => (
+                    <Grid item xs={12} sm={6} key={appIndex}>
+                      <AppStamp title={app.title} href={app.href} />
+                    </Grid>
+                  ))}
+                </Grid>
+              </Box>
+            </Box>
           </Grid>
         ))}
       </Grid>
