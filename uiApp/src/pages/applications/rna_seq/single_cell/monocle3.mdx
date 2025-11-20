@@ -1,23 +1,34 @@
 ## Monocle3
 
-import * as React from 'react';
-import Button from '@mui/material/Button';
-import { Link } from 'react-router-dom';
+Monocle 3 is a computational tool for analyzing single-cell RNA sequencing (scRNA-seq) data, specializing in inferring dynamic biological processes such as cell differentiation.
 
-export const MyApp = () => {
+We provide an interactive web-based application for Monocle3 analysis.
 
-  return (
-     <Button href="/monocle3/"   target="_blank"  variant="outlined" size="small"  style={{ marginTop:"10px"}} >
-          Launch monocle3
-        </Button>
-  );
-};
+For more information about Monocle3, visit the [official documentation](https://cole-trapnell-lab.github.io/monocle3/).
 
-Monocle 3 is a computational tool for analyzing single-cell RNA sequencing (scRNA-seq) data, 
-specializing in inferring dynamic biological processes such as cell differentiation. 
-It reconstructs developmental trajectories, calculates pseudotime, identifies differentially 
-expressed genes, and offers visualization tools. Monocle 3 is widely used in research fields 
-like developmental biology and cancer biology to study cell fate decisions and gene regulatory
-networks at the single-cell level.For more information 
-click [here](https://cole-trapnell-lab.github.io/monocle3/)
-<MyApp/>
+<a href="/monocle3/" target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
+  Launch Monocle3
+</a>
+
+## Citation
+
+When using Monocle3 in your analysis, please cite the following publications:
+
+> **Monocle - Trajectory Inference**
+> 
+> Trapnell C. et al. The dynamics and regulators of cell fate decisions are revealed by pseudotemporal ordering of single cells. *Nat. Biotechnol.* 32, 381–386 (2014).  
+> https://doi.org/10.1038/nbt.2859
+
+> **Monocle - Reversed Graph Embedding**
+> 
+> Qiu, X. et al. Reversed graph embedding resolves complex single-cell trajectories. *Nat. Methods* 14, 979–982 (2017).  
+> https://doi.org/10.1038/nmeth.4402
+
+> **Monocle 3 - Single-cell Transcriptional Landscape**
+> 
+> Cao, J. et al. The single-cell transcriptional landscape of mammalian organogenesis. *Nature* 566, 496–502 (2019).  
+> https://doi.org/10.1038/s41586-019-0969-x
+
+> **UMAP - Dimension Reduction**
+> 
+> McInnes, L., Healy, J. & Melville, J. UMAP: Uniform Manifold Approximation and Projection for dimension reduction. Preprint at https://arxiv.org/abs/1802.03426 (2018).

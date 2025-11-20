@@ -1,12 +1,7 @@
 {
   "index": "Overview",
   "quickstart": "Quickstart Guide",
-  "applications": "Applications",
-  "contact": {
-    "title": "Contact ↗",
-    "type": "page",
-    "href": "#",
-    "newWindow": true
-  }
+  "applications": "Applications"
+  
   
 }

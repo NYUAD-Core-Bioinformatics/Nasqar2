@@ -1,36 +1,40 @@
 ## Gene Enrichment Tools
-import * as React from 'react';
-import Button from '@mui/material/Button';
-import { Link } from 'react-router-dom';
 
-export const MyApp1 = () => {
+We provide interactive web-based applications for gene enrichment analysis using clusterProfiler.
 
-  return (
-     <Button href="/ClusterProfShinyGSEA/"   target="_blank"  variant="outlined" size="small"  style={{ marginTop:"10px"}} >
-          Launch ClusterProfShinyGSEA
-        </Button>
-  );
-};
+For more information about clusterProfiler, visit the [official documentation](https://yulab-smu.top/biomedical-knowledge-mining-book/).
 
-export const MyApp2 = () => {
-
-  return (
-     <Button href="/ClusterProfShinyORA/"   target="_blank"  variant="outlined" size="small"  style={{ marginTop:"10px"}} >
-          Launch ClusterProfShinyORA
-        </Button>
-  );
-};
-
+---
 
 ### ClusterProfShinyGSEA (Gene Set Enrichment Analysis)
-- A web-based application to perform Gene Set Enrichment Analysis (GSEA) using clusterProfiler and shiny R libraries
-- This is based on clusterProfiler R package
 
-<MyApp1/>
+A web-based application to perform Gene Set Enrichment Analysis (GSEA) using clusterProfiler and shiny R libraries. This is based on clusterProfiler R package.
 
-### ClusterProfShinyGSEA
-- ClusterProfShinyORA (Over-Representation Analysis)
-- A web-based application to perform Over-Representation Analysis (ORA) using clusterProfiler and shiny R libraries
-- This is based on clusterProfiler R package
+**Tutorial:** [Gene Set Enrichment Analysis with ClusterProfiler](https://learn.gencore.bio.nyu.edu/rna-seq-analysis/gene-set-enrichment-analysis/)
 
-<MyApp2/>
+<a href="/ClusterProfShinyGSEA/" target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
+  Launch ClusterProfShinyGSEA
+</a>
+
+---
+
+### ClusterProfShinyORA (Over-Representation Analysis)
+
+A web-based application to perform Over-Representation Analysis (ORA) using clusterProfiler and shiny R libraries. This is based on clusterProfiler R package.
+
+**Tutorial:** [Over-Representation Analysis with ClusterProfiler](https://learn.gencore.bio.nyu.edu/rna-seq-analysis/over-representation-analysis/)
+
+<a href="/ClusterProfShinyORA/" target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
+  Launch ClusterProfShinyORA
+</a>
+
+---
+
+## Citation
+
+When using these gene enrichment tools in your analysis, please cite the following publication:
+
+> **clusterProfiler: an R package for comparing biological themes among gene clusters**
+> 
+> Yu, G., Wang, L.G., Han, Y. & He, Q.Y. clusterProfiler: an R package for comparing biological themes among gene clusters. *OMICS: A Journal of Integrative Biology* 16(5), 284-287 (2012).  
+> https://doi.org/10.1089/omi.2011.0118

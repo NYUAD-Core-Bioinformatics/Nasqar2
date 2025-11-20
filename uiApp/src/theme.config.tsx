@@ -46,7 +46,7 @@ const config: DocsThemeConfig = {
   project: {
     link: 'https://github.com/NYUAD-Core-Bioinformatics/Nasqar2',
   },
-  docsRepositoryBase: 'https://github.com/NYUAD-Core-Bioinformatics/Nasqar2/tree/main',
+  docsRepositoryBase: 'https://github.com/NYUAD-Core-Bioinformatics/Nasqar2/blob/main/uiApp/src',
   footer: {
     text: 'Core Bioinformatics, Center for Genomics and Systems Biology, NYU Abu Dhabi',
   },
@@ -60,13 +60,13 @@ const config: DocsThemeConfig = {
   },
   useNextSeoProps() {
     return {
-      titleTemplate: 'Nasqar2',
+      titleTemplate: 'NASQAR2',
     }
   },
   head: (
     <>
       <meta name="msapplication-TileColor" content="#fff" />
-      <meta http-equiv="Content-Language" content="en" />
+      <meta httpEquiv="Content-Language" content="en" />
       <meta name="description" content="NASQAR2: Nucleic Acid SeQuence Analysis Resource" />
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:site" content="@CGSB_NYU" />
