@@ -72,9 +72,10 @@ export function ImageSample(props) {
         marginTop: "30px",
         display: "flex",
         justifyContent: "center",
+        width: "100%",
       }}>
         <div 
-          style={imageContainerStyle}
+          style={{...imageContainerStyle, width: "100%"}}
           onClick={openModal}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'scale(1.02)'
@@ -86,7 +87,16 @@ export function ImageSample(props) {
           }}
           title="Click to enlarge"
         >
-          <Image src={props.path} width="800" height="800" alt="" />
+          <Image 
+            src={props.path} 
+            width="1600" 
+            height="1600" 
+            alt="" 
+            style={{
+              width: "100%",
+              height: "auto",
+            }}
+          />
         </div>
       </div>
 
@@ -141,9 +151,10 @@ export function ImageSample1(props) {
         marginTop: "30px",
         display: "flex",
         justifyContent: "center",
+        width: "100%",
       }}>
         <div 
-          style={imageContainerStyle}
+          style={{...imageContainerStyle, width: "100%"}}
           onClick={openModal}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'scale(1.02)'
@@ -155,7 +166,16 @@ export function ImageSample1(props) {
           }}
           title="Click to enlarge"
         >
-          <Image src={props.path} width="600" height="600" alt="" />
+          <Image 
+            src={props.path} 
+            width="1600" 
+            height="1600" 
+            alt="" 
+            style={{
+              width: "100%",
+              height: "auto",
+            }}
+          />
         </div>
       </div>
 
