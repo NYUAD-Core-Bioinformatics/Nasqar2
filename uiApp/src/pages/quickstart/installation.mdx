@@ -1,7 +1,48 @@
 
 ## Installation
 
-NASQAR2 can be installed on any platform using the different installation options listed below.
+NASQAR2 can be deployed on any platform using 2 main installation approaches, either through Docker, or Conda.
+The quick guide below should help you decide, which option best fits your needs/setup.
+
+<div style={{marginTop: '1.5rem'}}>
+<table style={{width: '100%', borderCollapse: 'collapse', border: '1px solid #e5e7eb'}}>
+  <thead>
+    <tr style={{backgroundColor: '#f3f4f6'}}>
+      <th style={{padding: '12px', textAlign: 'left', borderBottom: '2px solid #d1d5db', borderRight: '1px solid #d1d5db', fontWeight: '600'}}>Method</th>
+      <th style={{padding: '12px', textAlign: 'left', borderBottom: '2px solid #d1d5db', borderRight: '1px solid #d1d5db', fontWeight: '600'}}>Best For</th>
+      <th style={{padding: '12px', textAlign: 'left', borderBottom: '2px solid #d1d5db', borderRight: '1px solid #d1d5db', fontWeight: '600'}}>Pros</th>
+      <th style={{padding: '12px', textAlign: 'left', borderBottom: '2px solid #d1d5db', fontWeight: '600'}}>Cons</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr style={{borderBottom: '1px solid #e5e7eb'}}>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb', fontWeight: '600'}}>Prebuilt Docker (Cloud)</td>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>First-time users, quick start</td>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Fastest setup, single command, all apps included</td>
+      <td style={{padding: '12px'}}>Larger image size (~9-10 GB)</td>
+    </tr>
+    <tr style={{borderBottom: '1px solid #e5e7eb'}}>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb', fontWeight: '600'}}>Build All-in-One Docker</td>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Custom builds, latest updates</td>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Full control, all apps, modify source</td>
+      <td style={{padding: '12px'}}>Requires source code, longer build time</td>
+    </tr>
+    <tr style={{borderBottom: '1px solid #e5e7eb'}}>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb', fontWeight: '600'}}>Individual Docker Build</td>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Specific tool usage, resource optimization</td>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Lightweight, isolated apps, smaller footprint</td>
+      <td style={{padding: '12px'}}>Requires building from source, manage multiple containers</td>
+    </tr>
+    <tr>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb', fontWeight: '600'}}>Anaconda Local</td>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Development, customization, debugging</td>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Full control, easy debugging, direct code access</td>
+      <td style={{padding: '12px'}}>Manual setup, dependency management per app</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
 
 
 ## Installation Options using Docker
@@ -215,46 +256,3 @@ R -e "shiny::runApp('.', port = 9003, host = '0.0.0.0')"
 ```
 
 **Note**: Each application maintains its own isolated environment to avoid dependency conflicts.
-
----
-
-## Choosing the Right Installation Method
-
-<div style={{marginTop: '1.5rem'}}>
-<table style={{width: '100%', borderCollapse: 'collapse', border: '1px solid #e5e7eb'}}>
-  <thead>
-    <tr style={{backgroundColor: '#f3f4f6'}}>
-      <th style={{padding: '12px', textAlign: 'left', borderBottom: '2px solid #d1d5db', borderRight: '1px solid #d1d5db', fontWeight: '600'}}>Method</th>
-      <th style={{padding: '12px', textAlign: 'left', borderBottom: '2px solid #d1d5db', borderRight: '1px solid #d1d5db', fontWeight: '600'}}>Best For</th>
-      <th style={{padding: '12px', textAlign: 'left', borderBottom: '2px solid #d1d5db', borderRight: '1px solid #d1d5db', fontWeight: '600'}}>Pros</th>
-      <th style={{padding: '12px', textAlign: 'left', borderBottom: '2px solid #d1d5db', fontWeight: '600'}}>Cons</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr style={{borderBottom: '1px solid #e5e7eb'}}>
-      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb', fontWeight: '600'}}>Prebuilt Docker (Cloud)</td>
-      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>First-time users, quick start</td>
-      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Fastest setup, single command, all apps included</td>
-      <td style={{padding: '12px'}}>Larger image size (~9-10 GB)</td>
-    </tr>
-    <tr style={{borderBottom: '1px solid #e5e7eb'}}>
-      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb', fontWeight: '600'}}>Build All-in-One Docker</td>
-      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Custom builds, latest updates</td>
-      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Full control, all apps, modify source</td>
-      <td style={{padding: '12px'}}>Requires source code, longer build time</td>
-    </tr>
-    <tr style={{borderBottom: '1px solid #e5e7eb'}}>
-      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb', fontWeight: '600'}}>Individual Docker Build</td>
-      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Specific tool usage, resource optimization</td>
-      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Lightweight, isolated apps, smaller footprint</td>
-      <td style={{padding: '12px'}}>Requires building from source, manage multiple containers</td>
-    </tr>
-    <tr>
-      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb', fontWeight: '600'}}>Anaconda Local</td>
-      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Development, customization, debugging</td>
-      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Full control, easy debugging, direct code access</td>
-      <td style={{padding: '12px'}}>Manual setup, dependency management per app</td>
-    </tr>
-  </tbody>
-</table>
-</div>
