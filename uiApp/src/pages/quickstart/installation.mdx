@@ -1,11 +1,12 @@
 
 ## Installation
 
-NASQAR2 can be installed on any platform using different methods. Choose the installation method that best fits your needs.
+NASQAR2 can be installed on any platform using the different installation options listed below.
 
-## Installation Options
 
-NASQAR2 offers multiple installation approaches:
+## Installation Options using Docker
+
+In order to deploy NASQAR2 using the various Docker based installation option, please ensure you have already installed [Docker](https://www.docker.com/products/docker-desktop/)
 
 ### [Option 1: Pull Prebuilt Docker from Cloud](#option-1-pull-prebuilt-docker-from-cloud) (Recommended - Fastest)
 Pull and run the complete NASQAR2 suite with all applications in a single Docker container. No building required - just pull and run!
@@ -16,22 +17,9 @@ Build the complete NASQAR2 Docker container with all applications from source co
 ### [Option 3: Build Individual Docker Containers from Source](#option-3-build-individual-docker-containers-from-source)
 Build and run specific NASQAR2 applications (e.g., DESeq2, DADA2, Seurat) as separate Docker containers from source. Useful for specific tools or resource optimization.
 
-### [Option 4: Local Installation with Anaconda](#option-4-local-installation-with-anaconda)
-Install and run individual applications directly on your system using Anaconda. Provides full control over the environment.
-
 ---
 
-## Prerequisites
-
-**Docker Installation**: Docker (version >= 17.03.0-ce)
-
-You can install the latest version of **Docker** from [here](https://www.docker.com/products/docker-desktop/)
-
-<b style={{color:"red", font: "bold"}}></b>
-
----
-
-## Option 1: Pull Prebuilt Docker from Cloud
+### Option 1: Pull Prebuilt Docker from Cloud
 
 We provide prebuilt Docker images with all NASQAR2 applications bundled together. This is the fastest and easiest way to get started.
 
@@ -51,7 +39,7 @@ Access via web browser at `http://localhost/` or `http://localhost:8083/` depend
 
 ---
 
-## Option 2: Build All-in-One Docker from Source
+### Option 2: Build All-in-One Docker from Source
 
 Build the complete NASQAR2 Docker container with all applications from source code.
 
@@ -78,7 +66,7 @@ Access via web browser at `http://localhost/`
 
 ---
 
-## Option 3: Build Individual Docker Containers from Source
+### Option 3: Build Individual Docker Containers from Source
 
 Each NASQAR2 application can be run as a standalone Docker container. This is useful for running specific tools independently or reducing resource usage.
 
@@ -142,7 +130,9 @@ Access the application at `http://localhost:9001/`
 
 ---
 
-## Option 4: Local Installation with Anaconda
+## Local Installation with Anaconda
+
+In order to deploy NASQAR2 using Conda, please ensure you have installed [Conda/MiniConda/Anaconda] on your system.
 
 Run individual applications directly on your system without Docker. Each application has its own conda environment with specific dependencies.
 
