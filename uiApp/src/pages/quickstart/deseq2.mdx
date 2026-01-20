@@ -37,7 +37,11 @@ import {ImageSample1} from '../../components/image_center'
 
 You can start fresh with new data or continue from a previous GeneCountMerger session—the interface adapts to your workflow.
 
-<ImageSample1 path="/deseq2/image1_upload_count_matrix_with_gene_names.png"/>
+<ImageSample1 path="/deseq2/image1_1_upload_count_matrix_with_gene_names.png"/>
+
+After selecting your file, configure the data format options and click "Upload" to process your count matrix.
+
+<ImageSample1 path="/deseq2/image1_2_upload_count_matrix_with_gene_names.png"/>
 
 #### Reviewing Your Data
 
@@ -48,9 +52,7 @@ Once your file uploads successfully, the application displays your count matrix 
 - **Search for specific genes** using the built-in search box
 - **Identify issues** automatically—the app highlights any duplicate gene names in red and displays them in a separate panel for easy review
 
-Duplicate gene names are automatically handled by appending unique IDs, ensuring your analysis runs smoothly without manual data cleaning. 
-
-<ImageSample1 path="/deseq2/image2_preview_count_matrix.png"/>
+Duplicate gene names are automatically handled by appending unique IDs, ensuring your analysis runs smoothly without manual data cleaning.
 
 #### Uploading Custom Metadata
 
@@ -62,7 +64,11 @@ After uploading your count matrix, you'll need to provide sample metadata that d
 
 The metadata defines how samples will be grouped for differential expression analysis.
 
-<ImageSample1 path="/deseq2/image3_upload_custom_metadata.png"/>
+<ImageSample1 path="/deseq2/image3_1_upload_custom_metadata.png.png"/>
+
+After uploading, review the metadata table to confirm all samples and factors are correctly identified.
+
+<ImageSample1 path="/deseq2/image3_2_upload_custom_metadata.png.png"/>
 
 ### Setting Up Your Analysis
 
@@ -164,14 +170,17 @@ Compare differentially expressed genes across all your experimental conditions t
 
 ##### Set Operations for Specific Conditions
 
-Perform detailed set operations (union, intersection, difference) between selected comparisons:
+Perform detailed set operations (union, intersection, difference) between selected comparisons. Select your conditions and operation type to identify specific gene sets:
 
+<ImageSample1 path="/deseq2/image9_1_venn_digram_set_operation_differentially_express_genes_pertical_condition.png"/>
+
+The resulting Venn diagram visualizes the overlap, allowing you to:
 - **Combine gene lists** from multiple contrasts
 - **Find exclusive genes** present in one condition but not others
 - **Export gene lists** for downstream pathway analysis
-- **Interactive region selection** to explore genes in specific overlaps
+- **Click on regions** to explore genes in specific overlaps
 
-<ImageSample1 path="/deseq2/image9_venn_digram_set_operation_differentially_express_genes_pertical_condition.png"/>
+<ImageSample1 path="/deseq2/image9_2_venn_digram_set_operation_differentially_express_genes_pertical_condition.png"/>
 
 #### Gene Expression Box Plots
 
@@ -191,7 +200,9 @@ The heatmap provides a comprehensive view of expression patterns across your dif
 - **Hierarchical clustering** reveals groups of co-regulated genes
 - **Sample relationships** are displayed through dendrogram structure
 - **Expression patterns** are color-coded for easy interpretation
-- **Customize gene selection** by adjusting the number of top genes displayed
-- **Export high-resolution images** suitable for publication
 
-<ImageSample1 path="/deseq2/image11_heatmap.png"/>
+<ImageSample1 path="/deseq2/image11_1_heatmap.png"/>
+
+Customize the visualization by adjusting the number of top genes displayed, clustering methods, and color schemes:
+
+<ImageSample1 path="/deseq2/image11_2_heatmap.png"/>
