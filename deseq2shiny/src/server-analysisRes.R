@@ -66,6 +66,48 @@ output$maPlot <- renderPlot({
     }
 })
 
+# Download MA plot with custom size and format
+output$download_ma_plot <- downloadHandler(
+    filename = function() {
+        timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+        ext <- input$ma_plot_format
+        paste0("ma_plot_", timestamp, ".", ext)
+    },
+    content = function(file) {
+        comparison_result <- compareReactive()
+        results_data <- if (!is.null(comparison_result)) {
+            comparison_result$results
+        } else if (!is.null(myValues$vsResults)) {
+            myValues$vsResults
+        } else {
+            return()
+        }
+        
+        plot_width <- input$ma_plot_width
+        plot_height <- input$ma_plot_height
+        plot_format <- input$ma_plot_format
+        plot_dpi <- input$ma_plot_dpi
+        
+        if (plot_format == "pdf") {
+            pdf(file, width = plot_width, height = plot_height)
+            plotMA(results_data, main = "MA Plot", ylim = c(-input$ylim, input$ylim), alpha = input$alpha, colSig = "red")
+            dev.off()
+        } else if (plot_format == "png") {
+            png(file, width = plot_width, height = plot_height, units = "in", res = plot_dpi)
+            plotMA(results_data, main = "MA Plot", ylim = c(-input$ylim, input$ylim), alpha = input$alpha, colSig = "red")
+            dev.off()
+        } else if (plot_format == "jpeg") {
+            jpeg(file, width = plot_width, height = plot_height, units = "in", res = plot_dpi, quality = 95)
+            plotMA(results_data, main = "MA Plot", ylim = c(-input$ylim, input$ylim), alpha = input$alpha, colSig = "red")
+            dev.off()
+        } else if (plot_format == "tiff") {
+            tiff(file, width = plot_width, height = plot_height, units = "in", res = plot_dpi, compression = "lzw")
+            plotMA(results_data, main = "MA Plot", ylim = c(-input$ylim, input$ylim), alpha = input$alpha, colSig = "red")
+            dev.off()
+        }
+    }
+)
+
 
 
 filelist <- reactiveValues()
@@ -158,6 +200,98 @@ output$downloadVsCsv <- downloadHandler(
         csv <- myValues$vsResults
 
         write.csv(csv, file, row.names = T)
+    }
+)
+
+# Export R code for MA plot
+output$download_code_ma <- downloadHandler(
+    filename = function() {
+        timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+        comparison_name <- paste0(input$condition1, "_vs_", input$condition2)
+        export_mode <- get_export_mode(input)
+        export_format <- get_export_format(input)
+        
+        if (export_mode == "full") {
+            paste0("ma_plot_export_", timestamp, ".zip")
+        } else {
+            ext <- ".R"  # Only .R format supported
+            paste0("ma_plot_", comparison_name, "_", timestamp, ext)
+        }
+    },
+    content = function(file) {
+        req(myValues$vsResults)
+        
+        # Safe access to export mode/format with defaults
+        export_mode <- get_export_mode(input)
+        export_format <- get_export_format(input)
+        
+        comparison_name <- paste0(input$condition1, "_vs_", input$condition2)
+        
+        # Prepare data filename for full mode
+        timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+        results_filename <- if (export_mode == "full") {
+            paste0("ma_plot_data_", comparison_name, "_", timestamp, ".csv")
+        } else {
+            NULL
+        }
+        
+        params <- list(
+            comparison_name = comparison_name,
+            alpha = input$alpha,
+            ylim = input$ylim,
+            data_file = results_filename  # Add data filename for full mode
+        )
+        
+        r_code <- generateMAPlotCode(params, 
+                                     mode = export_mode, 
+)
+        
+        if (export_mode == "full") {
+            temp_dir <- tempdir()
+            export_dir <- file.path(temp_dir, paste0("ma_plot_export_", timestamp))
+            dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
+            
+            # Export results data
+            results_file <- file.path(export_dir, results_filename)
+            write.csv(as.data.frame(myValues$vsResults), results_file, row.names = TRUE)
+            
+            # Write R code
+            code_filename <- paste0("ma_plot_", comparison_name, "_", timestamp, 
+                                   ".R")
+            code_file <- file.path(export_dir, code_filename)
+            writeLines(r_code, code_file)
+            
+            # Create README
+            readme_file <- file.path(export_dir, "README.txt")
+            readme_text <- paste0(
+                "MA Plot R Code Export\n",
+                "====================\n\n",
+                "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
+                "Comparison: ", comparison_name, "\n",
+                "Alpha threshold: ", params$alpha, "\n\n",
+                "Files included:\n",
+                "- ", code_filename, " : R code to generate the MA plot\n",
+                "- ", results_filename, " : DESeq2 results data\n",
+                "- README.txt : This file\n\n",
+                "Instructions:\n",
+                "1. Extract all files to the same directory\n",
+                "2. Open the R script in RStudio\n",
+                "3. Ensure the data CSV file is in the same directory\n",
+                "4. Run the script to generate the plot\n",
+                "5. The plot will be saved as a PDF file\n"
+            )
+            writeLines(readme_text, readme_file)
+            
+            # Create ZIP from the directory
+            zip_file <- file.path(temp_dir, paste0("ma_plot_export_", timestamp, ".zip"))
+            zip_export_dir(export_dir, zip_file)
+            
+            # Copy to output
+            file.copy(zip_file, file)
+        } else {
+            # Just write the R code
+            writeLines(r_code, file)
+        }
     }
 )
 

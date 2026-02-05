@@ -473,3 +473,277 @@ output$deseqError <- reactive({
     return(!is.null(myValues$status))
 })
 outputOptions(output, "deseqError", suspendWhenHidden = FALSE)
+
+# Export R code for VST PCA plot
+output$download_code_pca_vst <- downloadHandler(
+    filename = function() {
+        timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+        export_mode <- get_export_mode(input)
+        export_format <- get_export_format(input)
+        
+        if (export_mode == "full") {
+            paste0("pca_vst_export_", timestamp, ".zip")
+        } else {
+            ext <- ".R"  # Only .R format supported
+            paste0("pca_vst_", timestamp, ext)
+        }
+    },
+    content = function(file) {
+        req(myValues$vsd)
+        
+        export_mode <- get_export_mode(input)
+        export_format <- get_export_format(input)
+        
+        params <- list(
+            intgroup = if(!is.null(input$vsdIntGroupsInput)) input$vsdIntGroupsInput else names(colData(myValues$dds))[1],
+            transform_type = "vst"
+        )
+        
+        r_code <- generatePCACode(params, 
+                                 mode = export_mode, 
+)
+        
+        if (export_mode == "full") {
+            timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+            temp_dir <- tempdir()
+            export_dir <- file.path(temp_dir, paste0("pca_vst_export_", timestamp))
+            dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
+            
+            vst_filename <- paste0("vst_data_", timestamp, ".csv")
+            vst_file <- file.path(export_dir, vst_filename)
+            write.csv(myValues$vstMat, vst_file, row.names = TRUE)
+            
+            metadata_filename <- paste0("metadata_", timestamp, ".csv")
+            metadata_file <- file.path(export_dir, metadata_filename)
+            write.csv(as.data.frame(colData(myValues$dds)), metadata_file, row.names = TRUE)
+            
+            code_filename <- paste0("pca_vst_", timestamp, ".R")
+            code_file <- file.path(export_dir, code_filename)
+            writeLines(r_code, code_file)
+            
+            readme_file <- file.path(export_dir, "README.txt")
+            readme_text <- paste0(
+                "PCA Plot (VST) R Code Export\n",
+                "============================\n\n",
+                "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
+                "Files included:\n",
+                "- ", code_filename, "\n",
+                "- ", vst_filename, "\n",
+                "- ", metadata_filename, "\n\n",
+                "Instructions:\n",
+                "1. Extract all files to the same directory\n",
+                "2. Open the R script and run it in RStudio\n"
+            )
+            writeLines(readme_text, readme_file)
+            
+            zip_file <- file.path(temp_dir, paste0("pca_vst_export_", timestamp, ".zip"))
+            zip_export_dir(export_dir, zip_file)
+            file.copy(zip_file, file)
+        } else {
+            writeLines(r_code, file)
+        }
+    }
+)
+
+# Export R code for RLOG PCA plot
+output$download_code_pca_rlog <- downloadHandler(
+    filename = function() {
+        timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+        export_mode <- get_export_mode(input)
+        export_format <- get_export_format(input)
+        if (export_mode == "full") {
+            paste0("pca_rlog_export_", timestamp, ".zip")
+        } else {
+            ext <- ".R"  # Only .R format supported
+            paste0("pca_rlog_", timestamp, ext)
+        }
+    },
+    content = function(file) {
+        req(myValues$rld)
+        
+        export_mode <- get_export_mode(input)
+        export_format <- get_export_format(input)
+        params <- list(
+            intgroup = if(!is.null(input$rlogIntGroupsInput)) input$rlogIntGroupsInput else names(colData(myValues$dds))[1],
+            transform_type = "rlog"
+        )
+        
+        r_code <- generatePCACode(params, 
+                                 mode = export_mode, 
+)
+        
+        if (export_mode == "full") {
+            timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+            temp_dir <- tempdir()
+            export_dir <- file.path(temp_dir, paste0("pca_rlog_export_", timestamp))
+            dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
+            
+            rlog_filename <- paste0("rlog_data_", timestamp, ".csv")
+            rlog_file <- file.path(export_dir, rlog_filename)
+            write.csv(myValues$rlogMat, rlog_file, row.names = TRUE)
+            
+            metadata_filename <- paste0("metadata_", timestamp, ".csv")
+            metadata_file <- file.path(export_dir, metadata_filename)
+            write.csv(as.data.frame(colData(myValues$dds)), metadata_file, row.names = TRUE)
+            
+            code_filename <- paste0("pca_rlog_", timestamp, ".R")
+            code_file <- file.path(export_dir, code_filename)
+            writeLines(r_code, code_file)
+            
+            readme_file <- file.path(export_dir, "README.txt")
+            readme_text <- paste0(
+                "PCA Plot (RLOG) R Code Export\n",
+                "=============================\n\n",
+                "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
+                "Files included:\n",
+                "- ", code_filename, "\n",
+                "- ", rlog_filename, "\n",
+                "- ", metadata_filename, "\n\n",
+                "Instructions:\n",
+                "1. Extract all files to the same directory\n",
+                "2. Open the R script and run it in RStudio\n"
+            )
+            writeLines(readme_text, readme_file)
+            
+            zip_file <- file.path(temp_dir, paste0("pca_rlog_export_", timestamp, ".zip"))
+            zip_export_dir(export_dir, zip_file)
+            file.copy(zip_file, file)
+        } else {
+            writeLines(r_code, file)
+        }
+    }
+)
+
+# Export R code for VST Distance Heatmap
+output$download_code_distheat_vst <- downloadHandler(
+    filename = function() {
+        timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+        export_mode <- get_export_mode(input)
+        export_format <- get_export_format(input)
+        
+        if (export_mode == "full") {
+            paste0("distance_heatmap_vst_export_", timestamp, ".zip")
+        } else {
+            ext <- ".R"  # Only .R format supported
+            paste0("distance_heatmap_vst_", timestamp, ext)
+        }
+    },
+    content = function(file) {
+        req(myValues$vsd)
+        
+        export_mode <- get_export_mode(input)
+        export_format <- get_export_format(input)
+        
+        params <- list(transform_type = "vst")
+        
+        r_code <- generateDistHeatmapCode(params, 
+                                          mode = export_mode, 
+         )
+        
+        if (export_mode == "full") {
+            timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+            temp_dir <- tempdir()
+            export_dir <- file.path(temp_dir, paste0("distance_heatmap_vst_export_", timestamp))
+            dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
+            
+            vst_filename <- paste0("vst_data_", timestamp, ".csv")
+            vst_file <- file.path(export_dir, vst_filename)
+            write.csv(myValues$vstMat, vst_file, row.names = TRUE)
+            
+            metadata_filename <- paste0("metadata_", timestamp, ".csv")
+            metadata_file <- file.path(export_dir, metadata_filename)
+            write.csv(as.data.frame(colData(myValues$dds)), metadata_file, row.names = TRUE)
+            
+            code_filename <- paste0("distance_heatmap_vst_", timestamp, ".R")
+            code_file <- file.path(export_dir, code_filename)
+            writeLines(r_code, code_file)
+            
+            readme_file <- file.path(export_dir, "README.txt")
+            readme_text <- paste0(
+                "Distance Heatmap (VST) R Code Export\n",
+                "====================================\n\n",
+                "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
+                "Files included:\n",
+                "- ", code_filename, "\n",
+                "- ", vst_filename, "\n",
+                "- ", metadata_filename, "\n\n",
+                "Instructions:\n",
+                "1. Extract all files to the same directory\n",
+                "2. Open the R script and run it in RStudio\n"
+            )
+            writeLines(readme_text, readme_file)
+            
+            zip_file <- file.path(temp_dir, paste0("distance_heatmap_vst_export_", timestamp, ".zip"))
+            zip_export_dir(export_dir, zip_file)
+            file.copy(zip_file, file)
+        } else {
+            writeLines(r_code, file)
+        }
+    }
+)
+
+# Export R code for RLOG Distance Heatmap
+output$download_code_distheat_rlog <- downloadHandler(
+    filename = function() {
+        timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+        export_mode <- get_export_mode(input)
+        export_format <- get_export_format(input)
+        if (export_mode == "full") {
+            paste0("distance_heatmap_rlog_export_", timestamp, ".zip")
+        } else {
+            ext <- ".R"  # Only .R format supported
+            paste0("distance_heatmap_rlog_", timestamp, ext)
+        }
+    },
+    content = function(file) {
+        req(myValues$rld)
+        
+        export_mode <- get_export_mode(input)
+        export_format <- get_export_format(input)
+        params <- list(transform_type = "rlog")
+        
+        r_code <- generateDistHeatmapCode(params, 
+                                          mode = export_mode, 
+         )
+        
+        if (export_mode == "full") {
+            timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+            temp_dir <- tempdir()
+            export_dir <- file.path(temp_dir, paste0("distance_heatmap_rlog_export_", timestamp))
+            dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
+            
+            rlog_filename <- paste0("rlog_data_", timestamp, ".csv")
+            rlog_file <- file.path(export_dir, rlog_filename)
+            write.csv(myValues$rlogMat, rlog_file, row.names = TRUE)
+            
+            metadata_filename <- paste0("metadata_", timestamp, ".csv")
+            metadata_file <- file.path(export_dir, metadata_filename)
+            write.csv(as.data.frame(colData(myValues$dds)), metadata_file, row.names = TRUE)
+            
+            code_filename <- paste0("distance_heatmap_rlog_", timestamp, ".R")
+            code_file <- file.path(export_dir, code_filename)
+            writeLines(r_code, code_file)
+            
+            readme_file <- file.path(export_dir, "README.txt")
+            readme_text <- paste0(
+                "Distance Heatmap (RLOG) R Code Export\n",
+                "=====================================\n\n",
+                "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
+                "Files included:\n",
+                "- ", code_filename, "\n",
+                "- ", rlog_filename, "\n",
+                "- ", metadata_filename, "\n\n",
+                "Instructions:\n",
+                "1. Extract all files to the same directory\n",
+                "2. Open the R script and run it in RStudio\n"
+            )
+            writeLines(readme_text, readme_file)
+            
+            zip_file <- file.path(temp_dir, paste0("distance_heatmap_rlog_export_", timestamp, ".zip"))
+            zip_export_dir(export_dir, zip_file)
+            file.copy(zip_file, file)
+        } else {
+            writeLines(r_code, file)
+        }
+    }
+)

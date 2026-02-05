@@ -80,6 +80,49 @@ tabItem(
                                 12,
                                  # Color picker to select color for the chosen level
                                 actionButton("applyColor", "Apply Color")
+                            ),
+                            column(12,
+                                hr(),
+                                h5(strong("Download Plot:")),
+                                fluidRow(
+                                    column(6,
+                                        selectInput("boxplot_format",
+                                            label = "File format:",
+                                            choices = c("PDF" = "pdf", "PNG" = "png", "JPEG" = "jpeg", "TIFF" = "tiff"),
+                                            selected = "pdf"
+                                        )
+                                    ),
+                                    column(6,
+                                        numericInput("boxplot_dpi",
+                                            label = "DPI:",
+                                            value = 300,
+                                            min = 72,
+                                            max = 600,
+                                            step = 50
+                                        )
+                                    )
+                                ),
+                                fluidRow(
+                                    column(6,
+                                        numericInput("boxplot_width",
+                                            label = "Width (in):",
+                                            value = 10,
+                                            min = 3,
+                                            max = 20,
+                                            step = 1
+                                        )
+                                    ),
+                                    column(6,
+                                        numericInput("boxplot_height",
+                                            label = "Height (in):",
+                                            value = 8,
+                                            min = 3,
+                                            max = 20,
+                                            step = 1
+                                        )
+                                    )
+                                ),
+                                downloadButton("download_boxplot", "Download Plot", class = "btn-success", style = "width: 100%; margin-top: 10px;")
                             )
 
                             
@@ -87,7 +130,7 @@ tabItem(
                              # Dropdown to select which level to customize
   
   
- 
+
                         ),
                         # column(2,
                         #        radioButtons("counttype","Y axis:",choices=c("counts","rlog","vst"))

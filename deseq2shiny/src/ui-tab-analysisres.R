@@ -82,7 +82,48 @@ tabItem(
                                 sliderInput("alpha", "Adjusted p-value treshold", min = 0, max = 1, value = 0.1, step = 0.001),
                                 numericInput("ylim",
                                     label = "Y Axis range abs value", min = 1, max = 10, value = 2
-                                )
+                                ),
+                                hr(),
+                                h5(strong("Download Plot:")),
+                                fluidRow(
+                                    column(6,
+                                        selectInput("ma_plot_format",
+                                            label = "File format:",
+                                            choices = c("PDF" = "pdf", "PNG" = "png", "JPEG" = "jpeg", "TIFF" = "tiff"),
+                                            selected = "pdf"
+                                        )
+                                    ),
+                                    column(6,
+                                        numericInput("ma_plot_dpi",
+                                            label = "DPI:",
+                                            value = 300,
+                                            min = 72,
+                                            max = 600,
+                                            step = 50
+                                        )
+                                    )
+                                ),
+                                fluidRow(
+                                    column(6,
+                                        numericInput("ma_plot_width",
+                                            label = "Width (in):",
+                                            value = 10,
+                                            min = 3,
+                                            max = 20,
+                                            step = 1
+                                        )
+                                    ),
+                                    column(6,
+                                        numericInput("ma_plot_height",
+                                            label = "Height (in):",
+                                            value = 8,
+                                            min = 3,
+                                            max = 20,
+                                            step = 1
+                                        )
+                                    )
+                                ),
+                                downloadButton("download_ma_plot", "Download Plot", class = "btn-success", style = "width: 100%; margin-top: 10px;")
                             )
                         ),
                         box(

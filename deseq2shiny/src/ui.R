@@ -75,13 +75,7 @@ ui <- tagList(
         dashboardPage(
             # skin = "purple",
             dashboardHeader(
-                title = "DESeq2 Shiny",
-                # # Add save/load button in header
-                tags$li(class = "dropdown", style = "margin-top: 8px; margin-right: 10px;",
-                    actionButton("showStateModal", "💾 Save/Load State", 
-                                class = "btn btn-info btn-sm",
-                                style = "color: white; background-color: #17a2b8; border-color: #17a2b8;")
-                )
+                title = "DESeq2 Shiny"
             ),
             dashboardSidebar(
                 sidebarMenu(
@@ -97,7 +91,16 @@ ui <- tagList(
                     menuItem("   Vocano Plot", tabName = "volcanoplotTab"),
                     menuItem("   Venn Digram", tabName = "venndiagramTab"),
                     menuItem("   Gene Boxplot", tabName = "boxplotTab", icon = icon("bar-chart")),
-                    menuItem("   Heatmap", tabName = "heatmapTab", icon = icon("bar-chart"))
+                    menuItem("   Heatmap", tabName = "heatmapTab", icon = icon("bar-chart")),
+                    tags$li(
+                        tags$a(
+                            href = "#",
+                            onclick = "Shiny.setInputValue('showStateModal', Math.random()); return false;",
+                            icon("save"),
+                            tags$span("Save/Load State & Export")
+                        ),
+                        class = "treeview"
+                    )
                 )
             ),
             dashboardBody(

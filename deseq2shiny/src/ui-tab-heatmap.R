@@ -75,8 +75,16 @@ tabItem(
                             title = "Heatmap", solidHeader = T, status = "primary", width = 12,
                             # withSpinner(plotOutput(outputId = "heatmapPlot", height = "1200px"),
                             # ),
-                            InteractiveComplexHeatmapOutput("ht2", output_ui = withSpinner(htmlOutput("heatmap_click")))
-                            
+                            InteractiveComplexHeatmapOutput("ht2", output_ui = withSpinner(htmlOutput("heatmap_click"))),
+                            hr(),
+                            p(strong("💡 Tip:"), " Brush/select an area on the heatmap above to create a sub-heatmap of selected genes."),
+                            conditionalPanel(
+                                "output.brushedHeatmapAvailable",
+                                downloadButton("download_brushed_heatmap_csv", "Download Brushed Genes Data (CSV)", 
+                                             class = "btn btn-success btn-sm", style = "margin: 5px;"),
+                                p(class = "text-muted", style = "font-size: 11px; margin-top: 5px;", 
+                                  textOutput("brushed_genes_count"))
+                            )
                         )
                     ),
                     # h4(p(class = "text-right", downloadButton("downloadHeatmapCsv", "Download Normalized Counts .csv", class = "btn btn-primary btn-sm"))),

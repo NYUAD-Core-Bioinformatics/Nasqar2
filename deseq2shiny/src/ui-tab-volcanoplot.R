@@ -50,7 +50,57 @@ tabItem(
                                 sliderInput("log_fold_change_threshold",
                                     label = h5("Fold Change threshold:"), min = 0,
                                     max = 5, value = 3, step = 0.1
-                                )
+                                ),
+                                hr(),
+                                h5(strong("Gene Labeling (Optional):")),
+                                textAreaInput("volcano_genes_of_interest",
+                                    label = "Genes to label (leave empty for auto-select top significant):",
+                                    placeholder = "e.g., Egfl6,Cnn1,Hoxc11,Lrp3,Nr1h3",
+                                    rows = 2,
+                                    width = "100%"
+                                ),
+                                helpText("Enter gene names (or IDs) separated by commas. If specified, only these genes will be labeled in the plot."),
+                                hr(),
+                                h5(strong("Download Plot:")),
+                                fluidRow(
+                                    column(6,
+                                        selectInput("volcano_plot_format",
+                                            label = "File format:",
+                                            choices = c("PDF" = "pdf", "PNG" = "png", "JPEG" = "jpeg", "TIFF" = "tiff"),
+                                            selected = "pdf"
+                                        )
+                                    ),
+                                    column(6,
+                                        numericInput("volcano_plot_dpi",
+                                            label = "DPI (for PNG/JPEG/TIFF):",
+                                            value = 300,
+                                            min = 72,
+                                            max = 600,
+                                            step = 50
+                                        )
+                                    )
+                                ),
+                                fluidRow(
+                                    column(6,
+                                        numericInput("volcano_plot_width",
+                                            label = "Width (inches):",
+                                            value = 10,
+                                            min = 3,
+                                            max = 20,
+                                            step = 1
+                                        )
+                                    ),
+                                    column(6,
+                                        numericInput("volcano_plot_height",
+                                            label = "Height (inches):",
+                                            value = 8,
+                                            min = 3,
+                                            max = 20,
+                                            step = 1
+                                        )
+                                    )
+                                ),
+                                downloadButton("download_volcano_plot", "Download Plot", class = "btn-success", style = "width: 100%; margin-top: 10px;")
                             )
                         )
                     )

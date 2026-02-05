@@ -192,7 +192,13 @@ observeEvent(input$prefilterCounts, ignoreInit = TRUE, {
     dataCounts <- inputFileReactive()
     dataCounts <- dataCounts[rowSums(dataCounts) >= input$minRowCount, ]
     myValues$dataCounts <- dataCounts
+    
+    # Store filtering parameters for export reproducibility
+    myValues$prefilter_applied <- TRUE
+    myValues$prefilter_threshold <- input$minRowCount
+    
     print("prefilterCounts")
+    print(paste("Applied prefilter with threshold:", input$minRowCount))
 })
 
 myValues <- reactiveValues()
