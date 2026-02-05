@@ -75,6 +75,50 @@ tabItem(
                                     label = h5("Fold Change threshold:"), min = 0,
                                     max = 5, value = 3,step=0.1
                                 )
+                            ),
+                            column(
+                                12,
+                                hr(),
+                                h5(strong("Download Plot:")),
+                                fluidRow(
+                                    column(6,
+                                        selectInput("venn_plot_format",
+                                            label = "File format:",
+                                            choices = c("PDF" = "pdf", "PNG" = "png", "JPEG" = "jpeg", "TIFF" = "tiff"),
+                                            selected = "pdf"
+                                        )
+                                    ),
+                                    column(6,
+                                        numericInput("venn_plot_dpi",
+                                            label = "DPI:",
+                                            value = 300,
+                                            min = 72,
+                                            max = 600,
+                                            step = 50
+                                        )
+                                    )
+                                ),
+                                fluidRow(
+                                    column(6,
+                                        numericInput("venn_plot_width",
+                                            label = "Width (in):",
+                                            value = 10,
+                                            min = 3,
+                                            max = 20,
+                                            step = 1
+                                        )
+                                    ),
+                                    column(6,
+                                        numericInput("venn_plot_height",
+                                            label = "Height (in):",
+                                            value = 8,
+                                            min = 3,
+                                            max = 20,
+                                            step = 1
+                                        )
+                                    )
+                                ),
+                                downloadButton("download_venn_plot", "Download Plot", class = "btn-success", style = "width: 100%; margin-top: 10px;")
                             )
                         ),
                         # column(2,
@@ -164,7 +208,11 @@ tabItem(
                     
                     conditionalPanel(
                       condition = "output.venn_expression_result && output.selected_genes",
-                    h4(p(class = "text-right", downloadButton("downloadVennMatrix", "Download .csv", class = "btn btn-primary btn-sm"))))
+                      h4(p(class = "text-right", 
+                        downloadButton("downloadVennMatrix", "Download .csv", class = "btn btn-primary btn-sm"),
+                        downloadButton("download_code_brushed_venn_heatmap", "Export R Code", class = "btn btn-success btn-sm", style = "margin-left: 5px;")
+                      ))
+                    )
                     # plotOutput("heatMap1")htmlOutput("info1"),
                 ),
                 hr(),

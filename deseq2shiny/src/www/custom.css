@@ -388,3 +388,88 @@ a[bubbletooltip]:hover:after {
     background-color: white;
     box-shadow: inset 0px 0px 0px 1px lightgray;
 }
+
+/* Export button hover effects */
+.btn-outline-success:hover,
+.btn-outline-info:hover {
+    transform: translateX(5px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Smooth transitions for all buttons */
+.btn {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Primary export button hover */
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4) !important;
+}
+
+/* Success button hover */
+.btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4) !important;
+}
+
+/* Custom scrollbar for export list */
+div[style*="overflow-y: auto"]::-webkit-scrollbar {
+    width: 8px;
+}
+
+div[style*="overflow-y: auto"]::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+div[style*="overflow-y: auto"]::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+}
+
+div[style*="overflow-y: auto"]::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* File input styling */
+.form-control-file {
+    border: 2px dashed #dee2e6;
+    border-radius: 6px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.form-control-file:hover {
+    border-color: #0066cc;
+    background-color: #e7f3ff;
+}
+
+/* Modal improvements */
+.modal-content {
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    border-bottom: 2px solid #dee2e6;
+}
+
+/* Icon animations */
+.fa-database,
+.fa-folder-open,
+.fa-code {
+    animation: fadeInScale 0.5s ease-in-out;
+}
+
+@keyframes fadeInScale {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

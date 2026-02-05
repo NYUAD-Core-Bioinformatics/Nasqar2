@@ -8,6 +8,35 @@ options(shiny.host = "0.0.0.0")
 # Ensure proper handling of selectize inputs behind proxy
 options(shiny.sanitize.errors = FALSE)  # For debugging
 
+# Export helpers to avoid NULL input issues in download handlers
+get_export_mode <- function(input) {
+  mode <- tryCatch(input$export_mode_global, error = function(e) NULL)
+  if (is.null(mode) || length(mode) == 0 || !nzchar(as.character(mode))) {
+    return("full")
+  }
+  as.character(mode)
+}
+
+get_export_format <- function(input) {
+  # Only .R format is supported (R Markdown removed)
+  return("r")
+}
+
+zip_export_dir <- function(export_dir, zip_file) {
+  files <- list.files(export_dir, full.names = FALSE)
+  if (length(files) == 0) {
+    stop("No files to zip.")
+  }
+  current_wd <- getwd()
+  on.exit(setwd(current_wd), add = TRUE)
+  setwd(export_dir)
+  if (requireNamespace("zip", quietly = TRUE)) {
+    zip::zip(zipfile = zip_file, files = files)
+  } else {
+    utils::zip(zipfile = zip_file, files = files)
+  }
+}
+
 # Load all required libraries at startup
 suppressPackageStartupMessages({
   library(shinydashboard)

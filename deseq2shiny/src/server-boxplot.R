@@ -304,6 +304,56 @@ output$boxPlot <- renderPlotly({
     }
 })
 
+# Download boxplot with custom size and format
+output$download_boxplot <- downloadHandler(
+    filename = function() {
+        timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+        ext <- input$boxplot_format
+        paste0("boxplot_", timestamp, ".", ext)
+    },
+    content = function(file) {
+        req(geneExrReactive())
+        
+        filtered <- geneExrReactive()
+        filtered[[input$boxplotX]] <- factor(filtered[[input$boxplotX]], input$sel_factors)
+        
+        plot_width <- input$boxplot_width
+        plot_height <- input$boxplot_height
+        plot_format <- input$boxplot_format
+        plot_dpi <- input$boxplot_dpi
+        
+        # Create the ggplot
+        if (input$box_plot_sel_gene_type == "gene.name") {
+            p <- ggplot(filtered, aes_string(input$boxplotX, "expression", fill = input$boxplotFill)) +
+                geom_boxplot() +
+                facet_wrap(~gene.name, scales = "free_y") +
+                scale_fill_manual(values = custom_colors$colors)
+        } else {
+            p <- ggplot(filtered, aes_string(input$boxplotX, "expression", fill = input$boxplotFill)) +
+                geom_boxplot() +
+                facet_wrap(~gene, scales = "free_y") +
+                scale_fill_manual(values = custom_colors$colors)
+        }
+        
+        p <- p + xlab(" ") + theme(
+            plot.margin = unit(c(1, 1, 1, 1), "cm"),
+            axis.text.x = element_text(angle = 45),
+            legend.position = "bottom"
+        )
+        
+        # Save with specified format and dimensions
+        if (plot_format == "pdf") {
+            ggsave(file, plot = p, width = plot_width, height = plot_height, device = "pdf")
+        } else if (plot_format == "png") {
+            ggsave(file, plot = p, width = plot_width, height = plot_height, dpi = plot_dpi, device = "png")
+        } else if (plot_format == "jpeg") {
+            ggsave(file, plot = p, width = plot_width, height = plot_height, dpi = plot_dpi, device = "jpeg")
+        } else if (plot_format == "tiff") {
+            ggsave(file, plot = p, width = plot_width, height = plot_height, dpi = plot_dpi, device = "tiff", compression = "lzw")
+        }
+    }
+)
+
 output$boxplotData <- renderDataTable(
     {
         if (!is.null(geneExrReactive())) {
@@ -328,5 +378,140 @@ output$downloadBoxCsv <- downloadHandler(
         csv <- geneExrReactive()
 
         write.csv(csv, file, row.names = F)
+    }
+)
+
+# Export R code for boxplot
+output$download_code_boxplot <- downloadHandler(
+    filename = function() {
+        # Check if data is available - if not, return error filename
+        if (is.null(input$sel_gene) || is.null(input$sel_groups)) {
+            filename_val <- "boxplot_error.txt"
+        } else {
+            timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+            export_mode <- get_export_mode(input)
+            export_format <- get_export_format(input)
+            
+            filename_val <- if (export_mode == "full") {
+                paste0("boxplot_export_", timestamp, ".zip")
+            } else {
+                ext <- ".R"  # Only .R format supported
+                paste0("boxplot_", timestamp, ext)
+            }
+        }
+        
+        filename_val
+    },
+    content = function(file) {
+        # Check if required inputs are available (instead of req() which fails silently)
+        if (is.null(input$sel_gene) || is.null(input$sel_groups)) {
+            # Write error message instead of failing
+            error_msg <- paste0(
+                "Error: Boxplot export not available\n\n",
+                "Please configure the Gene Boxplot first:\n",
+                "1. Navigate to the 'Gene Boxplot' tab\n",
+                "2. Select a gene from the dropdown\n",
+                "3. Configure the plot settings (X-axis, Fill)\n",
+                "4. Then return to export the plot code\n"
+            )
+            writeLines(error_msg, file)
+            return(invisible(NULL))
+        }
+        
+        # Safe access to export mode/format with defaults
+        export_mode <- get_export_mode(input)
+        export_format <- get_export_format(input)
+        
+        # Get current parameters with safe access
+        custom_colors <- tryCatch(myValues$custom_colors_boxplot, error = function(e) NULL)
+        gene_type_input <- tryCatch(input$box_plot_sel_gene_type, error = function(e) NULL)
+        use_gene_names_val <- if(!is.null(gene_type_input) && length(gene_type_input) > 0) {
+            gene_type_input == "gene.name"
+        } else {
+            FALSE
+        }
+        
+        params <- list(
+            selected_genes = input$sel_gene,
+            x_axis = input$boxplotX,
+            fill_by = input$boxplotFill,
+            factors = input$sel_factors,
+            use_gene_names = use_gene_names_val,
+            custom_colors = if(!is.null(custom_colors) && !is.null(custom_colors$colors)) custom_colors$colors else NULL
+        )
+        
+        # Generate R code
+        r_code <- generateBoxplotCode(params, 
+                                      mode = export_mode, 
+)
+        
+        # If full mode, export data and create ZIP
+        if (export_mode == "full") {
+            timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+            temp_dir <- tempdir()
+            export_dir <- file.path(temp_dir, paste0("boxplot_export_", timestamp))
+            dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
+            
+            # Get selected genes
+            sel_gene <- input$sel_gene
+            if (input$box_plot_sel_gene_type == "gene.name") {
+                sel_gene <- myValues$geneids[sel_gene, ]
+            }
+            
+            # Export normalized counts for selected genes
+            normalized_counts <- counts(myValues$dds[sel_gene, ], normalized = TRUE)
+            
+            # Add gene names if available
+            if (use_gene_names_val && !is.null(myValues$genenames)) {
+                gene_names <- myValues$genenames[rownames(normalized_counts), ]
+                normalized_counts_df <- as.data.frame(normalized_counts)
+                normalized_counts_df <- cbind(gene.names = gene_names, normalized_counts_df)
+                normalized_counts <- normalized_counts_df
+            }
+            
+            counts_filename <- paste0("normalized_counts_", timestamp, ".csv")
+            counts_file <- file.path(export_dir, counts_filename)
+            write.csv(normalized_counts, counts_file, row.names = TRUE)
+            
+            # Export metadata
+            metadata_filename <- paste0("metadata_", timestamp, ".csv")
+            metadata_file <- file.path(export_dir, metadata_filename)
+            write.csv(as.data.frame(colData(myValues$dds)), metadata_file, row.names = TRUE)
+            
+            # Write R code
+            code_filename <- paste0("boxplot_", timestamp, ".R")
+            code_file <- file.path(export_dir, code_filename)
+            writeLines(r_code, code_file)
+            
+            # Create README
+            readme_file <- file.path(export_dir, "README.txt")
+            readme_text <- paste0(
+                "Gene Expression Boxplot R Code Export\n",
+                "=====================================\n\n",
+                "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
+                "Selected genes: ", paste(input$sel_gene, collapse = ", "), "\n\n",
+                "Files included:\n",
+                "- ", code_filename, " : R code to generate the boxplot\n",
+                "- ", counts_filename, " : Normalized counts data\n",
+                "- ", metadata_filename, " : Sample metadata\n",
+                "- README.txt : This file\n\n",
+                "Instructions:\n",
+                "1. Extract all files to the same directory\n",
+                "2. Open the R script in RStudio\n",
+                "3. Run the script to generate the plot\n",
+                "4. Customize colors, labels, and other parameters as needed\n"
+            )
+            writeLines(readme_text, readme_file)
+            
+            # Create ZIP from the directory
+            zip_file <- file.path(temp_dir, paste0("boxplot_export_", timestamp, ".zip"))
+            zip_export_dir(export_dir, zip_file)
+            
+            # Copy to output
+            file.copy(zip_file, file)
+        } else {
+            # Just write the R code
+            writeLines(r_code, file)
+        }
     }
 )

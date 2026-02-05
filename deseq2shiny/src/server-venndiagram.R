@@ -151,6 +151,17 @@ brush_action <- function(df, output) {
 
     m <- matrix[row_index, column_index, drop = FALSE]
     selected_matrix$matrix <- m
+    
+    # Store brushed data for export (similar to server-heatmap.R)
+    myValues$brushed_venn_heatmap_data <- m
+    myValues$brushed_venn_genes <- rownames(m)
+    myValues$brushed_venn_samples <- colnames(m)
+    
+    # Store the parent heatmap's data range for consistent color scaling in export
+    myValues$venn_heatmap_data_range <- c(min(matrix, na.rm = TRUE), max(matrix, na.rm = TRUE))
+    cat("Brushed", nrow(m), "genes and", ncol(m), "samples from Venn set heatmap\n")
+    cat("Parent heatmap data range:", round(myValues$venn_heatmap_data_range[1], 2), "to", 
+        round(myValues$venn_heatmap_data_range[2], 2), "\n")
     output[["venn_diagram_heatmap_matrix_table"]] <- DT::renderDataTable(
         {
             gene.id <- rownames(m)
@@ -662,7 +673,7 @@ observeEvent(input$evaluateExpression, {
         # print('heatmap plot')
 
         if (input$gene_alias == "included" && input$venn_sel_gene_type == "gene.name") {
-            common_genes <- myValues$genenames[common_genes]
+            common_genes <- myValues$genenames[common_genes, 1]
         }
 
         rownames(d) <- common_genes
@@ -829,4 +840,561 @@ observeEvent(input$plotVenn, {
         grid.newpage()
         grid.draw(v1)
     })
+    
+    # Download Venn diagram with custom size and format
+    output$download_venn_plot <- downloadHandler(
+        filename = function() {
+            timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+            ext <- input$venn_plot_format
+            paste0("venn_diagram_", timestamp, ".", ext)
+        },
+        content = function(file) {
+            req(avo_venn_frames_data())
+            
+            a <- avo_venn_frames_data()
+            df_list <- a[[1]]
+            
+            plot_width <- input$venn_plot_width
+            plot_height <- input$venn_plot_height
+            plot_format <- input$venn_plot_format
+            plot_dpi <- input$venn_plot_dpi
+            
+            # Generate the Venn diagram
+            v1 <- venn.diagram(df_list, filename = NULL, fill = rainbow(length(df_list)))
+            
+            # Save with specified format and dimensions
+            if (plot_format == "pdf") {
+                pdf(file, width = plot_width, height = plot_height)
+                grid.newpage()
+                grid.draw(v1)
+                dev.off()
+            } else if (plot_format == "png") {
+                png(file, width = plot_width, height = plot_height, units = "in", res = plot_dpi)
+                grid.newpage()
+                grid.draw(v1)
+                dev.off()
+            } else if (plot_format == "jpeg") {
+                jpeg(file, width = plot_width, height = plot_height, units = "in", res = plot_dpi, quality = 95)
+                grid.newpage()
+                grid.draw(v1)
+                dev.off()
+            } else if (plot_format == "tiff") {
+                tiff(file, width = plot_width, height = plot_height, units = "in", res = plot_dpi, compression = "lzw")
+                grid.newpage()
+                grid.draw(v1)
+                dev.off()
+            }
+        }
+    )
+    
+    # Export R code for Venn diagram
+    output$download_code_venn <- downloadHandler(
+        filename = function() {
+            timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+            export_mode <- get_export_mode(input)
+            export_format <- get_export_format(input)
+            
+            if (export_mode == "full") {
+                paste0("venn_diagram_export_", timestamp, ".zip")
+            } else {
+                ext <- ".R"  # Only .R format supported
+                paste0("venn_diagram_", timestamp, ext)
+            }
+        },
+        content = function(file) {
+            req(input$select_avo_de_venn_files, length(input$select_avo_de_venn_files) > 1)
+            
+            # Safe access to export mode/format with defaults
+            export_mode <- get_export_mode(input)
+            export_format <- get_export_format(input)
+            
+            # Get comparison names
+            comparisons <- input$select_avo_de_venn_files
+            
+            params <- list(
+                comparisons = comparisons
+            )
+            
+                r_code <- generateVennCode(params, 
+                                       mode = export_mode)
+            
+            # Check if set operation heatmap exists
+            has_set_heatmap <- FALSE
+            set_heatmap_code <- ""
+            set_heatmap_matrix <- NULL
+            set_expression <- NULL
+            
+            tryCatch({
+                if (!is.null(input$venn_set_expression_input) && 
+                    nchar(input$venn_set_expression_input) > 0 &&
+                    input$evaluateExpression > 0) {
+                    # Try to get the heatmap matrix
+                    set_heatmap_matrix <- isolate(heatmap_matrix())
+                    if (!is.null(set_heatmap_matrix) && nrow(set_heatmap_matrix) > 0) {
+                        has_set_heatmap <- TRUE
+                        set_expression <- isolate(input$venn_set_expression_input)
+                        
+                        # Generate code for set operation heatmap
+                        set_params <- list(
+                            set_expression = set_expression,
+                            comparisons = comparisons,
+                            num_genes = nrow(set_heatmap_matrix)
+                        )
+                        
+                        
+                        set_heatmap_code <- generateVennSetHeatmapCode(
+                            set_params,
+                            mode = export_mode,
+                            format = export_format,
+                            use_existing_objects = FALSE  # Individual export always uses full mode with data files
+                        )
+                    }
+                }
+            }, error = function(e) {
+                # Silently ignore if heatmap doesn't exist
+                has_set_heatmap <<- FALSE
+            })
+            
+            # Get timestamp for consistent filenames across all exports
+            timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+            
+            # Check if brushed heatmap exists
+            has_brushed_heatmap <- FALSE
+            brushed_heatmap_code <- ""
+            brushed_matrix <- NULL
+            
+            tryCatch({
+                if (!is.null(selected_matrix$matrix) && nrow(selected_matrix$matrix) > 0) {
+                    has_brushed_heatmap <- TRUE
+                    brushed_matrix <- selected_matrix$matrix
+                    
+                    # Generate code for brushed Venn heatmap
+                    # Use Venn set heatmap template for proper log2FC visualization
+                    # Get parent heatmap's data range for consistent color scaling
+                    parent_range <- if(!is.null(myValues$venn_heatmap_data_range)) {
+                        myValues$venn_heatmap_data_range
+                    } else {
+                        c(min(brushed_matrix, na.rm = TRUE), max(brushed_matrix, na.rm = TRUE))
+                    }
+                    
+                    brushed_params <- list(
+                        set_expression = paste0("Brushed subset (", nrow(brushed_matrix), " genes)"),
+                        comparisons = input$select_avo_de_venn_files,
+                        num_genes = nrow(brushed_matrix),
+                        fontsize_row = if(nrow(brushed_matrix) > 50) 6 else 8,
+                        expression_matrix_file = paste0("venn_brushed_heatmap_data_", timestamp, ".csv"),
+                        is_brushed = TRUE,  # Mark as brushed to preserve order
+                        sample_order = colnames(brushed_matrix),  # Preserve comparison order
+                        color_range = parent_range  # Use parent's color range
+                    )
+                    
+                    brushed_heatmap_code <- generateVennSetHeatmapCode(
+                        brushed_params,
+                        mode = export_mode,
+                        format = export_format
+                    )
+                }
+            }, error = function(e) {
+                # Silently ignore if brushed heatmap doesn't exist
+                cat("Error generating brushed heatmap code:", e$message, "\n")
+                has_brushed_heatmap <<- FALSE
+            })
+            
+            if (export_mode == "full") {
+                temp_dir <- tempdir()
+                export_dir <- file.path(temp_dir, paste0("venn_diagram_export_", timestamp))
+                dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
+                
+                # Get Venn data
+                venn_data <- avo_venn_frames_data()
+                df_list <- venn_data[[1]]
+                
+                # Export gene lists for each comparison
+                gene_filenames <- c()
+                for (i in 1:length(comparisons)) {
+                    comp_name <- comparisons[i]
+                    genes <- df_list[[LETTERS[i]]]
+                    
+                    gene_filename <- paste0("venn_genes_", comp_name, "_", timestamp, ".csv")
+                    gene_file <- file.path(export_dir, gene_filename)
+                    write.csv(data.frame(gene = genes), gene_file, row.names = FALSE)
+                    gene_filenames <- c(gene_filenames, gene_filename)
+                }
+                
+                # Export set operation heatmap data if it exists
+                if (has_set_heatmap) {
+                    set_data_filename <- paste0("venn_set_heatmap_data_", timestamp, ".csv")
+                    set_data_file <- file.path(export_dir, set_data_filename)
+                    write.csv(set_heatmap_matrix, set_data_file, row.names = TRUE)
+                }
+                
+                # Export brushed heatmap data if it exists
+                if (has_brushed_heatmap) {
+                    # Export brushed matrix data (log2FC values)
+                    brushed_data_filename <- paste0("venn_brushed_heatmap_data_", timestamp, ".csv")
+                    brushed_data_file <- file.path(export_dir, brushed_data_filename)
+                    write.csv(brushed_matrix, brushed_data_file, row.names = TRUE)
+                    
+                    cat("Exported brushed Venn heatmap with", nrow(brushed_matrix), "genes and", 
+                        ncol(brushed_matrix), "comparisons\n")
+                }
+                
+                # Combine all R code sections
+                combined_code <- r_code
+                
+                if (has_set_heatmap) {
+                    combined_code <- paste0(
+                        combined_code,
+                        "\n\n",
+                        "################################################################################\n",
+                        "#  VENN SET OPERATION HEATMAP\n",
+                        "################################################################################\n\n",
+                        set_heatmap_code
+                    )
+                }
+                
+                if (has_brushed_heatmap) {
+                    combined_code <- paste0(
+                        combined_code,
+                        "\n\n",
+                        "################################################################################\n",
+                        "#  BRUSHED SUB-HEATMAP FROM VENN SET OPERATION\n",
+                        "################################################################################\n\n",
+                        brushed_heatmap_code
+                    )
+                }
+                
+                # Write R code
+                code_filename <- paste0("venn_diagram_", timestamp, ".R")
+                code_file <- file.path(export_dir, code_filename)
+                writeLines(combined_code, code_file)
+                
+                # Create README
+                readme_file <- file.path(export_dir, "README.txt")
+                readme_text <- paste0(
+                    "Venn Diagram R Code Export\n",
+                    "==========================\n\n",
+                    "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
+                    "Comparisons: ", paste(comparisons, collapse = ", "), "\n"
+                )
+                
+                if (has_set_heatmap) {
+                    readme_text <- paste0(readme_text,
+                        "Set Expression: ", set_expression, "\n",
+                        "Set Operation Genes: ", nrow(set_heatmap_matrix), "\n"
+                    )
+                }
+                
+                if (has_brushed_heatmap) {
+                    readme_text <- paste0(readme_text,
+                        "Brushed Heatmap Genes: ", nrow(brushed_matrix), "\n"
+                    )
+                }
+                
+                readme_text <- paste0(readme_text,
+                    "\nFiles included:\n",
+                    "- ", code_filename, " : R code to generate the Venn diagram",
+                    if(has_set_heatmap) " and set operation heatmap" else "",
+                    if(has_brushed_heatmap) " and brushed sub-heatmap" else "",
+                    "\n",
+                    paste(sapply(gene_filenames, function(f) paste0("- ", f, " : Gene list\n")), collapse = "")
+                )
+                
+                if (has_set_heatmap) {
+                    readme_text <- paste0(readme_text,
+                        "- venn_set_heatmap_data_", timestamp, ".csv : Expression matrix for set operation\n"
+                    )
+                }
+                
+                if (has_brushed_heatmap) {
+                    readme_text <- paste0(readme_text,
+                        "- venn_brushed_heatmap_data_", timestamp, ".csv : log2FoldChange matrix for brushed genes (columns A, B, C = comparisons)\n"
+                    )
+                }
+                
+                readme_text <- paste0(readme_text,
+                    "- README.txt : This file\n\n",
+                    "Instructions:\n",
+                    "1. Extract all files to the same directory\n",
+                    "2. Open the R script in RStudio\n",
+                    "3. Run the script to generate the diagram",
+                    if(has_set_heatmap || has_brushed_heatmap) " and heatmaps" else "",
+                    "\n",
+                    "4. Install the VennDiagram package if needed: install.packages('VennDiagram')\n"
+                )
+                
+                if (has_set_heatmap || has_brushed_heatmap) {
+                    readme_text <- paste0(readme_text,
+                        "5. Install pheatmap and RColorBrewer if needed: install.packages(c('pheatmap', 'RColorBrewer'))\n"
+                    )
+                }
+                
+                writeLines(readme_text, readme_file)
+                
+                # Create ZIP from the directory
+                zip_file <- file.path(temp_dir, paste0("venn_diagram_export_", timestamp, ".zip"))
+                zip_export_dir(export_dir, zip_file)
+                
+                # Copy to output
+                file.copy(zip_file, file)
+            } else {
+                # Plot-only mode: combine all code sections
+                combined_code <- r_code
+                
+                if (has_set_heatmap) {
+                    combined_code <- paste0(
+                        combined_code,
+                        "\n\n# ============================================================\n",
+                        "# VENN SET OPERATION HEATMAP\n",
+                        "# ============================================================\n\n",
+                        set_heatmap_code
+                    )
+                }
+                
+                if (has_brushed_heatmap) {
+                    combined_code <- paste0(
+                        combined_code,
+                        "\n\n# ============================================================\n",
+                        "# BRUSHED SUB-HEATMAP FROM VENN SET OPERATION\n",
+                        "# ============================================================\n\n",
+                        brushed_heatmap_code
+                    )
+                }
+                
+                # Just write the combined R code
+                writeLines(combined_code, file)
+            }
+        }
+    )
+
+# Export R code for Venn Set Operation Heatmap
+output$download_code_venn_set_heatmap <- downloadHandler(
+    filename = function() {
+        timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+        export_mode <- get_export_mode(input)
+        export_format <- get_export_format(input)
+        
+        # Check if data is available
+        heatmap_check <- tryCatch(heatmap_matrix(), error = function(e) NULL)
+        if (is.null(heatmap_check) || is.null(input$venn_set_expression_input) || 
+            nchar(input$venn_set_expression_input) == 0) {
+            return("venn_set_heatmap_error.txt")
+        }
+        
+        if (export_mode == "full") {
+            paste0("venn_set_heatmap_export_", timestamp, ".zip")
+        } else {
+            ext <- if(export_format == "r") ".R" else ".Rmd"
+            paste0("venn_set_heatmap_", timestamp, ext)
+        }
+    },
+    content = function(file) {
+        # Check if data is available
+        heatmap_data <- tryCatch(heatmap_matrix(), error = function(e) NULL)
+        if (is.null(heatmap_data) || is.null(input$venn_set_expression_input) || 
+            nchar(input$venn_set_expression_input) == 0) {
+            error_msg <- paste0(
+                "Error: Venn Set Heatmap export not available\n\n",
+                "Please configure the Venn Set Operation first:\n",
+                "1. Navigate to the 'Venn Diagram' tab\n",
+                "2. Select 2+ comparison files\n",
+                "3. Enter a set expression (e.g., A&B, A|B, A-B)\n",
+                "4. Click 'Evaluate Expression' and wait for the heatmap to render\n",
+                "5. Then return to export the plot code\n"
+            )
+            writeLines(error_msg, file)
+            return(invisible(NULL))
+        }
+        
+        export_mode <- get_export_mode(input)
+        export_format <- get_export_format(input)
+        
+        set_expression <- isolate(input$venn_set_expression_input)
+        venn_padj <- isolate(input$venn_padj_threshold)
+        venn_lfc <- isolate(input$venn_log_fold_change_threshold)
+        
+        params <- list(
+            set_expression = set_expression,
+            padj_threshold = venn_padj,
+            lfc_threshold = venn_lfc,
+            file_list = isolate(input$select_avo_de_venn_files)
+        )
+        
+        r_code <- generateVennSetHeatmapCode(params, 
+                                              mode = export_mode, 
+)
+        
+        if (export_mode == "full") {
+            # Full reproducible export
+            timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+            export_dir <- file.path(tempdir(), paste0("venn_set_heatmap_export_", timestamp))
+            dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
+            
+            # Save heatmap matrix data
+            matrix_file <- file.path(export_dir, paste0("venn_set_heatmap_data_", timestamp, ".csv"))
+            write.csv(heatmap_data, matrix_file, row.names = TRUE)
+            
+            # Save metadata
+            metadata_file <- file.path(export_dir, paste0("metadata_", timestamp, ".csv"))
+            write.csv(colData(myValues$dds), metadata_file, row.names = TRUE)
+            
+            # Save R code
+            code_file <- file.path(export_dir, paste0("venn_set_heatmap_", timestamp, 
+                                                       ".R"))
+            writeLines(r_code, code_file)
+            
+            # Create README
+            readme_file <- file.path(export_dir, "README.txt")
+            readme_text <- paste0(
+                "Venn Set Operation Heatmap R Code Export\n",
+                "=========================================\n\n",
+                "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
+                "Set Expression: ", set_expression, "\n",
+                "Adjusted p-value threshold: ", venn_padj, "\n",
+                "Log2 Fold Change threshold: ", venn_lfc, "\n\n",
+                "Files included:\n",
+                "- ", basename(code_file), ": R code to generate the heatmap\n",
+                "- venn_set_heatmap_data_", timestamp, ".csv: Expression matrix for set operation genes\n",
+                "- metadata_", timestamp, ".csv: Sample metadata\n\n",
+                "To run this analysis:\n",
+                "1. Ensure required R packages are installed (pheatmap, DESeq2)\n",
+                "2. Set your working directory to this folder\n",
+                "3. Run the .R script or knit the .Rmd file\n\n",
+                "The script will generate:\n",
+                "- Publication-ready heatmap plots (PDF and PNG)\n",
+                "- Fully reproducible analysis code\n"
+            )
+            writeLines(readme_text, readme_file)
+            
+            # Create zip file
+            zip_file <- paste0(export_dir, ".zip")
+            zip_export_dir(export_dir, zip_file)
+            
+            # Copy to output
+            file.copy(zip_file, file, overwrite = TRUE)
+        } else {
+            # Just write the R code
+            writeLines(r_code, file)
+        }
+    }
+)
+
+# Export R code for Brushed Venn Set Heatmap
+output$download_code_brushed_venn_heatmap <- downloadHandler(
+    filename = function() {
+        timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+        export_mode <- get_export_mode(input)
+        export_format <- get_export_format(input)
+        
+        # Check if brushed data is available
+        if (is.null(selected_matrix$matrix) || nrow(selected_matrix$matrix) == 0) {
+            return("brushed_venn_heatmap_error.txt")
+        }
+        
+        if (export_mode == "full") {
+            paste0("brushed_venn_heatmap_export_", timestamp, ".zip")
+        } else {
+            ext <- if(export_format == "r") ".R" else ".Rmd"
+            paste0("brushed_venn_heatmap_", timestamp, ext)
+        }
+    },
+    content = function(file) {
+        # Check if brushed data is available
+        if (is.null(selected_matrix$matrix) || nrow(selected_matrix$matrix) == 0) {
+            error_msg <- paste0(
+                "Error: Brushed Venn Heatmap export not available\n\n",
+                "Please brush/select an area on the Venn Set Heatmap first:\n",
+                "1. Navigate to the 'Venn Diagram' tab\n",
+                "2. Generate a Venn Set Operation heatmap\n",
+                "3. Click and drag on the heatmap to select genes\n",
+                "4. Then export the brushed sub-heatmap\n"
+            )
+            writeLines(error_msg, file)
+            return(invisible(NULL))
+        }
+        
+        export_mode <- get_export_mode(input)
+        export_format <- get_export_format(input)
+        timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+        
+        brushed_matrix <- selected_matrix$matrix
+        
+        # Generate code for brushed Venn heatmap
+        # Use Venn set heatmap template for proper log2FC visualization
+        # Get parent heatmap's data range for consistent color scaling
+        parent_range <- if(!is.null(myValues$venn_heatmap_data_range)) {
+            myValues$venn_heatmap_data_range
+        } else {
+            c(min(brushed_matrix, na.rm = TRUE), max(brushed_matrix, na.rm = TRUE))
+        }
+        
+        brushed_params <- list(
+            set_expression = paste0("Brushed subset (", nrow(brushed_matrix), " genes)"),
+            comparisons = input$select_avo_de_venn_files,
+            num_genes = nrow(brushed_matrix),
+            fontsize_row = if(nrow(brushed_matrix) > 50) 6 else 8,
+            expression_matrix_file = paste0("brushed_venn_heatmap_data_", timestamp, ".csv"),
+            is_brushed = TRUE,  # Mark as brushed to preserve order
+            sample_order = colnames(brushed_matrix),  # Preserve comparison order
+            color_range = parent_range  # Use parent's color range
+        )
+        
+        r_code <- generateVennSetHeatmapCode(
+            brushed_params,
+            mode = export_mode,
+            format = export_format
+        )
+        
+        if (export_mode == "full") {
+            # Full reproducible export
+            export_dir <- file.path(tempdir(), paste0("brushed_venn_heatmap_export_", timestamp))
+            dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
+            
+            # Save brushed heatmap matrix data (log2FC values)
+            matrix_file <- file.path(export_dir, paste0("brushed_venn_heatmap_data_", timestamp, ".csv"))
+            write.csv(brushed_matrix, matrix_file, row.names = TRUE)
+            
+            # Save R code
+            code_file <- file.path(export_dir, paste0("brushed_venn_heatmap_", timestamp, 
+                                                       ".R"))
+            writeLines(r_code, code_file)
+            
+            # Create README
+            readme_file <- file.path(export_dir, "README.txt")
+            readme_text <- paste0(
+                "Brushed Venn Set Heatmap R Code Export\n",
+                "======================================\n\n",
+                "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
+                "Selected genes: ", nrow(brushed_matrix), " genes from interactive brush\n",
+                "Selected comparisons: ", ncol(brushed_matrix), " DESeq2 comparisons\n\n",
+                "IMPORTANT: This heatmap shows log2FoldChange values from different comparisons,\n",
+                "not expression values. Columns (A, B, C, etc.) represent different DESeq2 comparisons.\n\n",
+                "Files included:\n",
+                "- ", basename(code_file), " : R code to generate the brushed sub-heatmap\n",
+                "- brushed_venn_heatmap_data_", timestamp, ".csv : log2FoldChange matrix for brushed genes\n\n",
+                "Instructions:\n",
+                "1. Extract all files to the same directory\n",
+                "2. Open the R script in RStudio\n",
+                "3. Run the script to generate the heatmap\n",
+                "4. The plot preserves the original gene and comparison order from the brush selection\n",
+                "5. Colors and layout match the interactive Shiny app exactly\n"
+            )
+            writeLines(readme_text, readme_file)
+            
+            cat("Exported brushed Venn heatmap with", nrow(brushed_matrix), "genes and", 
+                ncol(brushed_matrix), "samples\n")
+            
+            # Create zip file
+            zip_file <- paste0(export_dir, ".zip")
+            zip_export_dir(export_dir, zip_file)
+            
+            # Copy to output
+            file.copy(zip_file, file, overwrite = TRUE)
+        } else {
+            # Just write the R code
+            writeLines(r_code, file)
+        }
+    }
+)
+
 })
