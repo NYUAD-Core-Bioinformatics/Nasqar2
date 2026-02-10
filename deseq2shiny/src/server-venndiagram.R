@@ -154,8 +154,25 @@ brush_action <- function(df, output) {
     
     # Store brushed data for export (similar to server-heatmap.R)
     myValues$brushed_venn_heatmap_data <- m
-    myValues$brushed_venn_genes <- rownames(m)
+    myValues$brushed_venn_genes <- rownames(m)  # These might be gene names or gene IDs depending on display mode
     myValues$brushed_venn_samples <- colnames(m)
+    
+    # IMPORTANT: Store the original gene IDs for data extraction AND preserve order
+    # If rownames are gene names, convert back to gene IDs
+    gene_type <- tryCatch(input$venn_sel_gene_type, error = function(e) NULL)
+    
+    if (!is.null(gene_type) && gene_type == "gene.name" && !is.null(myValues$geneids)) {
+        # Rownames are gene names, convert to gene IDs while preserving order
+        gene_ids_mapped <- myValues$geneids[rownames(m), 1]
+        # Keep all genes, even if mapping returns NA (preserve order!)
+        myValues$brushed_venn_gene_ids <- gene_ids_mapped
+        myValues$brushed_venn_gene_order <- rownames(m)  # Original gene names for display
+        cat("Converted", sum(!is.na(gene_ids_mapped)), "gene names to gene IDs for data extraction\n")
+    } else {
+        # Rownames are already gene IDs
+        myValues$brushed_venn_gene_ids <- rownames(m)
+        myValues$brushed_venn_gene_order <- rownames(m)
+    }
     
     # Store the parent heatmap's data range for consistent color scaling in export
     myValues$venn_heatmap_data_range <- c(min(matrix, na.rm = TRUE), max(matrix, na.rm = TRUE))
@@ -911,12 +928,23 @@ observeEvent(input$plotVenn, {
             # Get comparison names
             comparisons <- input$select_avo_de_venn_files
             
-            params <- list(
-                comparisons = comparisons
-            )
+            # Extract thresholds for gene filtering
+            if (!is.null(input$venn_threshold_type) && input$venn_threshold_type == "slider") {
+                padj_thresh <- 1 / 10^as.numeric(input$venn_significance_threshold)
+            } else {
+                padj_thresh <- as.numeric(input$venn_direct_padj)
+            }
+            fc_thresh <- as.numeric(input$venn_log_fold_change_threshold)
             
-                r_code <- generateVennCode(params, 
-                                       mode = export_mode)
+            # Initialize params (will update gene_files for full mode later)
+            params <- list(
+                comparisons = comparisons,
+                num_sets = length(comparisons),
+                padj_threshold = padj_thresh,
+                fc_threshold = fc_thresh,
+                venn_colors = c("#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8"),
+                gene_files = NULL  # Will be set for full mode
+            )
             
             # Check if set operation heatmap exists
             has_set_heatmap <- FALSE
@@ -934,20 +962,30 @@ observeEvent(input$plotVenn, {
                         has_set_heatmap <- TRUE
                         set_expression <- isolate(input$venn_set_expression_input)
                         
-                        # Generate code for set operation heatmap
-                        set_params <- list(
+                        # Get thresholds for filtering
+                        if (!is.null(input$venn_threshold_type) && input$venn_threshold_type == "slider") {
+                            padj_thresh <- 1 / 10^as.numeric(input$venn_significance_threshold)
+                        } else {
+                            padj_thresh <- as.numeric(input$venn_direct_padj)
+                        }
+                        fc_thresh <- as.numeric(input$venn_log_fold_change_threshold)
+                        
+                        # Store set params for later (will set filename after saving file)
+                        set_heatmap_needs_code <- TRUE
+                        set_heatmap_params_data <- list(
                             set_expression = set_expression,
                             comparisons = comparisons,
-                            num_genes = nrow(set_heatmap_matrix)
+                            num_genes = nrow(set_heatmap_matrix),
+                            padj_threshold = padj_thresh,
+                            fc_threshold = fc_thresh,
+                            use_gene_names = (!is.null(input$venn_sel_gene_type) && input$venn_sel_gene_type == "gene.name"),
+                            fontsize_row = if(nrow(set_heatmap_matrix) > 50) 6 else 8,
+                            is_brushed = FALSE,
+                            brushed_genes = NULL,
+                            sample_order = NULL,
+                            color_range = NULL
                         )
-                        
-                        
-                        set_heatmap_code <- generateVennSetHeatmapCode(
-                            set_params,
-                            mode = export_mode,
-                            format = export_format,
-                            use_existing_objects = FALSE  # Individual export always uses full mode with data files
-                        )
+                        # Note: Will generate code after saving file with correct filename
                     }
                 }
             }, error = function(e) {
@@ -971,28 +1009,40 @@ observeEvent(input$plotVenn, {
                     # Generate code for brushed Venn heatmap
                     # Use Venn set heatmap template for proper log2FC visualization
                     # Get parent heatmap's data range for consistent color scaling
-                    parent_range <- if(!is.null(myValues$venn_heatmap_data_range)) {
-                        myValues$venn_heatmap_data_range
+                    # MUST use parent range - do NOT calculate from brushed data
+                    if (is.null(myValues$venn_heatmap_data_range)) {
+                        warning("Parent Venn heatmap color range not found. Brushed heatmap may have incorrect colors.")
+                        cat("WARNING: Parent Venn heatmap range not available. Cannot export with correct colors.\n")
+                        parent_range <- NULL  # Will cause warning in export
                     } else {
-                        c(min(brushed_matrix, na.rm = TRUE), max(brushed_matrix, na.rm = TRUE))
+                        parent_range <- myValues$venn_heatmap_data_range
+                        cat("Using parent Venn heatmap color range:", parent_range[1], "to", parent_range[2], "\n")
                     }
                     
-                    brushed_params <- list(
+                    # Get thresholds
+                    if (!is.null(input$venn_threshold_type) && input$venn_threshold_type == "slider") {
+                        padj_thresh <- 1 / 10^as.numeric(input$venn_significance_threshold)
+                    } else {
+                        padj_thresh <- as.numeric(input$venn_direct_padj)
+                    }
+                    fc_thresh <- as.numeric(input$venn_log_fold_change_threshold)
+                    
+                    # Store brushed params for later (will set filename after saving file)
+                    brushed_heatmap_needs_code <- TRUE
+                    brushed_heatmap_params_data <- list(
                         set_expression = paste0("Brushed subset (", nrow(brushed_matrix), " genes)"),
                         comparisons = input$select_avo_de_venn_files,
                         num_genes = nrow(brushed_matrix),
                         fontsize_row = if(nrow(brushed_matrix) > 50) 6 else 8,
-                        expression_matrix_file = paste0("venn_brushed_heatmap_data_", timestamp, ".csv"),
                         is_brushed = TRUE,  # Mark as brushed to preserve order
                         sample_order = colnames(brushed_matrix),  # Preserve comparison order
-                        color_range = parent_range  # Use parent's color range
+                        color_range = parent_range,  # Use parent's color range
+                        padj_threshold = padj_thresh,
+                        fc_threshold = fc_thresh,
+                        use_gene_names = (!is.null(input$venn_sel_gene_type) && input$venn_sel_gene_type == "gene.name"),
+                        brushed_genes = rownames(brushed_matrix)
                     )
-                    
-                    brushed_heatmap_code <- generateVennSetHeatmapCode(
-                        brushed_params,
-                        mode = export_mode,
-                        format = export_format
-                    )
+                    # Note: Will generate code after saving file with correct filename
                 }
             }, error = function(e) {
                 # Silently ignore if brushed heatmap doesn't exist
@@ -1021,11 +1071,25 @@ observeEvent(input$plotVenn, {
                     gene_filenames <- c(gene_filenames, gene_filename)
                 }
                 
+                # NOW update params with actual gene filenames and generate Venn code
+                params$gene_files <- gene_filenames  # formatRValue will convert to c("file1", "file2", ...)
+                r_code <- generateVennCode(params, mode = export_mode, use_existing_objects = FALSE)
+                
                 # Export set operation heatmap data if it exists
                 if (has_set_heatmap) {
                     set_data_filename <- paste0("venn_set_heatmap_data_", timestamp, ".csv")
                     set_data_file <- file.path(export_dir, set_data_filename)
                     write.csv(set_heatmap_matrix, set_data_file, row.names = TRUE)
+                    
+                    # NOW generate code with actual filename
+                    set_params <- set_heatmap_params_data
+                    set_params$expression_matrix_file <- set_data_filename  # Use actual filename!
+                    
+                    set_heatmap_code <- generateVennSetHeatmapCode(
+                        set_params,
+                        mode = export_mode,
+                        use_existing_objects = FALSE
+                    )
                 }
                 
                 # Export brushed heatmap data if it exists
@@ -1034,6 +1098,15 @@ observeEvent(input$plotVenn, {
                     brushed_data_filename <- paste0("venn_brushed_heatmap_data_", timestamp, ".csv")
                     brushed_data_file <- file.path(export_dir, brushed_data_filename)
                     write.csv(brushed_matrix, brushed_data_file, row.names = TRUE)
+                    
+                    # NOW generate code with actual filename
+                    brushed_params <- brushed_heatmap_params_data
+                    brushed_params$expression_matrix_file <- brushed_data_filename  # Use actual filename!
+                    
+                    brushed_heatmap_code <- generateVennSetHeatmapCode(
+                        brushed_params,
+                        mode = export_mode
+                    )
                     
                     cat("Exported brushed Venn heatmap with", nrow(brushed_matrix), "genes and", 
                         ncol(brushed_matrix), "comparisons\n")
@@ -1138,6 +1211,9 @@ observeEvent(input$plotVenn, {
                 # Copy to output
                 file.copy(zip_file, file)
             } else {
+                # Code-only mode: generate code without data files
+                r_code <- generateVennCode(params, mode = export_mode, use_existing_objects = FALSE)
+                
                 # Plot-only mode: combine all code sections
                 combined_code <- r_code
                 
@@ -1210,19 +1286,38 @@ output$download_code_venn_set_heatmap <- downloadHandler(
         export_format <- get_export_format(input)
         
         set_expression <- isolate(input$venn_set_expression_input)
-        venn_padj <- isolate(input$venn_padj_threshold)
-        venn_lfc <- isolate(input$venn_log_fold_change_threshold)
+        comparisons <- isolate(input$select_avo_de_venn_files)
         
-        params <- list(
-            set_expression = set_expression,
-            padj_threshold = venn_padj,
-            lfc_threshold = venn_lfc,
-            file_list = isolate(input$select_avo_de_venn_files)
-        )
+        # Get thresholds
+        if (!is.null(input$venn_threshold_type) && input$venn_threshold_type == "slider") {
+            padj_thresh <- 1 / 10^as.numeric(input$venn_significance_threshold)
+        } else {
+            padj_thresh <- as.numeric(input$venn_direct_padj)
+        }
+        fc_thresh <- as.numeric(input$venn_log_fold_change_threshold)
         
-        r_code <- generateVennSetHeatmapCode(params, 
-                                              mode = export_mode, 
-)
+        # For code-only mode, set params now
+        # For full mode, set params after saving files (to use actual filenames)
+        if (export_mode != "full") {
+            params <- list(
+                set_expression = set_expression,
+                comparisons = comparisons,
+                num_genes = nrow(heatmap_data),
+                padj_threshold = padj_thresh,
+                fc_threshold = fc_thresh,
+                use_gene_names = (!is.null(input$venn_sel_gene_type) && input$venn_sel_gene_type == "gene.name"),
+                expression_matrix_file = "set_expression_matrix.csv",
+                fontsize_row = if(nrow(heatmap_data) > 50) 6 else 8,
+                is_brushed = FALSE,
+                brushed_genes = NULL,
+                sample_order = NULL,
+                color_range = NULL
+            )
+            
+            r_code <- generateVennSetHeatmapCode(params, 
+                                                  mode = export_mode, 
+            )
+        }
         
         if (export_mode == "full") {
             # Full reproducible export
@@ -1231,12 +1326,34 @@ output$download_code_venn_set_heatmap <- downloadHandler(
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             
             # Save heatmap matrix data
-            matrix_file <- file.path(export_dir, paste0("venn_set_heatmap_data_", timestamp, ".csv"))
+            matrix_filename <- paste0("venn_set_heatmap_data_", timestamp, ".csv")
+            matrix_file <- file.path(export_dir, matrix_filename)
             write.csv(heatmap_data, matrix_file, row.names = TRUE)
             
             # Save metadata
-            metadata_file <- file.path(export_dir, paste0("metadata_", timestamp, ".csv"))
+            metadata_filename <- paste0("metadata_", timestamp, ".csv")
+            metadata_file <- file.path(export_dir, metadata_filename)
             write.csv(colData(myValues$dds), metadata_file, row.names = TRUE)
+            
+            # NOW set params with actual filenames and generate R code
+            params <- list(
+                set_expression = set_expression,
+                comparisons = comparisons,
+                num_genes = nrow(heatmap_data),
+                padj_threshold = padj_thresh,
+                fc_threshold = fc_thresh,
+                use_gene_names = (!is.null(input$venn_sel_gene_type) && input$venn_sel_gene_type == "gene.name"),
+                expression_matrix_file = matrix_filename,  # Use actual filename with timestamp!
+                fontsize_row = if(nrow(heatmap_data) > 50) 6 else 8,
+                is_brushed = FALSE,
+                brushed_genes = NULL,
+                sample_order = NULL,
+                color_range = NULL
+            )
+            
+            r_code <- generateVennSetHeatmapCode(params, 
+                                                  mode = export_mode, 
+            )
             
             # Save R code
             code_file <- file.path(export_dir, paste0("venn_set_heatmap_", timestamp, 
@@ -1322,11 +1439,23 @@ output$download_code_brushed_venn_heatmap <- downloadHandler(
         # Generate code for brushed Venn heatmap
         # Use Venn set heatmap template for proper log2FC visualization
         # Get parent heatmap's data range for consistent color scaling
-        parent_range <- if(!is.null(myValues$venn_heatmap_data_range)) {
-            myValues$venn_heatmap_data_range
+        # MUST use parent range - do NOT calculate from brushed data
+        if (is.null(myValues$venn_heatmap_data_range)) {
+            warning("Parent Venn heatmap color range not found. Brushed heatmap may have incorrect colors.")
+            cat("WARNING: Parent Venn heatmap range not available. Cannot export with correct colors.\n")
+            parent_range <- NULL  # Will cause warning in export
         } else {
-            c(min(brushed_matrix, na.rm = TRUE), max(brushed_matrix, na.rm = TRUE))
+            parent_range <- myValues$venn_heatmap_data_range
+            cat("Using parent Venn heatmap color range:", parent_range[1], "to", parent_range[2], "\n")
         }
+        
+        # Get thresholds
+        if (!is.null(input$venn_threshold_type) && input$venn_threshold_type == "slider") {
+            padj_thresh <- 1 / 10^as.numeric(input$venn_significance_threshold)
+        } else {
+            padj_thresh <- as.numeric(input$venn_direct_padj)
+        }
+        fc_thresh <- as.numeric(input$venn_log_fold_change_threshold)
         
         brushed_params <- list(
             set_expression = paste0("Brushed subset (", nrow(brushed_matrix), " genes)"),
@@ -1336,13 +1465,16 @@ output$download_code_brushed_venn_heatmap <- downloadHandler(
             expression_matrix_file = paste0("brushed_venn_heatmap_data_", timestamp, ".csv"),
             is_brushed = TRUE,  # Mark as brushed to preserve order
             sample_order = colnames(brushed_matrix),  # Preserve comparison order
-            color_range = parent_range  # Use parent's color range
+            color_range = parent_range,  # Use parent's color range
+            padj_threshold = padj_thresh,
+            fc_threshold = fc_thresh,
+            use_gene_names = (!is.null(input$venn_sel_gene_type) && input$venn_sel_gene_type == "gene.name"),
+            brushed_genes = rownames(brushed_matrix)
         )
         
         r_code <- generateVennSetHeatmapCode(
             brushed_params,
-            mode = export_mode,
-            format = export_format
+            mode = export_mode
         )
         
         if (export_mode == "full") {

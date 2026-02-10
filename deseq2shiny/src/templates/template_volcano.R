@@ -1,10 +1,13 @@
 ################################################################################
-# Publication-ready Volcano Plot (OPTIMIZED)
-# Generated from DESeq2Shiny
-#
-# This script uses helper functions to reduce code duplication
-# For standalone use, ensure create_volcano_plot() function is defined first
+# Publication-ready Volcano Plot
 ################################################################################
+
+################################################################################
+# HELPER FUNCTIONS
+################################################################################
+
+# Load helper functions for volcano plot generation
+{{HELPER_FUNCTIONS}}
 
 ################################################################################
 # CONFIGURATION PARAMETERS

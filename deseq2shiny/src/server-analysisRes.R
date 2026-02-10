@@ -207,88 +207,176 @@ output$downloadVsCsv <- downloadHandler(
 output$download_code_ma <- downloadHandler(
     filename = function() {
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-        comparison_name <- paste0(input$condition1, "_vs_", input$condition2)
         export_mode <- get_export_mode(input)
-        export_format <- get_export_format(input)
         
         if (export_mode == "full") {
-            paste0("ma_plot_export_", timestamp, ".zip")
+            paste0("ma_plots_all_export_", timestamp, ".zip")
         } else {
-            ext <- ".R"  # Only .R format supported
-            paste0("ma_plot_", comparison_name, "_", timestamp, ext)
+            comparison_name <- paste0(input$condition1, "_vs_", input$condition2)
+            paste0("ma_plot_", comparison_name, "_", timestamp, ".R")
         }
     },
     content = function(file) {
-        req(myValues$vsResults)
-        
-        # Safe access to export mode/format with defaults
         export_mode <- get_export_mode(input)
         export_format <- get_export_format(input)
-        
-        comparison_name <- paste0(input$condition1, "_vs_", input$condition2)
-        
-        # Prepare data filename for full mode
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-        results_filename <- if (export_mode == "full") {
-            paste0("ma_plot_data_", comparison_name, "_", timestamp, ".csv")
-        } else {
-            NULL
-        }
-        
-        params <- list(
-            comparison_name = comparison_name,
-            alpha = input$alpha,
-            ylim = input$ylim,
-            data_file = results_filename  # Add data filename for full mode
-        )
-        
-        r_code <- generateMAPlotCode(params, 
-                                     mode = export_mode, 
-)
         
         if (export_mode == "full") {
+            # FULL MODE: Export MA plots for ALL saved contrasts
+            req(exists("filelist"), !is.null(filelist$file_list), length(filelist$file_list) > 0)
+            
             temp_dir <- tempdir()
-            export_dir <- file.path(temp_dir, paste0("ma_plot_export_", timestamp))
+            export_dir <- file.path(temp_dir, paste0("ma_plots_all_export_", timestamp))
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             
-            # Export results data
-            results_file <- file.path(export_dir, results_filename)
-            write.csv(as.data.frame(myValues$vsResults), results_file, row.names = TRUE)
+            saved_files <- names(filelist$file_list)
+            cat("Exporting MA plots for", length(saved_files), "saved contrasts...\n")
             
-            # Write R code
-            code_filename <- paste0("ma_plot_", comparison_name, "_", timestamp, 
-                                   ".R")
+            all_code_sections <- list()
+            exported_files_list <- c()
+            
+            # Export each saved contrast
+            for (file_idx in seq_along(saved_files)) {
+                filename <- saved_files[file_idx]
+                cat("  - Processing:", filename, "\n")
+                
+                # Remove .csv extension
+                comparison_name_clean <- gsub("\\.csv$", "", filename)
+                
+                # Get results data for this contrast
+                results_data <- read.csv(filelist$file_list[[filename]], row.names = 1)
+                
+                # Add gene names if available (for consistency with volcano plots)
+                if (!is.null(myValues$genenames) && !is.null(myValues$geneids)) {
+                    gene_names <- myValues$genenames[rownames(results_data), 1]
+                    # Keep gene ID where name is not available
+                    gene_names[is.na(gene_names)] <- rownames(results_data)[is.na(gene_names)]
+                    results_data$gene.name <- gene_names
+                    cat("    Added gene names to results data\n")
+                }
+                
+                # Save results data (now includes gene.name column)
+                results_filename <- paste0(comparison_name_clean, "_results_", timestamp, ".csv")
+                results_file <- file.path(export_dir, results_filename)
+                write.csv(results_data, results_file, row.names = TRUE)
+                exported_files_list <- c(exported_files_list, results_filename)
+                
+                # Generate MA plot code
+                params <- list(
+                    comparison_name = comparison_name_clean,
+                    alpha = if(!is.null(input$alpha)) input$alpha else 0.1,
+                    ylim = if(!is.null(input$ylim)) input$ylim else 5,
+                    data_file = results_filename
+                )
+                
+                r_code <- generateMAPlotCode(params, mode = "full")
+                
+                # Store code section
+                all_code_sections[[comparison_name_clean]] <- list(
+                    title = paste0("MA Plot: ", comparison_name_clean),
+                    code = r_code,
+                    order = file_idx
+                )
+                
+                cat("    ✓ MA plot for", comparison_name_clean, "prepared\n")
+            }
+            
+            # Create combined R script with all MA plots
+            combined_code <- paste0(
+                "################################################################################\n",
+                "#                                                                              #\n",
+                "#       MA PLOTS FOR ALL SAVED CONTRASTS                                      #\n",
+                "#       Generated from DESeq2Shiny                                            #\n",
+                "#       ", timestamp, "                                                       #\n",
+                "#                                                                              #\n",
+                "################################################################################\n\n",
+                "# This script generates MA plots for ", length(saved_files), " DESeq2 contrasts.\n",
+                "# Each contrast is analyzed in a separate section below.\n\n",
+                "# Set working directory to the location of this script and data files\n",
+                "# setwd(\"/path/to/extracted/folder\")\n\n",
+                "# Install required packages if needed:\n",
+                "# install.packages('ggplot2')\n\n\n"
+            )
+            
+            # Add helper functions
+            helper_functions <- readTemplate("template_helper_functions")
+            combined_code <- paste0(
+                combined_code,
+                "################################################################################\n",
+                "# HELPER FUNCTIONS\n",
+                "################################################################################\n\n",
+                "cat(\"\\n\")\n",
+                "cat(\"=\", rep(\"=\", 78), \"\\n\", sep = \"\")\n",
+                "cat(\"HELPER FUNCTIONS: Reusable code for efficient plot generation\\n\")\n",
+                "cat(\"=\", rep(\"=\", 78), \"\\n\", sep = \"\")\n\n",
+                helper_functions,
+                "\n\n"
+            )
+            
+            # Add each MA plot section
+            sections_ordered <- all_code_sections[order(sapply(all_code_sections, function(x) x$order))]
+            for (section in sections_ordered) {
+                combined_code <- paste0(
+                    combined_code,
+                    "################################################################################\n",
+                    "#  ", toupper(section$title), "\n",
+                    "################################################################################\n\n",
+                    section$code,
+                    "\n\n"
+                )
+            }
+            
+            # Write combined R script
+            code_filename <- paste0("all_ma_plots_", timestamp, ".R")
             code_file <- file.path(export_dir, code_filename)
-            writeLines(r_code, code_file)
+            writeLines(combined_code, code_file)
             
             # Create README
             readme_file <- file.path(export_dir, "README.txt")
             readme_text <- paste0(
-                "MA Plot R Code Export\n",
-                "====================\n\n",
+                "MA Plots for All Saved Contrasts\n",
+                "=================================\n\n",
                 "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
-                "Comparison: ", comparison_name, "\n",
-                "Alpha threshold: ", params$alpha, "\n\n",
-                "Files included:\n",
-                "- ", code_filename, " : R code to generate the MA plot\n",
-                "- ", results_filename, " : DESeq2 results data\n",
+                "Total contrasts: ", length(saved_files), "\n",
+                "Contrasts included:\n",
+                paste(sapply(saved_files, function(f) paste0("  - ", gsub("\\.csv$", "", f), "\n")), collapse = ""),
+                "\nFiles included:\n",
+                "- ", code_filename, " : R code to generate all MA plots\n",
+                paste(sapply(exported_files_list, function(f) paste0("- ", f, " : DESeq2 results data\n")), collapse = ""),
                 "- README.txt : This file\n\n",
                 "Instructions:\n",
                 "1. Extract all files to the same directory\n",
-                "2. Open the R script in RStudio\n",
-                "3. Ensure the data CSV file is in the same directory\n",
-                "4. Run the script to generate the plot\n",
-                "5. The plot will be saved as a PDF file\n"
+                "2. Open ", code_filename, " in RStudio\n",
+                "3. Run the entire script to generate all ", length(saved_files), " MA plots\n",
+                "4. Each plot is saved as PDF and PNG in the same directory\n\n",
+                "Alpha threshold: ", if(!is.null(input$alpha)) input$alpha else 0.1, "\n",
+                "Y-axis limit: ±", if(!is.null(input$ylim)) input$ylim else 5, "\n"
             )
             writeLines(readme_text, readme_file)
             
-            # Create ZIP from the directory
-            zip_file <- file.path(temp_dir, paste0("ma_plot_export_", timestamp, ".zip"))
+            # Create ZIP
+            zip_file <- file.path(temp_dir, paste0("ma_plots_all_export_", timestamp, ".zip"))
             zip_export_dir(export_dir, zip_file)
             
             # Copy to output
             file.copy(zip_file, file)
+            
+            cat("\n✓ Exported", length(saved_files), "MA plots successfully!\n")
         } else {
+            # CODE-ONLY MODE: Export only currently selected comparison
+            req(myValues$vsResults)
+            
+            comparison_name <- paste0(input$condition1, "_vs_", input$condition2)
+            
+            params <- list(
+                comparison_name = comparison_name,
+                alpha = input$alpha,
+                ylim = input$ylim,
+                data_file = paste0(comparison_name, "_results.csv")
+            )
+            
+            r_code <- generateMAPlotCode(params, mode = export_mode)
+            
             # Just write the R code
             writeLines(r_code, file)
         }

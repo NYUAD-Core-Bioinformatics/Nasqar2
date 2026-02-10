@@ -1596,9 +1596,10 @@ server <- function(input, output, session) {
                                 comparison_name = comparison_name_clean,
                                 padj_threshold = padj_threshold,
                                 log2fc_threshold = if(!is.null(input$log_fold_change_threshold)) input$log_fold_change_threshold else 1,
-                                use_gene_names = (!is.null(input$gene_alias) && length(input$gene_alias) > 0 && input$gene_alias == "included"),
-                                gene_type = "gene.id",
-                                data_file = paste0(comparison_name_clean, "_results.csv")  # File exported from Section 0
+                                use_gene_names = (!is.null(input$volcano_sel_gene_type) && input$volcano_sel_gene_type == "gene.name"),
+                                gene_type = if(!is.null(input$volcano_sel_gene_type)) input$volcano_sel_gene_type else "gene.id",
+                                data_file = paste0(comparison_name_clean, "_results.csv"),  # File exported from Section 0
+                                genes_of_interest = NULL  # Add missing parameter for template
                             )
                             
                             # Generate code: use existing objects when in full mode for combined script
@@ -1637,7 +1638,10 @@ server <- function(input, output, session) {
                             fill_by = input$boxplotFill,
                             factors = input$sel_factors,
                             use_gene_names = (!is.null(input$box_plot_sel_gene_type) && length(input$box_plot_sel_gene_type) > 0 && input$box_plot_sel_gene_type == "gene.name"),
-                            custom_colors = if(!is.null(custom_colors$colors)) custom_colors$colors else NULL
+                            custom_colors = if(!is.null(custom_colors$colors)) custom_colors$colors else NULL,
+                            counts_file = "normalized_counts.csv",  # Not needed when use_existing_objects = TRUE
+                            metadata_file = "metadata.csv",  # Not needed when use_existing_objects = TRUE
+                            num_cols = 2  # Default number of columns for multi-gene plots
                         )
                         
                         # Generate code: use existing objects when in full mode for combined script
@@ -1678,7 +1682,14 @@ server <- function(input, output, session) {
                         params <- list(
                             num_genes = input$numGenes,
                             selected_genes = selected_genes,
-                            use_gene_names = (!is.null(input$heatmap_sel_gene_type) && length(input$heatmap_sel_gene_type) > 0 && input$heatmap_sel_gene_type == "gene.name")
+                            use_gene_names = (!is.null(input$heatmap_sel_gene_type) && length(input$heatmap_sel_gene_type) > 0 && input$heatmap_sel_gene_type == "gene.name"),
+                            counts_file = "normalized_counts.csv",
+                            metadata_file = "metadata.csv",
+                            fontsize_row = if(!is.null(input$heatmap_fontsize_row)) input$heatmap_fontsize_row else 8,
+                            is_brushed_heatmap = FALSE,
+                            sample_order = NULL,
+                            is_venn_heatmap = FALSE,
+                            color_range = NULL
                         )
                         
                         # Generate code: use existing objects when in full mode for combined script
@@ -1709,12 +1720,40 @@ server <- function(input, output, session) {
                     tryCatch({
                         setProgress(value = current/total_plots, detail = "Exporting Brushed Heatmap...")
                         
+                        # Use gene IDs for data extraction (same pattern as Venn brushed heatmap)
+                        brushed_gene_ids <- if(!is.null(myValues$brushed_gene_ids)) {
+                            myValues$brushed_gene_ids
+                        } else {
+                            myValues$brushed_genes  # Fallback if IDs not stored
+                        }
+                        
+                        # Remove NAs from gene IDs (in case mapping failed)
+                        valid_idx <- !is.na(brushed_gene_ids)
+                        valid_gene_ids <- brushed_gene_ids[valid_idx]
+                        
+                        # Get parent heatmap color range for consistent scaling
+                        # MUST use parent range - do NOT calculate from brushed data
+                        if (is.null(myValues$heatmap_data_range)) {
+                            warning("Parent heatmap color range not found. Brushed heatmap may have incorrect colors.")
+                            cat("WARNING: Parent heatmap range not available. Cannot export brushed heatmap with correct colors.\n")
+                            parent_range <- NULL  # Will cause warning in export
+                        } else {
+                            parent_range <- myValues$heatmap_data_range
+                            cat("Using parent heatmap color range:", parent_range[1], "to", parent_range[2], "\n")
+                        }
+                        
                         params <- list(
-                            num_genes = length(myValues$brushed_genes),
-                            selected_genes = myValues$brushed_genes,
+                            num_genes = length(valid_gene_ids),
+                            selected_genes = valid_gene_ids,  # Use gene IDs for data extraction
+                            brushed_gene_order = if(!is.null(myValues$brushed_gene_order)) myValues$brushed_gene_order[valid_idx] else NULL,
                             use_gene_names = (!is.null(input$heatmap_sel_gene_type) && length(input$heatmap_sel_gene_type) > 0 && input$heatmap_sel_gene_type == "gene.name"),
                             is_brushed_heatmap = TRUE,  # This is a brushed sub-heatmap
-                            sample_order = colnames(myValues$brushed_heatmap_data)  # Preserve original sample order
+                            sample_order = colnames(myValues$brushed_heatmap_data),  # Preserve original sample order
+                            color_range = parent_range,  # Use parent heatmap's color scale
+                            counts_file = "normalized_counts.csv",
+                            metadata_file = "metadata.csv",
+                            fontsize_row = if(!is.null(input$heatmap_fontsize_row)) input$heatmap_fontsize_row else 8,
+                            is_venn_heatmap = FALSE
                         )
                         
                         # Generate code
@@ -1723,13 +1762,13 @@ server <- function(input, output, session) {
                         
                         # Store R code section for combined script
                         all_r_code_sections[["heatmap_brushed"]] <- list(
-                            title = paste0("Brushed Sub-Heatmap (", length(myValues$brushed_genes), " genes selected)"),
+                            title = paste0("Brushed Sub-Heatmap (", length(valid_gene_ids), " genes selected)"),
                             code = r_code,
                             order = 9.5  # After main heatmap, following tab order
                         )
                         
                         plot_count <- plot_count + 1
-                        cat("  ✓ Brushed heatmap with", length(myValues$brushed_genes), "genes added\n")
+                        cat("  ✓ Brushed heatmap with", length(valid_gene_ids), "genes added\n")
                     }, error = function(e) { cat("  ✗ Brushed heatmap export error:", e$message, "\n") })
                     current <- current + 1
                 } else {
@@ -1806,7 +1845,9 @@ server <- function(input, output, session) {
                         
                         params <- list(
                             intgroup = intgroup_param,
-                            transform_type = "vst"
+                            transform_type = "vst",
+                            transformed_data_file = "vst_data.csv",
+                            metadata_file = "metadata.csv"
                         )
                         
                         # Generate code: use existing objects when in full mode for combined script
@@ -1854,7 +1895,9 @@ server <- function(input, output, session) {
                         
                         params <- list(
                             intgroup = intgroup_param,
-                            transform_type = "rlog"
+                            transform_type = "rlog",
+                            transformed_data_file = "rlog_data.csv",
+                            metadata_file = "metadata.csv"
                         )
                         
                         # Generate code: use existing objects when in full mode for combined script
@@ -1884,7 +1927,11 @@ server <- function(input, output, session) {
                     tryCatch({
                         setProgress(value = current/total_plots, detail = "Exporting Distance Heatmap (VST)...")
                         
-                        params <- list(transform_type = "vst")
+                        params <- list(
+                            transform_type = "vst",
+                            transformed_data_file = "vst_data.csv",
+                            metadata_file = "metadata.csv"
+                        )
                         
                         # Generate code: use existing objects when in full mode for combined script
                         r_code <- generateDistHeatmapCode(params, mode = "full",
@@ -1913,7 +1960,11 @@ server <- function(input, output, session) {
                     tryCatch({
                         setProgress(value = current/total_plots, detail = "Exporting Distance Heatmap (RLOG)...")
                         
-                        params <- list(transform_type = "rlog")
+                        params <- list(
+                            transform_type = "rlog",
+                            transformed_data_file = "rlog_data.csv",
+                            metadata_file = "metadata.csv"
+                        )
                         
                         # Generate code: use existing objects when in full mode for combined script
                         r_code <- generateDistHeatmapCode(params, mode = "full",
@@ -1955,8 +2006,11 @@ server <- function(input, output, session) {
                         
                         params <- list(
                             comparisons = comparisons,
+                            num_sets = length(comparisons),
                             padj_threshold = padj_thresh,
-                            fc_threshold = fc_thresh
+                            fc_threshold = fc_thresh,
+                            venn_colors = c("#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8"),
+                            gene_files = NULL  # Not needed when use_existing_objects = TRUE
                         )
                         
                         # Generate code: use existing objects when in full mode for combined script
@@ -2000,7 +2054,16 @@ server <- function(input, output, session) {
                             comparisons = input$select_avo_de_venn_files,
                             set_expression = input$venn_set_expression_input,
                             padj_threshold = padj_thresh,
-                            fc_threshold = fc_thresh
+                            fc_threshold = fc_thresh,
+                            use_gene_names = (!is.null(input$venn_sel_gene_type) && 
+                                            input$venn_sel_gene_type == "gene.name"),
+                            num_genes = 50,  # Default number of genes to show
+                            expression_matrix_file = "set_expression_matrix.csv",  # Not needed when use_existing_objects = TRUE
+                            fontsize_row = 8,  # Default font size for gene labels
+                            is_brushed = FALSE,
+                            brushed_genes = NULL,
+                            sample_order = NULL,
+                            color_range = NULL
                         )
                         
                         # Generate code
@@ -2020,6 +2083,81 @@ server <- function(input, output, session) {
                     current <- current + 1
                 } else {
                     cat("Venn Set Heatmap conditions not met, skipping.\n")
+                }
+                
+                # Export Brushed Venn Set Heatmap if user has brushed one
+                cat("Checking Brushed Venn Set Heatmap conditions...\n")
+                if (!is.null(myValues$brushed_venn_heatmap_data) && 
+                    !is.null(myValues$brushed_venn_genes) && 
+                    length(myValues$brushed_venn_genes) > 0) {
+                    cat("Exporting Brushed Venn Set Heatmap...\n")
+                    tryCatch({
+                        setProgress(value = current/total_plots, detail = "Exporting Brushed Venn Set Heatmap...")
+                        
+                        # Extract thresholds (same as Venn diagram)
+                        if (!is.null(input$venn_threshold_type) && input$venn_threshold_type == "slider") {
+                            padj_thresh <- 1 / 10^as.numeric(input$venn_significance_threshold)
+                        } else {
+                            padj_thresh <- as.numeric(input$venn_direct_padj)
+                        }
+                        fc_thresh <- as.numeric(input$venn_log_fold_change_threshold)
+                        
+                        # Get parent heatmap data range for consistent color scaling
+                        # MUST use parent range - do NOT calculate from brushed data
+                        if (is.null(myValues$venn_heatmap_data_range)) {
+                            warning("Parent Venn heatmap color range not found. Brushed heatmap may have incorrect colors.")
+                            cat("WARNING: Parent Venn heatmap range not available for brushed export.\n")
+                            parent_range <- NULL  # Will cause warning in export
+                        } else {
+                            parent_range <- myValues$venn_heatmap_data_range
+                            cat("Using parent Venn heatmap color range:", parent_range[1], "to", parent_range[2], "\n")
+                        }
+                        
+                        # Use gene IDs for data extraction (these work with results_list)
+                        brushed_gene_ids <- if(!is.null(myValues$brushed_venn_gene_ids)) {
+                            myValues$brushed_venn_gene_ids
+                        } else {
+                            myValues$brushed_venn_genes  # Fallback if IDs not stored
+                        }
+                        
+                        # Remove NAs from gene IDs (in case mapping failed)
+                        valid_idx <- !is.na(brushed_gene_ids)
+                        valid_gene_ids <- brushed_gene_ids[valid_idx]
+                        
+                        params <- list(
+                            comparisons = input$select_avo_de_venn_files,
+                            set_expression = paste0("Brushed subset (", length(valid_gene_ids), " genes)"),
+                            padj_threshold = padj_thresh,
+                            fc_threshold = fc_thresh,
+                            use_gene_names = (!is.null(input$venn_sel_gene_type) && 
+                                            input$venn_sel_gene_type == "gene.name"),
+                            num_genes = length(valid_gene_ids),
+                            expression_matrix_file = "set_expression_matrix.csv",  # Not needed when use_existing_objects = TRUE
+                            fontsize_row = if(length(valid_gene_ids) > 50) 6 else 8,  # Adjust font size based on number of genes
+                            is_brushed = TRUE,
+                            brushed_genes = valid_gene_ids,  # Pass gene IDs for data extraction
+                            brushed_gene_order = if(!is.null(myValues$brushed_venn_gene_order)) myValues$brushed_venn_gene_order[valid_idx] else NULL,
+                            sample_order = colnames(myValues$brushed_venn_heatmap_data),
+                            color_range = parent_range
+                        )
+                        
+                        # Generate code
+                        r_code <- generateVennSetHeatmapCode(params, mode = "full",
+                                                            use_existing_objects = TRUE)
+                        
+                        # Store R code section for combined script
+                        all_r_code_sections[["venn_set_heatmap_brushed"]] <- list(
+                            title = paste0("Brushed Venn Sub-Heatmap (", length(myValues$brushed_venn_genes), " genes selected)"),
+                            code = r_code,
+                            order = 7.6  # Immediately after Venn set heatmap
+                        )
+                        
+                        plot_count <- plot_count + 1
+                        cat("  ✓ Brushed Venn heatmap with", length(myValues$brushed_venn_genes), "genes added\n")
+                    }, error = function(e) { cat("  ✗ Brushed Venn Set Heatmap export error:", e$message, "\n") })
+                    current <- current + 1
+                } else {
+                    cat("Brushed Venn Set Heatmap conditions not met, skipping.\n")
                 }
                 
                 cat("\n=== Export Summary ===\n")
@@ -2154,56 +2292,17 @@ server <- function(input, output, session) {
                     cat("Skipping helper functions (not found)\n")
                 }
                 
-                combined_script <- paste0(
-                    "################################################################################\n",
-                    "#                                                                              #\n",
-                    "#       COMPREHENSIVE DESEQ2 ANALYSIS - FROM RAW DATA TO PLOTS                #\n",
-                    "#       Generated from DESeq2Shiny (OPTIMIZED)                                #\n",
-                    "#       ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "                                           #\n",
-                    "#                                                                              #\n",
-                    "################################################################################\n\n",
-                    "# This script performs COMPLETE DESeq2 analysis from raw counts:\n",
-                    "# -1. Helper Functions (reusable code for efficient plot generation)\n",
-                    "# 0. Load raw data → Create DESeq2 object → Run analysis → Transformations\n",
-                    "# 1-", length(all_r_code_sections), ". Generate ", plot_count, " different publication-quality plots\n\n",
-                    "# OPTIMIZED: This version uses reusable helper functions to reduce code duplication\n",
-                    "# by 70-80% when multiple contrasts are analyzed.\n\n",
-                    "# Set working directory to the location of this script and data files\n",
-                    "# setwd(\"/path/to/extracted/folder\")\n\n",
-                    "# Install required packages if needed:\n",
-                    "# if (!require(\"BiocManager\", quietly = TRUE)) install.packages(\"BiocManager\")\n",
-                    "# BiocManager::install(\"DESeq2\")\n",
-                    "# BiocManager::install(\"EnhancedVolcano\")\n",
-                    "# install.packages(c('ggplot2', 'pheatmap', 'RColorBrewer', 'ggrepel', 'tidyr', 'dplyr'))\n\n\n",
-                    helper_functions_section,
-                    deseq2_pipeline
-                )
-                
-                # Sort sections by order and combine
+                # Sort sections by order for plot generation
                 sections_ordered <- all_r_code_sections[order(sapply(all_r_code_sections, function(x) x$order))]
                 
-                for (i in seq_along(sections_ordered)) {
-                    section <- sections_ordered[[i]]
-                    combined_script <- paste0(
-                        combined_script,
-                        "################################################################################\n",
-                        "#  ", i, ". ", toupper(section$title), "\n",
-                        "################################################################################\n\n",
-                        section$code,
-                        "\n\n\n"
-                    )
-                }
-                
-                # Add session info at the end
-                combined_script <- paste0(
-                    combined_script,
-                    "################################################################################\n",
-                    "#  SESSION INFORMATION\n",
-                    "################################################################################\n\n",
-                    "cat(\"\\n=== Analysis Complete ===\")\n",
-                    "cat(\"\\nAll plots have been generated and saved.\")\n",
-                    "cat(\"\\nCheck the current directory for PDF and PNG files.\\n\\n\")\n",
-                    "sessionInfo()\n"
+                # Generate complete script using template wrapper (cleaner than paste0)
+                cat("Assembling complete script from template...\n")
+                combined_script <- generateScriptWrapper(
+                    helper_functions = helper_functions_section,
+                    deseq2_pipeline = deseq2_pipeline,
+                    plot_sections = sections_ordered,
+                    timestamp = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
+                    num_plots = plot_count
                 )
                 
                 # Write combined script
@@ -2236,127 +2335,24 @@ server <- function(input, output, session) {
                     "   This ensures complete reproducibility from the ground up!\n\n")
             }
             
-            readme_text <- paste0(
-                "################################################################################\n",
-                "#                                                                              #\n",
-                "#       COMPREHENSIVE DESEQ2 ANALYSIS EXPORT                                  #\n",
-                "#       FULLY REPRODUCIBLE FROM RAW DATA                                      #\n",
-                "#                                                                              #\n",
-                "################################################################################\n\n",
-                "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
-                "📦 PACKAGE CONTENTS\n",
-                "===================\n\n",
-                "✅ complete_analysis_", timestamp, ".R\n",
-                "   → ONE comprehensive R script with COMPLETE pipeline:\n",
-                "      * Section -1: Helper Functions (OPTIMIZED - reusable code)\n",
-                "      * Section 0: Load raw data → DESeq2 object → Run analysis → Transformations\n",
-                "      * Sections 1-", length(all_r_code_sections), ": Generate ", plot_count, " publication-quality plots\n",
-                "   → Starts from RAW DATA - completely reproducible!\n",
-                "   → Well-organized with clear section headers\n",
-                "   → OPTIMIZED: Uses helper functions to reduce code duplication by 70-80%\n",
-                "   → Can run entire script or execute individual sections\n",
-                data_files_list,
-                "✅ README.txt (this file)\n\n",
-                "🔬 WHAT MAKES THIS SPECIAL\n",
-                "==========================\n\n",
-                "⚡ OPTIMIZED CODE GENERATION:\n",
-                "   - Uses reusable helper functions to eliminate code duplication\n",
-                "   - 70-80% reduction in code size for multi-contrast analyses\n",
-                "   - Easier to read, understand, and customize\n",
-                "   - Identical output to non-optimized version\n\n",
-                "This is NOT just plot code - it's a COMPLETE DESeq2 pipeline!\n\n",
-                "The script will:\n",
-                "1. Load your raw count matrix and metadata\n",
-                "2. Create DESeq2 object with appropriate design\n",
-                "3. Filter low-count genes\n",
-                "4. Run DESeq2 differential expression analysis\n",
-                "5. Generate normalized counts\n",
-                "6. Perform variance-stabilizing transformations (VST/rlog)\n",
-                "7. Extract differential expression results\n",
-                "8. Generate all ", plot_count, " publication-quality plots\n\n",
-                "Everything from raw data to final figures in ONE script!\n\n",
-                "🚀 QUICK START GUIDE\n",
-                "====================\n\n",
-                "1. Extract this entire ZIP file to a folder\n\n",
-                "2. Open 'complete_analysis_", timestamp, ".R' in RStudio\n\n",
-                "3. Set your working directory to the extracted folder:\n",
-                "   Session → Set Working Directory → To Source File Location\n\n",
-                "4. Install required packages (if not already installed):\n",
-                "   The script has commented-out installation commands at the top\n\n",
-                "5. Run the entire script:\n",
-                "   - Ctrl+Shift+Enter (Windows/Linux) or Cmd+Shift+Return (Mac)\n",
-                "   - Or run sections individually: Select section and press Ctrl+Enter\n\n",
-                "6. Results:\n",
-                "   - DESeq2 analysis will be performed from scratch\n",
-                "   - All plots will be saved as high-resolution PDF and PNG files\n",
-                "   - Check the console for progress messages\n\n",
-                "📊 ANALYSES INCLUDED\n",
-                "====================\n\n",
-                "The comprehensive script contains ", plot_count, " analyses:\n"
-            )
-            
-            # List all analyses
+            # Build plot list for README
+            plot_list <- ""
             if (length(all_r_code_sections) > 0) {
                 sections_ordered <- all_r_code_sections[order(sapply(all_r_code_sections, function(x) x$order))]
                 for (i in seq_along(sections_ordered)) {
                     section <- sections_ordered[[i]]
-                    readme_text <- paste0(readme_text, i, ". ", section$title, "\n")
+                    plot_list <- paste0(plot_list, sprintf("%2d. %s\n", i, section$title))
                 }
             }
             
-            readme_text <- paste0(
-                readme_text,
-                "\n💡 TIPS & BEST PRACTICES\n",
-                "========================\n\n",
-                "⭐ REPRODUCIBILITY:\n",
-                "- This script recreates EVERYTHING from raw data\n",
-                "- No need for pre-computed results - it runs the full DESeq2 pipeline\n",
-                "- Perfect for supplementary materials in publications\n",
-                "- Collaborators can verify your entire analysis\n\n",
-                "⭐ CUSTOMIZATION:\n",
-                "- Section 0: Adjust design formula, filtering thresholds\n",
-                "- Sections 1-", length(all_r_code_sections), ": Customize colors, labels, plot parameters\n",
-                "- All sections are clearly marked with headers\n",
-                "- Modify and re-run specific sections without running everything\n\n",
-                "⭐ PERFORMANCE:\n",
-                "- First run may take several minutes (DESeq2 + transformations)\n",
-                "- VST is faster than rlog for large datasets\n",
-                "- After DESeq2 runs, plotting sections are fast\n",
-                "- Save the workspace after Section 0 to avoid re-running: save.image(\"analysis.RData\")\n\n",
-                "⭐ OUTPUT:\n",
-                "- All plots automatically saved as PDF (vector) and PNG (raster)\n",
-                "- PDFs are best for publications (scalable, editable)\n",
-                "- PNGs are best for presentations and quick viewing\n",
-                "- Check the same folder for all output files\n\n",
-                "📧 TROUBLESHOOTING\n",
-                "==================\n\n",
-                "❓ \"Package 'DESeq2' not found\"\n",
-                "   → Install Bioconductor packages:\n",
-                "     if (!require(\"BiocManager\")) install.packages(\"BiocManager\")\n",
-                "     BiocManager::install(\"DESeq2\")\n\n",
-                "❓ \"Cannot open file 'raw_counts_*.csv'\"\n",
-                "   → Set working directory: Session → Set Working Directory → To Source File Location\n",
-                "   → Or use: setwd(\"/path/to/extracted/folder\")\n\n",
-                "❓ \"Sample names don't match\"\n",
-                "   → Check that column names in raw_counts match row names in metadata\n",
-                "   → The script will stop and tell you if there's a mismatch\n\n",
-                "❓ \"DESeq2 analysis takes too long\"\n",
-                "   → This is normal for large datasets (>20,000 genes, >50 samples)\n",
-                "   → Let it run - it may take 5-15 minutes\n",
-                "   → Consider using VST instead of rlog (faster)\n\n",
-                "❓ \"Need to modify design formula\"\n",
-                "   → Look in Section 0 for: design = ~ ...\n",
-                "   → Adjust based on your experimental factors\n",
-                "   → Common designs: ~ condition, ~ batch + condition, ~ condition + treatment\n\n",
-                "❓ \"Want to run only plots, not DESeq2\"\n",
-                "   → Comment out Section 0 (add # at the start of lines)\n",
-                "   → Load pre-computed results instead\n",
-                "   → Or save workspace after first run: save.image(\"analysis.RData\")\n\n",
-                "💬 Still need help?\n",
-                "   Check DESeq2 documentation: https://bioconductor.org/packages/DESeq2/\n\n",
-                "═══════════════════════════════════════════════════════════════════════════\n",
-                "Happy analyzing! Your complete reproducible pipeline awaits! 🎉🔬📊\n",
-                "═══════════════════════════════════════════════════════════════════════════\n"
+            # Generate README from template (much cleaner than 122 lines of paste0!)
+            cat("Generating README from template...\n")
+            readme_text <- generateREADME(
+                timestamp = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
+                script_filename = script_filename,
+                data_files_list = data_files_list,
+                plot_list = plot_list,
+                num_plots = plot_count
             )
             writeLines(readme_text, readme_file)
             all_files <- c(all_files, readme_file)

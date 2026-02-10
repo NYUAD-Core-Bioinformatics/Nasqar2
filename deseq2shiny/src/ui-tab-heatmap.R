@@ -80,8 +80,6 @@ tabItem(
                             p(strong("💡 Tip:"), " Brush/select an area on the heatmap above to create a sub-heatmap of selected genes."),
                             conditionalPanel(
                                 "output.brushedHeatmapAvailable",
-                                downloadButton("download_brushed_heatmap_csv", "Download Brushed Genes Data (CSV)", 
-                                             class = "btn btn-success btn-sm", style = "margin: 5px;"),
                                 p(class = "text-muted", style = "font-size: 11px; margin-top: 5px;", 
                                   textOutput("brushed_genes_count"))
                             )

@@ -266,9 +266,8 @@ if (!is.null(CONTRASTS) && length(CONTRASTS) > 0) {
 
 cat("Step 6: Performing variance-stabilizing transformation...\n")
 
-# VST is recommended for datasets with >= 30 samples
-# For visualization and clustering
-vsd <- vst(dds, blind = FALSE)
+
+vsd <- varianceStabilizingTransformation(dds)
 vst_mat <- assay(vsd)
 
 cat("  ✓ VST transformation complete\n")
@@ -280,9 +279,8 @@ cat("  - Transformed matrix:", nrow(vst_mat), "genes ×", ncol(vst_mat), "sample
 
 cat("Step 7: Performing regularized log transformation...\n")
 
-# rlog is recommended for datasets with < 30 samples
-# Provides better variance stabilization for small sample sizes
-rld <- rlog(dds, blind = FALSE)
+
+rld <- rlog(dds)
 rlog_mat <- assay(rld)
 
 cat("  ✓ rlog transformation complete\n")

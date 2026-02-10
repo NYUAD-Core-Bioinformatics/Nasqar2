@@ -1,10 +1,14 @@
 ################################################################################
 # Publication-ready MA Plot (OPTIMIZED)
 # Generated from DESeq2Shiny
-#
-# This script uses helper functions to reduce code duplication
-# For standalone use, ensure create_ma_plot() function is defined first
 ################################################################################
+
+################################################################################
+# HELPER FUNCTIONS
+################################################################################
+
+# Load helper functions for MA plot generation
+{{HELPER_FUNCTIONS}}
 
 ################################################################################
 # CONFIGURATION PARAMETERS

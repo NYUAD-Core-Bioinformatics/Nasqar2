@@ -42,7 +42,57 @@ library(VennDiagram)
 # Load Gene Lists
 ################################################################################
 
+cat("Loading gene sets for Venn diagram...\n")
+cat("  Thresholds: padj < ", PADJ_THRESHOLD, ", |log2FC| > ", FC_THRESHOLD, "\n\n", sep="")
+
 {{DATA_LOAD_SECTION}}
+
+# If gene_sets wasn't created by DATA_LOAD_SECTION, build from results_list
+if (!exists("gene_sets")) {
+  # Extract significant genes from results_list generated in Section 0
+  # Verify results_list exists (created in Section 0)
+  if (!exists("results_list")) {
+    stop("\nERROR: results_list not found!\n",
+         "  This script expects results_list to be created in Section 0 (DESeq2 pipeline).\n",
+         "  Please ensure Section 0 has been run before this Venn diagram section.\n")
+  }
+  
+  cat("  Available results:", paste(names(results_list), collapse=", "), "\n")
+  
+  gene_sets <- list()
+  
+  for (i in 1:length(COMPARISONS)) {
+    # Clean comparison name (remove .csv extension)
+    comparison_clean <- sub("\\.csv$", "", COMPARISONS[i])
+    
+    # Get results from results_list
+    if (comparison_clean %in% names(results_list)) {
+      res_data <- results_list[[comparison_clean]]
+      
+      # Filter by BOTH padj AND log2FoldChange thresholds (matches Shiny app)
+      sig_genes <- rownames(res_data)[which(
+        !is.na(res_data$padj) & 
+        res_data$padj < PADJ_THRESHOLD & 
+        abs(res_data$log2FoldChange) > FC_THRESHOLD
+      )]
+      
+      # Use letter labels (A, B, C) for cleaner Venn diagram
+      gene_sets[[LETTERS[i]]] <- sig_genes
+      cat("  Set ", LETTERS[i], " (", comparison_clean, "): ", length(sig_genes), " genes\n", sep="")
+    } else {
+      # Comparison not found in results_list
+      stop("\nERROR: Cannot find results for comparison '", comparison_clean, "'\n",
+           "  Requested: ", comparison_clean, "\n",
+           "  Available: ", paste(names(results_list), collapse=", "), "\n\n",
+           "  This mismatch may be due to:\n",
+           "  1. Section 0 didn't create results for this comparison\n",
+           "  2. Comparison name mismatch between Venn parameters and Section 0 output\n",
+           "  3. Section 0 encountered an error\n")
+    }
+  }
+}
+
+cat("\nGene sets created for Venn diagram\n\n")
 
 ################################################################################
 # Create Venn Diagram
@@ -65,11 +115,15 @@ for (i in 1:length(gene_sets)) {
 }
 cat("\n")
 
+# Subset colors to match the number of sets
+# VennDiagram package requires exact number of colors
+venn_colors_subset <- VENN_COLORS[1:NUM_SETS]
+
 # Create Venn diagram
 venn_plot <- venn.diagram(
   x = gene_sets,
   filename = NULL,
-  fill = VENN_COLORS,
+  fill = venn_colors_subset,  # Use subset of colors matching NUM_SETS
   alpha = 0.5,
   cex = 1.5,
   cat.cex = 1.2,

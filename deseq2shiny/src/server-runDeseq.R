@@ -494,14 +494,20 @@ output$download_code_pca_vst <- downloadHandler(
         export_mode <- get_export_mode(input)
         export_format <- get_export_format(input)
         
-        params <- list(
-            intgroup = if(!is.null(input$vsdIntGroupsInput)) input$vsdIntGroupsInput else names(colData(myValues$dds))[1],
-            transform_type = "vst"
-        )
-        
-        r_code <- generatePCACode(params, 
-                                 mode = export_mode, 
-)
+        # For code-only mode, set params now
+        # For full mode, set params after saving files (to use actual filenames)
+        if (export_mode != "full") {
+            params <- list(
+                intgroup = if(!is.null(input$vsdIntGroupsInput)) input$vsdIntGroupsInput else names(colData(myValues$dds))[1],
+                transform_type = "vst",
+                transformed_data_file = "vst_data.csv",
+                metadata_file = "metadata.csv"
+            )
+            
+            r_code <- generatePCACode(params, 
+                                     mode = export_mode, 
+            )
+        }
         
         if (export_mode == "full") {
             timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
@@ -516,6 +522,18 @@ output$download_code_pca_vst <- downloadHandler(
             metadata_filename <- paste0("metadata_", timestamp, ".csv")
             metadata_file <- file.path(export_dir, metadata_filename)
             write.csv(as.data.frame(colData(myValues$dds)), metadata_file, row.names = TRUE)
+            
+            # NOW set params with actual filenames and generate R code
+            params <- list(
+                intgroup = if(!is.null(input$vsdIntGroupsInput)) input$vsdIntGroupsInput else names(colData(myValues$dds))[1],
+                transform_type = "vst",
+                transformed_data_file = vst_filename,  # Use actual filename with timestamp!
+                metadata_file = metadata_filename  # Use actual filename with timestamp!
+            )
+            
+            r_code <- generatePCACode(params, 
+                                     mode = export_mode, 
+            )
             
             code_filename <- paste0("pca_vst_", timestamp, ".R")
             code_file <- file.path(export_dir, code_filename)
@@ -563,14 +581,21 @@ output$download_code_pca_rlog <- downloadHandler(
         
         export_mode <- get_export_mode(input)
         export_format <- get_export_format(input)
-        params <- list(
-            intgroup = if(!is.null(input$rlogIntGroupsInput)) input$rlogIntGroupsInput else names(colData(myValues$dds))[1],
-            transform_type = "rlog"
-        )
         
-        r_code <- generatePCACode(params, 
-                                 mode = export_mode, 
-)
+        # For code-only mode, set params now
+        # For full mode, set params after saving files (to use actual filenames)
+        if (export_mode != "full") {
+            params <- list(
+                intgroup = if(!is.null(input$rlogIntGroupsInput)) input$rlogIntGroupsInput else names(colData(myValues$dds))[1],
+                transform_type = "rlog",
+                transformed_data_file = "rlog_data.csv",
+                metadata_file = "metadata.csv"
+            )
+            
+            r_code <- generatePCACode(params, 
+                                     mode = export_mode, 
+            )
+        }
         
         if (export_mode == "full") {
             timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
@@ -585,6 +610,18 @@ output$download_code_pca_rlog <- downloadHandler(
             metadata_filename <- paste0("metadata_", timestamp, ".csv")
             metadata_file <- file.path(export_dir, metadata_filename)
             write.csv(as.data.frame(colData(myValues$dds)), metadata_file, row.names = TRUE)
+            
+            # NOW set params with actual filenames and generate R code
+            params <- list(
+                intgroup = if(!is.null(input$rlogIntGroupsInput)) input$rlogIntGroupsInput else names(colData(myValues$dds))[1],
+                transform_type = "rlog",
+                transformed_data_file = rlog_filename,  # Use actual filename with timestamp!
+                metadata_file = metadata_filename  # Use actual filename with timestamp!
+            )
+            
+            r_code <- generatePCACode(params, 
+                                     mode = export_mode, 
+            )
             
             code_filename <- paste0("pca_rlog_", timestamp, ".R")
             code_file <- file.path(export_dir, code_filename)
@@ -634,11 +671,19 @@ output$download_code_distheat_vst <- downloadHandler(
         export_mode <- get_export_mode(input)
         export_format <- get_export_format(input)
         
-        params <- list(transform_type = "vst")
-        
-        r_code <- generateDistHeatmapCode(params, 
-                                          mode = export_mode, 
-         )
+        # For code-only mode, set params now
+        # For full mode, set params after saving files (to use actual filenames)
+        if (export_mode != "full") {
+            params <- list(
+                transform_type = "vst",
+                transformed_data_file = "vst_data.csv",
+                metadata_file = "metadata.csv"
+            )
+            
+            r_code <- generateDistHeatmapCode(params, 
+                                              mode = export_mode, 
+             )
+        }
         
         if (export_mode == "full") {
             timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
@@ -653,6 +698,17 @@ output$download_code_distheat_vst <- downloadHandler(
             metadata_filename <- paste0("metadata_", timestamp, ".csv")
             metadata_file <- file.path(export_dir, metadata_filename)
             write.csv(as.data.frame(colData(myValues$dds)), metadata_file, row.names = TRUE)
+            
+            # NOW set params with actual filenames and generate R code
+            params <- list(
+                transform_type = "vst",
+                transformed_data_file = vst_filename,  # Use actual filename with timestamp!
+                metadata_file = metadata_filename  # Use actual filename with timestamp!
+            )
+            
+            r_code <- generateDistHeatmapCode(params, 
+                                              mode = export_mode, 
+             )
             
             code_filename <- paste0("distance_heatmap_vst_", timestamp, ".R")
             code_file <- file.path(export_dir, code_filename)
@@ -700,11 +756,20 @@ output$download_code_distheat_rlog <- downloadHandler(
         
         export_mode <- get_export_mode(input)
         export_format <- get_export_format(input)
-        params <- list(transform_type = "rlog")
         
-        r_code <- generateDistHeatmapCode(params, 
-                                          mode = export_mode, 
-         )
+        # For code-only mode, set params now
+        # For full mode, set params after saving files (to use actual filenames)
+        if (export_mode != "full") {
+            params <- list(
+                transform_type = "rlog",
+                transformed_data_file = "rlog_data.csv",
+                metadata_file = "metadata.csv"
+            )
+            
+            r_code <- generateDistHeatmapCode(params, 
+                                              mode = export_mode, 
+             )
+        }
         
         if (export_mode == "full") {
             timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
@@ -719,6 +784,17 @@ output$download_code_distheat_rlog <- downloadHandler(
             metadata_filename <- paste0("metadata_", timestamp, ".csv")
             metadata_file <- file.path(export_dir, metadata_filename)
             write.csv(as.data.frame(colData(myValues$dds)), metadata_file, row.names = TRUE)
+            
+            # NOW set params with actual filenames and generate R code
+            params <- list(
+                transform_type = "rlog",
+                transformed_data_file = rlog_filename,  # Use actual filename with timestamp!
+                metadata_file = metadata_filename  # Use actual filename with timestamp!
+            )
+            
+            r_code <- generateDistHeatmapCode(params, 
+                                              mode = export_mode, 
+             )
             
             code_filename <- paste0("distance_heatmap_rlog_", timestamp, ".R")
             code_file <- file.path(export_dir, code_filename)
