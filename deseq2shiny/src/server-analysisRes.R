@@ -179,7 +179,10 @@ output$analysisRes_enrichGo <- renderUI({
     return(tags$div(
         class = "BoxArea3", style = "text-align: center;",
         p(strong("ClusterProfShinyORA")),
-        a("goEnrich", href = paste0("/ClusterProfShinyORA?countsdata=", encryptUrlParam(fileUrl)), class = "btn btn-success", target = "_blank", style = "width: 100%;")
+        a("goEnrich", href = paste0("/ClusterProfShinyORA?countsdata=", encryptUrlParam(fileUrl)), class = "btn btn-success", target = "_blank", style = "width: 100%;"),
+        br(), br(),
+        p(strong("ClusterProfShinyGSEA")),
+        a("GSEA", href = paste0("/ClusterProfShinyGSEA?countsdata=", encryptUrlParam(fileUrl)), class = "btn btn-success", target = "_blank", style = "width: 100%;")
     ))
 })
 
