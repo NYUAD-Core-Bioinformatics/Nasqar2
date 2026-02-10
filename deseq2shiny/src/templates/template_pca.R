@@ -36,6 +36,7 @@ if (is.null(INTGROUP) || length(INTGROUP) == 0 || nchar(INTGROUP) == 0) {
 
 library(DESeq2)
 library(ggplot2)
+library(matrixStats)  # For rowVars() function
 
 ################################################################################
 # Load Data
@@ -44,13 +45,29 @@ library(ggplot2)
 {{DATA_LOAD_SECTION}}
 
 ################################################################################
-# Perform PCA
+# Perform PCA (Using DESeq2's method - matches Shiny app exactly!)
 ################################################################################
 
-cat("Performing PCA...\n")
+cat("Performing PCA using DESeq2's method...\n")
 
-# Perform PCA
-pca_result <- prcomp(t(transformed_data), scale = FALSE)
+# IMPORTANT: DESeq2::plotPCA() selects top 500 most variable genes by default
+# This matches the Shiny app's behavior exactly!
+# Using all genes (with prcomp) gives different variance percentages
+
+# Ensure data is a matrix (rowVars requires matrix, not data frame)
+if (is.data.frame(transformed_data)) {
+  transformed_data <- as.matrix(transformed_data)
+}
+
+# Select top 500 most variable genes (same as DESeq2::plotPCA default)
+ntop <- 500
+rv <- rowVars(transformed_data)
+select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
+
+cat("  - Selected top", length(select), "most variable genes for PCA\n")
+
+# Perform PCA on selected genes only (matches Shiny app)
+pca_result <- prcomp(t(transformed_data[select, ]), scale = FALSE)
 
 # Calculate variance explained
 percentVar <- round(100 * pca_result$sdev^2 / sum(pca_result$sdev^2), 1)

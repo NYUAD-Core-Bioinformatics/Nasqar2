@@ -192,76 +192,11 @@ tabItem(
                     )
                     # plotOutput("heatMap1")htmlOutput("info1"),
                 ),
-                hr(),
-                column(
-                    12,
-                    conditionalPanel(
-                        condition = "output.selected_genes",
-                        h3("Selected portion from heatmap")
-                        # plotOutput("heatMap1")htmlOutput("info1"),
-                    )
-                ),
-                hr(),
-                column(
-                    12,
-                    DTOutput("venn_diagram_heatmap_matrix_table"),
-                    
-                    conditionalPanel(
-                      condition = "output.venn_expression_result && output.selected_genes",
-                      h4(p(class = "text-right", 
-                        downloadButton("downloadVennMatrix", "Download .csv", class = "btn btn-primary btn-sm"),
-                        downloadButton("download_code_brushed_venn_heatmap", "Export R Code", class = "btn btn-success btn-sm", style = "margin-left: 5px;")
-                      ))
-                    )
-                    # plotOutput("heatMap1")htmlOutput("info1"),
-                ),
-                hr(),
-                column(12,
-                    conditionalPanel(condition = "output.selected_genes",
-                        column(
-                            12,
-                          
-                            column(4,
-                                radioButtons("venn_input_genes_sep", "Genes separted by",
-                                    c(
-                                        "Comma" = ",",
-                                        "Space" = " "
-                                    ),
-                                    selected = "Space"
-                                )
-                            ),
-                            
-                        ),
-                        column(12,
-                            textAreaInput("venn_gene_list", 'GeneList', rows = 3, width="100%")
-                        )
-                    )
-                ),
-      
                 column(
                     4,
                     conditionalPanel(
                         condition = "output.venn_expression_result",
                         htmlOutput("info2")
-                    )
-                ),
-                #   column(4,
-                #        conditionalPanel( condition = "output.venn_expression_result",
-                #         htmlOutput("enrichGo"))
-                #  ),
-
-                column(
-                    12,
-                    conditionalPanel(
-                        condition = "output.venn_expression_result && output.selected_genes",
-                        h3("Scatter plot of selected genes from heatmap")
-                    )
-                ),
-                column(
-                    12,
-                    conditionalPanel(
-                        condition = "output.venn_expression_result && output.selected_genes",
-                        plotOutput("scaterplot", height = "800px")
                     )
                 ),
                 # h4(p(class = "text-right",downloadButton('downloadBoxCsv','Download .csv', class = "btn btn-primary btn-sm"))),

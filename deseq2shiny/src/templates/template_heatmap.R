@@ -29,7 +29,6 @@ METADATA_FILE <- "{{metadata_file}}"
 
 # Plot parameters
 USE_GENE_NAMES <- {{use_gene_names}}
-SCALE_ROWS <- {{scale_rows}}
 SHOW_ROWNAMES <- TRUE
 SHOW_COLNAMES <- TRUE
 FONTSIZE_ROW <- {{fontsize_row}}
@@ -143,11 +142,18 @@ if (!is.null(SELECTED_GENES) && length(SELECTED_GENES) > 0) {
     plot_matrix <- normalized_counts_numeric[SELECTED_GENES, , drop = FALSE]
   }
 } else {
-  # Select top genes by variance (using numeric data only)
-  cat("Selecting top", NUM_GENES, "genes by variance\n")
-  gene_variance <- apply(normalized_counts_numeric, 1, var)
-  top_genes <- names(sort(gene_variance, decreasing = TRUE)[1:NUM_GENES])
+  # Select top genes by standard deviation on log2-transformed counts
+  # (matches Shiny app behavior)
+  cat("Selecting top", NUM_GENES, "genes by SD (on log2-transformed counts)\n")
+  
+  # First log2-transform for gene selection (same as Shiny app)
+  log_counts_for_selection <- log2(normalized_counts_numeric + 0.5)
+  gene_sd <- apply(log_counts_for_selection, 1, sd)
+  top_genes <- names(sort(gene_sd, decreasing = TRUE)[1:NUM_GENES])
+  
+  # Subset the RAW normalized counts (will be log2-transformed later)
   plot_matrix <- normalized_counts_numeric[top_genes, , drop = FALSE]
+  cat("Selected genes based on highest variability in log2 space\n")
 }
 
 ################################################################################
@@ -214,11 +220,9 @@ if (!IS_VENN_HEATMAP) {
   cat("Skipping log2 transformation (data already in log2 scale)\n")
 }
 
-# Z-score normalization (optional, for better visualization)
-# Uncomment the next line to z-score normalize
-if (SCALE_ROWS) {
-  plot_matrix <- t(scale(t(plot_matrix)))
-}
+# NOTE: Z-score normalization (row scaling) is NOT applied
+# The Shiny app displays raw log2-transformed counts without scaling
+# To match Shiny behavior, we skip scaling (no t(scale(t(plot_matrix))))
 
 ################################################################################
 # Create Heatmap Annotations
@@ -275,30 +279,34 @@ if (IS_BRUSHED_HEATMAP && !is.null(SAMPLE_ORDER) && length(SAMPLE_ORDER) > 0) {
   }
 }
 
-# Create color function for brushed heatmaps
-# For brushed heatmaps, use parent heatmap's data range for consistent colors
+# Create color function for BOTH parent and brushed heatmaps
+# This ensures consistent color mapping method between parent and brushed
 col_fun <- NULL
+
 if (IS_BRUSHED_HEATMAP && !is.null(COLOR_RANGE) && length(COLOR_RANGE) == 2) {
-  cat("Using parent heatmap color range:", COLOR_RANGE[1], "to", COLOR_RANGE[2], "\n")
-  # ComplexHeatmap's default uses RdYlBu (Red-Yellow-Blue) palette, NOT RdBu
-  # This is reversed to go from Blue (low) -> Yellow (mid) -> Red (high)
+  # BRUSHED HEATMAP: Use parent heatmap's data range
+  cat("Brushed heatmap: Using parent heatmap color range:", COLOR_RANGE[1], "to", COLOR_RANGE[2], "\n")
   min_val <- COLOR_RANGE[1]
   max_val <- COLOR_RANGE[2]
-  
-  # Create smooth color gradient using RdYlBu (ComplexHeatmap's actual default)
-  # with 11 colors reversed for Blue-Yellow-Red gradient
-  color_palette <- colorRampPalette(rev(brewer.pal(11, "RdYlBu")))(255)
-  
-  # Create breaks for the color function
-  breaks <- seq(min_val, max_val, length.out = 255)
-  col_fun <- colorRamp2(breaks, color_palette)
-  
-  cat("Color mapping: min=", min_val, ", max=", max_val, ", colors=255 (RdYlBu palette)\n")
+} else {
+  # PARENT HEATMAP: Use its own data range
+  min_val <- min(plot_matrix, na.rm = TRUE)
+  max_val <- max(plot_matrix, na.rm = TRUE)
+  cat("Parent heatmap: Using auto-detected data range:", round(min_val, 2), "to", round(max_val, 2), "\n")
 }
 
+# Create smooth color gradient using RdYlBu (ComplexHeatmap's default palette)
+# Reversed for Blue (low) -> Yellow (mid) -> Red (high)
+color_palette <- colorRampPalette(rev(brewer.pal(11, "RdYlBu")))(255)
+
+# Create breaks for the color function
+breaks <- seq(min_val, max_val, length.out = 255)
+col_fun <- colorRamp2(breaks, color_palette)
+
+cat("Color mapping: min=", round(min_val, 2), ", max=", round(max_val, 2), ", colors=255 (RdYlBu palette)\n")
+
 # Create heatmap using ComplexHeatmap (matches Shiny app)
-# Note: For non-brushed heatmaps, no color parameter specified for consistency with Shiny app
-# ComplexHeatmap will auto-detect the data range and use appropriate colors
+# Note: Both parent and brushed heatmaps now use explicit colorRamp2 for consistency
 heatmap_args <- list(
   plot_matrix,
   name = if (length(IS_VENN_HEATMAP) > 0 && IS_VENN_HEATMAP) "log2FC" else "Expression",  # legend title
@@ -333,13 +341,11 @@ heatmap_args <- list(
   column_title_gp = gpar(fontsize = 12, fontface = "bold"),
   
   # Heatmap body
-  border = TRUE
+  border = TRUE,
+  
+  # Color function (explicitly set for both parent and brushed heatmaps)
+  col = col_fun
 )
-
-# Add color function if specified (for brushed heatmaps)
-if (!is.null(col_fun)) {
-  heatmap_args$col <- col_fun
-}
 
 heatmap_plot <- do.call(Heatmap, heatmap_args)
 

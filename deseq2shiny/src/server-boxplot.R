@@ -431,19 +431,26 @@ output$download_code_boxplot <- downloadHandler(
             FALSE
         }
         
-        params <- list(
-            selected_genes = input$sel_gene,
-            x_axis = input$boxplotX,
-            fill_by = input$boxplotFill,
-            factors = input$sel_factors,
-            use_gene_names = use_gene_names_val,
-            custom_colors = if(!is.null(custom_colors) && !is.null(custom_colors$colors)) custom_colors$colors else NULL
-        )
-        
-        # Generate R code
-        r_code <- generateBoxplotCode(params, 
-                                      mode = export_mode, 
-)
+        # For code-only mode, set params now
+        # For full mode, set params after saving files (to use actual filenames)
+        if (export_mode != "full") {
+            params <- list(
+                selected_genes = input$sel_gene,
+                x_axis = input$boxplotX,
+                fill_by = input$boxplotFill,
+                factors = input$sel_factors,
+                use_gene_names = use_gene_names_val,
+                custom_colors = if(!is.null(custom_colors) && !is.null(custom_colors$colors)) custom_colors$colors else NULL,
+                counts_file = "normalized_counts.csv",  # Generic for code-only mode
+                metadata_file = "metadata.csv",  # Generic for code-only mode
+                num_cols = 2  # Default number of columns for multi-gene plots
+            )
+            
+            # Generate R code
+            r_code <- generateBoxplotCode(params, 
+                                          mode = export_mode, 
+            )
+        }
         
         # If full mode, export data and create ZIP
         if (export_mode == "full") {
@@ -477,6 +484,24 @@ output$download_code_boxplot <- downloadHandler(
             metadata_filename <- paste0("metadata_", timestamp, ".csv")
             metadata_file <- file.path(export_dir, metadata_filename)
             write.csv(as.data.frame(colData(myValues$dds)), metadata_file, row.names = TRUE)
+            
+            # NOW set params with actual filenames and generate R code
+            params <- list(
+                selected_genes = input$sel_gene,
+                x_axis = input$boxplotX,
+                fill_by = input$boxplotFill,
+                factors = input$sel_factors,
+                use_gene_names = use_gene_names_val,
+                custom_colors = if(!is.null(custom_colors) && !is.null(custom_colors$colors)) custom_colors$colors else NULL,
+                counts_file = counts_filename,  # Use actual filename with timestamp!
+                metadata_file = metadata_filename,  # Use actual filename with timestamp!
+                num_cols = 2
+            )
+            
+            # Generate R code with correct filenames
+            r_code <- generateBoxplotCode(params, 
+                                          mode = export_mode, 
+            )
             
             # Write R code
             code_filename <- paste0("boxplot_", timestamp, ".R")

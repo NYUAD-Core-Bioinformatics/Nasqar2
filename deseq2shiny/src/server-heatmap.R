@@ -370,29 +370,28 @@ output$download_code_brushed_heatmap <- downloadHandler(
             }
             
             # Get parent heatmap color range for consistent color scaling
-            parent_range <- if(!is.null(myValues$heatmap_data_range)) {
-                myValues$heatmap_data_range
+            # MUST use parent range - do NOT calculate from brushed data
+            if (is.null(myValues$heatmap_data_range)) {
+                warning("Parent heatmap color range not found. This may cause color scale mismatch.")
+                cat("WARNING: Parent heatmap range not available. Using auto-scaling (may not match Shiny).\n")
+                parent_range <- NULL  # Let template auto-scale (will warn user)
             } else {
-                # Fallback: calculate from brushed data (though this won't match parent)
-                c(min(brushed_data, na.rm = TRUE), max(brushed_data, na.rm = TRUE))
+                parent_range <- myValues$heatmap_data_range
+                cat("Using parent heatmap color range:", parent_range[1], "to", parent_range[2], "\n")
             }
             
-            # NOW set params using the actual rownames from exported data
-            params <- list(
-                num_genes = nrow(brushed_data),
-                selected_genes = rownames(brushed_data),  # Use actual rownames from exported data!
-                use_gene_names = use_gene_names_val,
-                is_brushed_heatmap = TRUE,
-                sample_order = colnames(brushed_data),
-                color_range = parent_range
-            )
+            # NOTE: params will be set AFTER files are saved so we can use actual filenames
+            # (see below after file export)
         } else {
             # For code-only mode, use original genes
-            # Get parent heatmap color range
-            parent_range <- if(!is.null(myValues$heatmap_data_range)) {
-                myValues$heatmap_data_range
+            # Get parent heatmap color range - MUST use parent range
+            if (is.null(myValues$heatmap_data_range)) {
+                warning("Parent heatmap color range not found. This may cause color scale mismatch.")
+                cat("WARNING: Parent heatmap range not available. Using auto-scaling (may not match Shiny).\n")
+                parent_range <- NULL  # Let template auto-scale (will warn user)
             } else {
-                c(min(myValues$brushed_heatmap_data, na.rm = TRUE), max(myValues$brushed_heatmap_data, na.rm = TRUE))
+                parent_range <- myValues$heatmap_data_range
+                cat("Using parent heatmap color range:", parent_range[1], "to", parent_range[2], "\n")
             }
             
             params <- list(
@@ -401,14 +400,21 @@ output$download_code_brushed_heatmap <- downloadHandler(
                 use_gene_names = use_gene_names_val,
                 is_brushed_heatmap = TRUE,
                 sample_order = colnames(myValues$brushed_heatmap_data),
-                color_range = parent_range
+                color_range = parent_range,
+                counts_file = "normalized_counts.csv",
+                metadata_file = "metadata.csv",
+                fontsize_row = if(!is.null(input$heatmap_fontsize_row)) input$heatmap_fontsize_row else 8,
+                is_venn_heatmap = FALSE
             )
         }
         
-        # Generate R code with correct parameters
-        r_code <- generateHeatmapCode(params, 
-                                      mode = export_mode, 
-)
+        # For code-only mode, generate R code now
+        # For full mode, generate after saving files (to use actual filenames)
+        if (export_mode != "full") {
+            r_code <- generateHeatmapCode(params, 
+                                          mode = export_mode, 
+            )
+        }
         
         # If full mode, continue with export (data already prepared above)
         if (export_mode == "full") {
@@ -452,6 +458,25 @@ output$download_code_brushed_heatmap <- downloadHandler(
             metadata$sizeFactor <- NULL
             metadata$replaceable <- NULL
             write.csv(metadata, metadata_file, row.names = TRUE)
+            
+            # NOW set params with actual filenames and generate R code
+            params <- list(
+                num_genes = nrow(brushed_data),
+                selected_genes = rownames(brushed_data),  # Use actual rownames from exported data!
+                use_gene_names = use_gene_names_val,
+                is_brushed_heatmap = TRUE,
+                sample_order = colnames(brushed_data),
+                color_range = parent_range,
+                counts_file = counts_filename,  # Use actual filename with timestamp!
+                metadata_file = metadata_filename,  # Use actual filename with timestamp!
+                fontsize_row = if(!is.null(input$heatmap_fontsize_row)) input$heatmap_fontsize_row else 8,
+                is_venn_heatmap = FALSE
+            )
+            
+            # Generate R code with correct filenames
+            r_code <- generateHeatmapCode(params, 
+                                          mode = export_mode, 
+            )
             
             # Write R code
             code_filename <- paste0("brushed_heatmap_", timestamp, ".R")
@@ -688,12 +713,8 @@ output$download_code_heatmap <- downloadHandler(
                 logNormCounts <- logNormCounts_df
             }
             
-            # Set parameters using actual displayed genes
-            params <- list(
-                num_genes = nrow(logNormCounts),
-                selected_genes = rownames(logNormCounts),  # Actual displayed genes
-                use_gene_names = use_gene_names_val
-            )
+            # NOTE: params will be set AFTER files are saved so we can use actual filenames
+            # (see below after file export)
         } else {
             # For code-only mode (not full), use original logic
             selected_genes <- NULL
@@ -712,10 +733,13 @@ output$download_code_heatmap <- downloadHandler(
             )
         }
         
-        # Generate R code with correct parameters
-        r_code <- generateHeatmapCode(params, 
-                                     mode = export_mode, 
-)
+        # For code-only mode, generate R code now
+        # For full mode, generate after saving files (to use actual filenames)
+        if (export_mode != "full") {
+            r_code <- generateHeatmapCode(params, 
+                                         mode = export_mode, 
+            )
+        }
         
         # If full mode, continue with export (data already prepared above)
         if (export_mode == "full") {
@@ -732,6 +756,25 @@ output$download_code_heatmap <- downloadHandler(
             metadata$sizeFactor <- NULL
             metadata$replaceable <- NULL
             write.csv(metadata, metadata_file, row.names = TRUE)
+            
+            # NOW set parameters with actual filenames and generate R code
+            params <- list(
+                num_genes = nrow(logNormCounts),
+                selected_genes = rownames(logNormCounts),  # Actual displayed genes
+                use_gene_names = use_gene_names_val,
+                counts_file = counts_filename,  # Use actual filename with timestamp!
+                metadata_file = metadata_filename,  # Use actual filename with timestamp!
+                fontsize_row = if(!is.null(input$heatmap_fontsize_row)) input$heatmap_fontsize_row else 8,
+                is_brushed_heatmap = FALSE,
+                sample_order = NULL,
+                is_venn_heatmap = FALSE,
+                color_range = NULL
+            )
+            
+            # Generate R code with correct filenames
+            r_code <- generateHeatmapCode(params, 
+                                         mode = export_mode, 
+            )
             
             # Write R code
             code_filename <- paste0("heatmap_", timestamp, ".R")

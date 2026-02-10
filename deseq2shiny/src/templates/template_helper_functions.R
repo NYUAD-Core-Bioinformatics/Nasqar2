@@ -1,7 +1,5 @@
 ################################################################################
 # HELPER FUNCTIONS
-# Reusable functions to eliminate code duplication across plots
-# Generated from DESeq2Shiny
 ################################################################################
 
 cat("\n")
@@ -104,14 +102,15 @@ select_genes_to_label <- function(results_data, gene_labels, genes_of_interest =
     return(genes_found)
   } else {
     # Auto-select top most significant genes
-    sig_genes <- results_data[!is.na(results_data$padj) & 
-                               results_data$padj < padj_threshold & 
-                               abs(results_data$log2FoldChange) > log2fc_threshold, ]
+    # NOTE: For labeling, we select based on padj only (like Shiny app does)
+    # We don't require FC threshold for labels - that's already shown by colors
+    sig_genes <- results_data[!is.na(results_data$padj) & results_data$padj < padj_threshold, ]
     
     if (!is.null(sig_genes) && is.data.frame(sig_genes) && nrow(sig_genes) > 0) {
       sig_genes_sorted <- sig_genes[order(sig_genes$padj), ]
       return(rownames(sig_genes_sorted)[1:min(max_labels, nrow(sig_genes_sorted))])
     } else {
+      # If no significant genes, return empty to let EnhancedVolcano decide
       return(c())
     }
   }
@@ -147,9 +146,18 @@ create_volcano_plot <- function(results_data, comparison_name, padj_threshold,
                   results_data$log2FoldChange < -log2fc_threshold, na.rm = TRUE)
   cat("  - Volcano Plot:", comparison_name, "- Up:", sig_up, "Down:", sig_down, "\n")
   
-  # Select genes to label
-  top_gene_indices <- select_genes_to_label(results_data, gene_labels, genes_of_interest,
-                                            padj_threshold, log2fc_threshold, max_labels)
+  # Select genes to label (returns rownames of genes)
+  top_gene_rownames <- select_genes_to_label(results_data, gene_labels, genes_of_interest,
+                                             padj_threshold, log2fc_threshold, max_labels)
+  
+  # Convert rownames to labels for selectLab
+  selectLab_genes <- NULL
+  if (length(top_gene_rownames) > 0) {
+    # Find positions of selected genes in results_data
+    gene_positions <- match(top_gene_rownames, rownames(results_data))
+    # Get corresponding labels
+    selectLab_genes <- gene_labels[gene_positions]
+  }
   
   # Load EnhancedVolcano if not already loaded
   if (!requireNamespace("EnhancedVolcano", quietly = TRUE)) {
@@ -162,17 +170,19 @@ create_volcano_plot <- function(results_data, comparison_name, padj_threshold,
       x = 'log2FoldChange',
       y = 'padj',
       
-      # Select only top genes for labeling (prevents overcrowding)
-      selectLab = if (length(top_gene_indices) > 0) gene_labels[top_gene_indices] else NULL,
+      # Select only top genes for labeling (NULL = let EnhancedVolcano auto-select)
+      selectLab = selectLab_genes,
       
       # Title and axis labels
       title = paste("Volcano Plot:", comparison_name),
       subtitle = if (!is.null(genes_of_interest) && length(genes_of_interest) > 0) {
         paste0("Up: ", sig_up, " | Down: ", sig_down, " genes (labeling ", 
-               length(top_gene_indices), " genes of interest)")
-      } else {
+               length(top_gene_rownames), " genes of interest)")
+      } else if (length(top_gene_rownames) > 0) {
         paste0("Up: ", sig_up, " | Down: ", sig_down, " genes (labeling top ", 
-               length(top_gene_indices), " most significant)")
+               length(top_gene_rownames), " most significant)")
+      } else {
+        paste0("Up: ", sig_up, " | Down: ", sig_down, " genes")
       },
       caption = paste0("Thresholds: padj < ", padj_threshold, 
                       ", |log2FC| > ", log2fc_threshold),
