@@ -1,3 +1,15 @@
+decryptUrlParam <- function(cipher) {
+    keyHex <- readr::read_file("private.txt")
+
+    key <- hex2bin(keyHex)
+    cipher <- hex2bin(cipher)
+
+    orig <- simple_decrypt(cipher, key)
+
+    unserialize(orig)
+}
+
+
 observe({
     shinyjs::hide(selector = "a[data-value=\"gseGoTab\"]")
     shinyjs::hide(selector = "a[data-value=\"gseKeggTab\"]")
@@ -14,27 +26,24 @@ inputDataReactive <- reactive({
 
     query <- parseQueryString(session$clientData$url_search)
 
-    # Check if example selected, or if not then ask to upload a file.
+    # Check if example selected, URL param (countsdata), or uploaded file.
     shiny::validate(
-        need(identical(input$data_file_type, "examplecounts") | (!is.null(input$datafile)),
+        need(!is.null(query[["countsdata"]]) | identical(input$data_file_type, "examplecounts") | (!is.null(input$datafile)),
             message = "Please select a file"
         )
     )
 
     if (!is.null(query[["countsdata"]])) {
         inFile <- decryptUrlParam(query[["countsdata"]])
-
+        data <- read.csv(inFile)
         shinyjs::show(selector = "a[data-value=\"datainput\"]")
         shinyjs::disable("data_file_type")
         shinyjs::disable("datafile")
-        # js$collapse("uploadbox")
-    } else {
-        inFile <- input$datafile
-        # if (is.null(inFile))
-        #   return(NULL)
-        #
-        # inFile = inFile$datapath
+        js$collapse("uploadbox")
+        return(list("data" = data))
     }
+
+    inFile <- input$datafile
 
     # inFile <- input$datafile
     js$addStatusIcon("datainput", "loading")
