@@ -48,18 +48,28 @@ FONTSIZE_ROW <- {{fontsize_row}}
 # Brushed heatmap settings (preserve order if this is a brushed sub-heatmap)
 IS_BRUSHED <- {{is_brushed}}  # TRUE if this is a brushed sub-heatmap
 BRUSHED_GENES <- {{brushed_genes}}  # Vector of gene IDs (if brushed)
+BRUSHED_GENE_ORDER <- {{brushed_gene_order}}  # Gene order from brush (NULL if not brushed)
 SAMPLE_ORDER <- {{sample_order}}  # Comparison order (NULL if not brushed)
 COLOR_RANGE <- {{color_range}}  # Parent heatmap's data range for consistent colors
+
+# Pre-computed gene list from Shiny (for complex set operations)
+SET_OPERATION_GENES <- {{set_operation_genes}}  # Pre-evaluated gene list from Shiny (NULL to recalculate)
 
 # Ensure defaults for backwards compatibility
 if (!exists("IS_BRUSHED") || is.null(IS_BRUSHED) || length(IS_BRUSHED) == 0) {
   IS_BRUSHED <- FALSE
+}
+if (!exists("BRUSHED_GENE_ORDER") || is.null(BRUSHED_GENE_ORDER) || length(BRUSHED_GENE_ORDER) == 0) {
+  BRUSHED_GENE_ORDER <- NULL
 }
 if (!exists("SAMPLE_ORDER") || is.null(SAMPLE_ORDER) || length(SAMPLE_ORDER) == 0) {
   SAMPLE_ORDER <- NULL
 }
 if (!exists("COLOR_RANGE") || is.null(COLOR_RANGE) || length(COLOR_RANGE) == 0) {
   COLOR_RANGE <- NULL
+}
+if (!exists("SET_OPERATION_GENES") || is.null(SET_OPERATION_GENES) || length(SET_OPERATION_GENES) == 0) {
+  SET_OPERATION_GENES <- NULL
 }
 
 ################################################################################
@@ -94,15 +104,25 @@ if (!exists("set_expression_matrix")) {
     #-----------------------------------------------------------------------------
     # FULL HEATMAP: Evaluate set operation to get genes
     #-----------------------------------------------------------------------------
-    cat("Building expression matrix from set operation results...\n")
     
-    # Evaluate set expression to get genes
-    # Set operations: * = intersection, + = union, - = setdiff
-    set_operation <- SET_EXPRESSION
-    letters_in_expr <- unique(unlist(strsplit(gsub("[^A-Z]", "", set_operation), "")))
-    cat("Set operation: ", set_operation, "\n", sep="")
-    cat("Letters: ", paste(letters_in_expr, collapse=", "), "\n", sep="")
-    cat("Thresholds: padj < ", PADJ_THRESHOLD, ", |log2FC| > ", FC_THRESHOLD, "\n\n", sep="")
+    # Check if we have pre-computed genes from Shiny (for complex expressions)
+    if (!is.null(SET_OPERATION_GENES) && length(SET_OPERATION_GENES) > 0) {
+      cat("Using pre-computed gene list from Shiny's set operation evaluation\n")
+      cat("Set expression: ", SET_EXPRESSION, "\n", sep="")
+      cat("Pre-computed genes: ", length(SET_OPERATION_GENES), " genes\n\n", sep="")
+      set_genes <- SET_OPERATION_GENES
+    } else {
+      cat("Building expression matrix from set operation results...\n")
+      cat("WARNING: Complex set operations like (B)-(A+C) may not evaluate correctly.\n")
+      cat("         Consider using pre-computed gene lists for complex expressions.\n\n")
+      
+      # Evaluate set expression to get genes
+      # Set operations: * = intersection, + = union, - = setdiff
+      set_operation <- SET_EXPRESSION
+      letters_in_expr <- unique(unlist(strsplit(gsub("[^A-Z]", "", set_operation), "")))
+      cat("Set operation: ", set_operation, "\n", sep="")
+      cat("Letters: ", paste(letters_in_expr, collapse=", "), "\n", sep="")
+      cat("Thresholds: padj < ", PADJ_THRESHOLD, ", |log2FC| > ", FC_THRESHOLD, "\n\n", sep="")
     
     # Get genes from each set (using same filtering as Venn diagram)
     all_gene_sets <- list()
@@ -146,8 +166,9 @@ if (!exists("set_expression_matrix")) {
       set_genes <- all_gene_sets[[1]]
     }
     
-    cat("\nSet operation result: ", length(set_genes), " genes\n\n", sep="")
-  }
+      cat("\nSet operation result: ", length(set_genes), " genes\n\n", sep="")
+    }  # End of else (recalculate set operation)
+  }  # End of else (non-brushed heatmap)
   
   #-----------------------------------------------------------------------------
   # Create expression matrix with log2FoldChange for each comparison
@@ -223,6 +244,23 @@ if (USE_GENE_NAMES && exists("gene_annotations") && !is.null(gene_annotations)) 
 # Values are log2FoldChange for each gene in each comparison
 plot_matrix <- set_expression_matrix
 
+# Clean matrix: Remove rows with NA/NaN/Inf values (breaks clustering)
+initial_genes <- nrow(plot_matrix)
+problematic_rows <- apply(plot_matrix, 1, function(x) any(is.na(x) | is.nan(x) | is.infinite(x)))
+if (any(problematic_rows)) {
+  cat("Removing ", sum(problematic_rows), " genes with NA/NaN/Inf values (required for clustering)\n", sep="")
+  plot_matrix <- plot_matrix[!problematic_rows, , drop = FALSE]
+  cat("  - Retained ", nrow(plot_matrix), " genes with complete data\n\n", sep="")
+}
+
+# Verify matrix has data
+if (nrow(plot_matrix) == 0) {
+  stop("\nERROR: No genes remaining after removing NA/NaN/Inf values!\n",
+       "  This can happen if genes don't have log2FC values in all comparisons.\n",
+       "  Original genes: ", initial_genes, "\n",
+       "  Please check the results data for these genes.\n")
+}
+
 cat("Creating heatmap for ", nrow(plot_matrix), " genes from set operation: ", SET_EXPRESSION, "\n", sep="")
 cat("Comparisons: ", paste(COMPARISONS, collapse = ", "), "\n\n", sep="")
 
@@ -241,12 +279,37 @@ ha <- HeatmapAnnotation(
   )
 )
 
+# Reorder genes if this is a brushed heatmap (preserve brush selection order)
+if (IS_BRUSHED && !is.null(BRUSHED_GENE_ORDER) && length(BRUSHED_GENE_ORDER) > 0) {
+  cat("Brushed heatmap: Preserving original gene order from brush selection\n")
+  # BRUSHED_GENE_ORDER contains gene names or IDs in the order they were brushed
+  valid_genes <- BRUSHED_GENE_ORDER[BRUSHED_GENE_ORDER %in% rownames(plot_matrix)]
+  if (length(valid_genes) > 0) {
+    plot_matrix <- plot_matrix[valid_genes, , drop = FALSE]
+    cat("  - Reordered", length(valid_genes), "genes to match brush order\n")
+  }
+}
+
 # Reorder comparisons if this is a brushed heatmap (preserve original order)
 if (IS_BRUSHED && !is.null(SAMPLE_ORDER) && length(SAMPLE_ORDER) > 0) {
   cat("Brushed heatmap: Preserving original comparison order\n")
-  valid_comparisons <- SAMPLE_ORDER[SAMPLE_ORDER %in% colnames(plot_matrix)]
+  
+  # Check if SAMPLE_ORDER contains letter labels (A, B, C) or comparison names
+  if (all(SAMPLE_ORDER %in% LETTERS[1:26])) {
+    # SAMPLE_ORDER has letter labels - map to comparison names
+    cat("  - Converting letter labels to comparison names\n")
+    letter_to_comparison <- setNames(COMPARISONS, LETTERS[1:length(COMPARISONS)])
+    valid_comparisons <- letter_to_comparison[SAMPLE_ORDER]
+    # Check which mapped comparisons exist in the matrix
+    valid_comparisons <- valid_comparisons[valid_comparisons %in% colnames(plot_matrix)]
+  } else {
+    # SAMPLE_ORDER already has comparison names
+    valid_comparisons <- SAMPLE_ORDER[SAMPLE_ORDER %in% colnames(plot_matrix)]
+  }
+  
   if (length(valid_comparisons) > 0) {
     plot_matrix <- plot_matrix[, valid_comparisons, drop = FALSE]
+    cat("  - Reordered", length(valid_comparisons), "comparisons to match brush order\n")
   }
 }
 
@@ -264,29 +327,25 @@ if (IS_BRUSHED && !is.null(COLOR_RANGE) && length(COLOR_RANGE) == 2) {
 }
 
 # Create heatmap using ComplexHeatmap (matches Shiny app)
-set_heatmap_args <- list(
+set_heatmap <- Heatmap(
   plot_matrix,
-  name = "log2FC"  # legend title
-)
-
-# Add color function if specified
-if (!is.null(col_fun)) {
-  set_heatmap_args$col <- col_fun
-}
-
-set_heatmap <- do.call(Heatmap, c(set_heatmap_args, list(
+  name = "log2FC",  # legend title
   
-  # Clustering: For brushed heatmaps, preserve original order
-  cluster_rows = if (length(IS_BRUSHED) > 0 && IS_BRUSHED) FALSE else TRUE,  # Don't re-cluster genes for brushed heatmaps
-  cluster_columns = FALSE,  # Never cluster comparisons
-  clustering_distance_rows = if (length(IS_BRUSHED) == 0 || !IS_BRUSHED) "euclidean" else NULL,
-  clustering_method_rows = if (length(IS_BRUSHED) == 0 || !IS_BRUSHED) "complete" else NULL,
+  # Color scale (use col_fun if specified, otherwise auto-scale)
+  col = col_fun,
+  
+  # Clustering
+  cluster_rows = !IS_BRUSHED,  # Don't re-cluster genes for brushed heatmaps
+  cluster_columns = FALSE,  # Never cluster comparisons (preserve order)
+  clustering_distance_rows = "euclidean",
+  clustering_method_rows = "complete",
   
   # Display options
   show_row_names = TRUE,
   show_column_names = TRUE,
   row_names_gp = gpar(fontsize = FONTSIZE_ROW),
   column_names_gp = gpar(fontsize = 10),
+  row_names_side = "left",
   
   # Annotations
   top_annotation = ha,
@@ -299,14 +358,13 @@ set_heatmap <- do.call(Heatmap, c(set_heatmap_args, list(
   },
   column_title_gp = gpar(fontsize = 12, fontface = "bold"),
   
-  # Heatmap body
+  # Heatmap border
   border = TRUE,
   
   # Cell size
-  row_names_side = "left",
   width = unit(length(COMPARISONS) * 2, "cm"),
   height = unit(min(nrow(plot_matrix) * 0.5, 20), "cm")
-)))
+)
 
 # Display heatmap
 draw(set_heatmap)

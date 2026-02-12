@@ -320,163 +320,53 @@ output$download_code_brushed_heatmap <- downloadHandler(
             export_dir <- file.path(temp_dir, paste0("brushed_heatmap_export_", timestamp))
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             
-            # Export brushed data
-            # NOTE: myValues$brushed_heatmap_data contains log2-transformed data
-            # We need to export RAW normalized counts so the template can transform them
+            # Export the BRUSHED matrix that Shiny is displaying (already log2-transformed!)
+            # No need to re-do transformation - just export what user brushed
+            brushed_matrix <- myValues$brushed_heatmap_data
             
-            # Use the stored gene IDs (not gene names) for subsetting
-            if (is.null(myValues$brushed_gene_ids) || length(myValues$brushed_gene_ids) == 0) {
-                stop("Brushed gene IDs not found. Please brush/select genes on the heatmap and try exporting again.")
+            if (is.null(brushed_matrix)) {
+                stop("Brushed heatmap data not available. Please brush/select genes on the heatmap and try again.")
             }
             
-            if (is.null(myValues$brushed_samples) || length(myValues$brushed_samples) == 0) {
-                stop("Brushed sample names not found. Please brush/select genes on the heatmap and try exporting again.")
-            }
-            
-            brushed_gene_ids <- myValues$brushed_gene_ids  # These are gene IDs (may contain NAs)
-            brushed_gene_order <- myValues$brushed_gene_order  # Original names/IDs for order
-            brushed_sample_names <- myValues$brushed_samples
-            
-            # Remove NAs but track their positions to preserve order
-            valid_idx <- !is.na(brushed_gene_ids)
-            valid_gene_ids <- brushed_gene_ids[valid_idx]
-            valid_gene_order <- brushed_gene_order[valid_idx]
-            
-            cat("Exporting brushed heatmap with", length(valid_gene_ids), "genes and", 
-                length(brushed_sample_names), "samples\n")
-            cat("Gene IDs:", paste(head(valid_gene_ids, 3), collapse = ", "), "...\n")
-            cat("Samples:", paste(head(brushed_sample_names, 3), collapse = ", "), "...\n")
-            
-            # Get raw normalized counts for these genes and samples
-            raw_norm_counts <- counts(myValues$dds, normalized = TRUE, replaced = FALSE)
-            
-            # Ensure it's a matrix
-            if (is.data.frame(raw_norm_counts)) {
-                raw_norm_counts <- as.matrix(raw_norm_counts)
-            }
-            
-            # Subset data - this preserves the order of valid_gene_ids
-            brushed_data <- raw_norm_counts[valid_gene_ids, brushed_sample_names, drop = FALSE]
-            
-            cat("Extracted data dimensions:", nrow(brushed_data), "×", ncol(brushed_data), "\n")
-            cat("Data range: min =", round(min(brushed_data), 2), 
-                ", max =", round(max(brushed_data), 2), "\n")
-            
-            # If the heatmap was displayed with gene names, use the original order
-            if (use_gene_names_val && !is.null(myValues$genenames)) {
-                # Use valid_gene_order (the original names) for rownames to preserve order
-                rownames(brushed_data) <- valid_gene_order
-                cat("Updated rownames to gene names (order preserved)\n")
-            }
+            cat("Exporting brushed heatmap matrix (already processed by Shiny)\n")
+            cat("Matrix dimensions:", nrow(brushed_matrix), "×", ncol(brushed_matrix), "\n")
+            cat("Data range: min =", round(min(brushed_matrix, na.rm = TRUE), 2), 
+                ", max =", round(max(brushed_matrix, na.rm = TRUE), 2), "\n")
             
             # Get parent heatmap color range for consistent color scaling
-            # MUST use parent range - do NOT calculate from brushed data
             if (is.null(myValues$heatmap_data_range)) {
-                warning("Parent heatmap color range not found. This may cause color scale mismatch.")
-                cat("WARNING: Parent heatmap range not available. Using auto-scaling (may not match Shiny).\n")
-                parent_range <- NULL  # Let template auto-scale (will warn user)
+                warning("Parent heatmap color range not found. Using auto-scaling.")
+                parent_range <- NULL
             } else {
                 parent_range <- myValues$heatmap_data_range
                 cat("Using parent heatmap color range:", parent_range[1], "to", parent_range[2], "\n")
             }
             
-            # NOTE: params will be set AFTER files are saved so we can use actual filenames
-            # (see below after file export)
-        } else {
-            # For code-only mode, use original genes
-            # Get parent heatmap color range - MUST use parent range
-            if (is.null(myValues$heatmap_data_range)) {
-                warning("Parent heatmap color range not found. This may cause color scale mismatch.")
-                cat("WARNING: Parent heatmap range not available. Using auto-scaling (may not match Shiny).\n")
-                parent_range <- NULL  # Let template auto-scale (will warn user)
-            } else {
-                parent_range <- myValues$heatmap_data_range
-                cat("Using parent heatmap color range:", parent_range[1], "to", parent_range[2], "\n")
-            }
+            # Export the brushed matrix (already processed - no transformation needed)
+            matrix_filename <- paste0("brushed_heatmap_matrix_", timestamp, ".csv")
+            matrix_file <- file.path(export_dir, matrix_filename)
+            write.csv(brushed_matrix, matrix_file, row.names = TRUE)
+            cat("Exported brushed matrix to:", matrix_filename, "\n")
             
-            params <- list(
-                num_genes = length(myValues$brushed_genes),
-                selected_genes = myValues$brushed_genes,
-                use_gene_names = use_gene_names_val,
-                is_brushed_heatmap = TRUE,
-                sample_order = colnames(myValues$brushed_heatmap_data),
-                color_range = parent_range,
-                counts_file = "normalized_counts.csv",
-                metadata_file = "metadata.csv",
-                fontsize_row = if(!is.null(input$heatmap_fontsize_row)) input$heatmap_fontsize_row else 8,
-                is_venn_heatmap = FALSE
-            )
-        }
-        
-        # For code-only mode, generate R code now
-        # For full mode, generate after saving files (to use actual filenames)
-        if (export_mode != "full") {
-            r_code <- generateHeatmapCode(params, 
-                                          mode = export_mode, 
-            )
-        }
-        
-        # If full mode, continue with export (data already prepared above)
-        if (export_mode == "full") {
-            # brushed_data, export_dir, timestamp already exist from above
-            
-            # Add gene names column if requested
-            if (use_gene_names_val && !is.null(myValues$genenames)) {
-                brushed_rownames <- rownames(brushed_data)
-                
-                # Determine if rownames are gene names or gene IDs
-                are_gene_names <- any(brushed_rownames %in% names(myValues$geneids))
-                
-                if (are_gene_names) {
-                    # Rownames are gene names - use them directly for the gene.names column
-                    gene_names_export <- brushed_rownames
-                    cat("Brushed data uses gene names as rownames - using directly\n")
-                } else {
-                    # Rownames are gene IDs - look up the corresponding gene names
-                    gene_names_export <- myValues$genenames[brushed_rownames, 1]
-                    # Keep gene ID where name is not available
-                    gene_names_export[is.na(gene_names_export)] <- brushed_rownames[is.na(gene_names_export)]
-                    cat("Looked up gene names from gene IDs\n")
-                }
-                
-                brushed_data_df <- as.data.frame(brushed_data)
-                brushed_data_df <- cbind(gene.names = gene_names_export, brushed_data_df)
-                brushed_data <- brushed_data_df
-                
-                cat("Exported", sum(!is.na(gene_names_export)), "genes with gene names\n")
-            }
-            
-            counts_filename <- paste0("brushed_heatmap_counts_", timestamp, ".csv")
-            counts_file <- file.path(export_dir, counts_filename)
-            write.csv(brushed_data, counts_file, row.names = TRUE)
-            
-            # Export metadata for brushed samples
+            # Export metadata
             metadata_filename <- paste0("brushed_heatmap_metadata_", timestamp, ".csv")
             metadata_file <- file.path(export_dir, metadata_filename)
-            metadata <- as.data.frame(colData(myValues$dds))
-            metadata <- metadata[myValues$brushed_samples, , drop = FALSE]
+            metadata <- as.data.frame(colData(myValues$dds))[colnames(brushed_matrix), , drop = FALSE]
             metadata$sizeFactor <- NULL
             metadata$replaceable <- NULL
             write.csv(metadata, metadata_file, row.names = TRUE)
+            cat("Exported metadata to:", metadata_filename, "\n")
             
-            # NOW set params with actual filenames and generate R code
+            # Set parameters for brushed heatmap (simpler - just needs color range from parent)
             params <- list(
-                num_genes = nrow(brushed_data),
-                selected_genes = rownames(brushed_data),  # Use actual rownames from exported data!
-                use_gene_names = use_gene_names_val,
-                is_brushed_heatmap = TRUE,
-                sample_order = colnames(brushed_data),
-                color_range = parent_range,
-                counts_file = counts_filename,  # Use actual filename with timestamp!
-                metadata_file = metadata_filename,  # Use actual filename with timestamp!
+                matrix_file = matrix_filename,
+                metadata_file = metadata_filename,
                 fontsize_row = if(!is.null(input$heatmap_fontsize_row)) input$heatmap_fontsize_row else 8,
-                is_venn_heatmap = FALSE
+                parent_color_range = parent_range  # Use parent's color range for consistency
             )
             
-            # Generate R code with correct filenames
-            r_code <- generateHeatmapCode(params, 
-                                          mode = export_mode, 
-            )
+            # Generate simple R code for brushed heatmap
+            r_code <- generateBrushedHeatmapCodeSimple(params)
             
             # Write R code
             code_filename <- paste0("brushed_heatmap_", timestamp, ".R")
@@ -486,21 +376,26 @@ output$download_code_brushed_heatmap <- downloadHandler(
             # Create README
             readme_file <- file.path(export_dir, "README.txt")
             readme_text <- paste0(
-                "Brushed Sub-Heatmap R Code Export\n",
-                "==================================\n\n",
+                "Brushed Sub-Heatmap Export\n",
+                "===========================\n\n",
                 "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
-                "Selected genes: ", length(myValues$brushed_genes), " genes from interactive brush\n",
-                "Selected samples: ", length(myValues$brushed_samples), " samples\n\n",
+                "This export contains the brushed/selected portion of the heatmap.\n",
+                "All data processing was done by Shiny - the matrix is already log2-transformed.\n",
+                "The R script just loads and plots the brushed matrix.\n\n",
+                "Selected genes: ", nrow(brushed_matrix), " genes (from interactive brush)\n",
+                "Selected samples: ", ncol(brushed_matrix), " samples\n\n",
                 "Files included:\n",
-                "- ", code_filename, " : R code to generate the heatmap\n",
-                "- ", counts_filename, " : Normalized counts for selected genes\n",
-                "- ", metadata_filename, " : Sample metadata\n",
+                "- ", code_filename, " : R script to create the brushed heatmap\n",
+                "- ", matrix_filename, " : Pre-processed brushed matrix (log2-transformed)\n",
+                "- ", metadata_filename, " : Sample metadata for selected samples\n",
                 "- README.txt : This file\n\n",
                 "Instructions:\n",
                 "1. Extract all files to the same directory\n",
                 "2. Open the R script in RStudio\n",
-                "3. Run the script to generate the heatmap\n",
-                "4. Customize colors, clustering, and other parameters as needed\n"
+                "3. Run the script to generate the brushed heatmap\n",
+                "4. The plot will be saved as brushed_heatmap.pdf and brushed_heatmap.png\n\n",
+                "Note: The matrix is already processed and matches exactly what you\n",
+                "selected in the Shiny app. Colors will match the parent heatmap.\n"
             )
             writeLines(readme_text, readme_file)
             
@@ -511,7 +406,17 @@ output$download_code_brushed_heatmap <- downloadHandler(
             # Copy to output
             file.copy(zip_file, file)
         } else {
-            # Just write the R code
+            # Code-only mode: just write R code without data files
+            parent_range <- myValues$heatmap_data_range
+            
+            params <- list(
+                matrix_file = "brushed_heatmap_matrix.csv",
+                metadata_file = "brushed_heatmap_metadata.csv",
+                fontsize_row = if(!is.null(input$heatmap_fontsize_row)) input$heatmap_fontsize_row else 8,
+                parent_color_range = parent_range
+            )
+            
+            r_code <- generateBrushedHeatmapCodeSimple(params)
             writeLines(r_code, file)
         }
     }
@@ -662,56 +567,14 @@ output$download_code_heatmap <- downloadHandler(
                 stop("No gene IDs found to export. Please check the heatmap configuration.")
             }
             
-            # Get raw normalized counts for ONLY the displayed genes
-            raw_norm_counts <- counts(myValues$dds, normalized = TRUE)
+            # Export the FINAL matrix that Shiny is displaying (already log2-transformed, genes already selected)
+            # No need to re-do gene selection or transformation - Shiny already did all the work!
+            logNormCounts <- displayed_heatmap
             
-            # Ensure it's a matrix
-            if (is.data.frame(raw_norm_counts)) {
-                raw_norm_counts <- as.matrix(raw_norm_counts)
-            }
-            
-            cat("Total genes in dataset:", nrow(raw_norm_counts), "\n")
-            cat("Total samples in dataset:", ncol(raw_norm_counts), "\n")
-            cat("Genes to export:", length(displayed_gene_ids), "\n")
-            
-            # Verify gene IDs exist in the dataset
-            genes_found <- displayed_gene_ids %in% rownames(raw_norm_counts)
-            cat("Genes found in dataset:", sum(genes_found), "out of", length(displayed_gene_ids), "\n")
-            
-            if (!all(genes_found)) {
-                missing <- displayed_gene_ids[!genes_found]
-                cat("Warning:", sum(!genes_found), "genes not found in dataset\n")
-                cat("Missing genes:", paste(head(missing, 5), collapse = ", "), "\n")
-                displayed_gene_ids <- displayed_gene_ids[genes_found]
-            }
-            
-            if (length(displayed_gene_ids) == 0) {
-                stop("No valid genes to export after filtering.")
-            }
-            
-            # Subset to get only displayed genes
-            logNormCounts <- raw_norm_counts[displayed_gene_ids, , drop = FALSE]
-            cat("Successfully extracted data:", nrow(logNormCounts), "×", ncol(logNormCounts), "\n")
-            
-            cat("Extracted raw counts for", nrow(logNormCounts), "genes\n")
-            cat("Data range: min =", round(min(logNormCounts), 2), 
-                ", max =", round(max(logNormCounts), 2), "\n")
-            
-            # If displayed with gene names, update rownames for export
-            if (use_gene_names_val && !is.null(myValues$genenames)) {
-                gene_names_display <- myValues$genenames[displayed_gene_ids, 1]
-                gene_names_display[is.na(gene_names_display)] <- displayed_gene_ids[is.na(gene_names_display)]
-                rownames(logNormCounts) <- gene_names_display
-                cat("Updated rownames to gene names for display\n")
-            }
-            
-            # Add gene names column if requested
-            if (use_gene_names_val && !is.null(myValues$genenames)) {
-                gene_names_export <- rownames(logNormCounts)
-                logNormCounts_df <- as.data.frame(logNormCounts)
-                logNormCounts_df <- cbind(gene.names = gene_names_export, logNormCounts_df)
-                logNormCounts <- logNormCounts_df
-            }
+            cat("Exporting final heatmap matrix (already processed by Shiny)\n")
+            cat("Matrix dimensions:", nrow(logNormCounts), "×", ncol(logNormCounts), "\n")
+            cat("Data range: min =", round(min(logNormCounts, na.rm = TRUE), 2), 
+                ", max =", round(max(logNormCounts, na.rm = TRUE), 2), "\n")
             
             # NOTE: params will be set AFTER files are saved so we can use actual filenames
             # (see below after file export)
@@ -745,9 +608,11 @@ output$download_code_heatmap <- downloadHandler(
         if (export_mode == "full") {
             # logNormCounts, export_dir, timestamp already exist from above
             
-            counts_filename <- paste0("heatmap_counts_", timestamp, ".csv")
-            counts_file <- file.path(export_dir, counts_filename)
-            write.csv(logNormCounts, counts_file, row.names = TRUE)
+            # Export the final matrix (already processed - log2-transformed and gene-selected)
+            matrix_filename <- paste0("heatmap_matrix_", timestamp, ".csv")
+            matrix_file <- file.path(export_dir, matrix_filename)
+            write.csv(logNormCounts, matrix_file, row.names = TRUE)
+            cat("Exported final matrix to:", matrix_filename, "\n")
             
             # Export metadata
             metadata_filename <- paste0("heatmap_metadata_", timestamp, ".csv")
@@ -756,25 +621,17 @@ output$download_code_heatmap <- downloadHandler(
             metadata$sizeFactor <- NULL
             metadata$replaceable <- NULL
             write.csv(metadata, metadata_file, row.names = TRUE)
+            cat("Exported metadata to:", metadata_filename, "\n")
             
-            # NOW set parameters with actual filenames and generate R code
+            # Set parameters for simple template
             params <- list(
-                num_genes = nrow(logNormCounts),
-                selected_genes = rownames(logNormCounts),  # Actual displayed genes
-                use_gene_names = use_gene_names_val,
-                counts_file = counts_filename,  # Use actual filename with timestamp!
-                metadata_file = metadata_filename,  # Use actual filename with timestamp!
-                fontsize_row = if(!is.null(input$heatmap_fontsize_row)) input$heatmap_fontsize_row else 8,
-                is_brushed_heatmap = FALSE,
-                sample_order = NULL,
-                is_venn_heatmap = FALSE,
-                color_range = NULL
+                matrix_file = matrix_filename,
+                metadata_file = metadata_filename,
+                fontsize_row = if(!is.null(input$heatmap_fontsize_row)) input$heatmap_fontsize_row else 8
             )
             
-            # Generate R code with correct filenames
-            r_code <- generateHeatmapCode(params, 
-                                         mode = export_mode, 
-            )
+            # Generate simple R code
+            r_code <- generateHeatmapCodeSimple(params)
             
             # Write R code
             code_filename <- paste0("heatmap_", timestamp, ".R")
@@ -784,20 +641,27 @@ output$download_code_heatmap <- downloadHandler(
             # Create README
             readme_file <- file.path(export_dir, "README.txt")
             readme_text <- paste0(
-                "Expression Heatmap R Code Export\n",
-                "=================================\n\n",
+                "Expression Heatmap Export\n",
+                "=========================\n\n",
                 "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
-                "Genes: ", nrow(logNormCounts), " genes (exact genes displayed in Shiny heatmap)\n",
+                "This export contains the final processed heatmap data.\n",
+                "All data processing (gene selection, log2 transformation) was done by Shiny.\n",
+                "The R script just loads the matrix and creates the heatmap plot.\n\n",
+                "Genes: ", nrow(logNormCounts), " genes (exact genes displayed in Shiny)\n",
+                "Samples: ", ncol(logNormCounts), " samples\n",
                 "\nFiles included:\n",
-                "- ", code_filename, " : R code to generate the heatmap\n",
-                "- ", counts_filename, " : Normalized counts data\n",
+                "- ", code_filename, " : R script to create the heatmap\n",
+                "- ", matrix_filename, " : Pre-processed matrix (log2-transformed)\n",
                 "- ", metadata_filename, " : Sample metadata\n",
                 "- README.txt : This file\n\n",
                 "Instructions:\n",
                 "1. Extract all files to the same directory\n",
                 "2. Open the R script in RStudio\n",
-                "3. Run the script to generate the plot\n",
-                "4. Customize colors, clustering, and other parameters as needed\n"
+                "3. Run the script to generate the heatmap\n",
+                "4. The plot will be saved as heatmap.pdf and heatmap.png\n\n",
+                "Note: The matrix file is already log2-transformed and contains\n",
+                "the exact genes shown in the Shiny heatmap. No additional\n",
+                "processing is needed.\n"
             )
             writeLines(readme_text, readme_file)
             

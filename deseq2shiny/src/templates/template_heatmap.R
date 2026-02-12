@@ -36,13 +36,9 @@ FONTSIZE_ROW <- {{fontsize_row}}
 # Brushed heatmap settings (preserve original clustering)
 IS_BRUSHED_HEATMAP <- {{is_brushed_heatmap}}  # TRUE if this is a brushed sub-heatmap
 SAMPLE_ORDER <- {{sample_order}}  # Sample order from original heatmap (NULL if not brushed)
-IS_VENN_HEATMAP <- {{is_venn_heatmap}}  # TRUE if data is from Venn diagram (already log2FoldChange)
 COLOR_RANGE <- {{color_range}}  # Color range from parent heatmap (NULL if not brushed)
 
 # Ensure defaults for backwards compatibility
-if (!exists("IS_VENN_HEATMAP") || is.null(IS_VENN_HEATMAP) || length(IS_VENN_HEATMAP) == 0) {
-  IS_VENN_HEATMAP <- FALSE
-}
 if (!exists("IS_BRUSHED_HEATMAP") || is.null(IS_BRUSHED_HEATMAP) || length(IS_BRUSHED_HEATMAP) == 0) {
   IS_BRUSHED_HEATMAP <- FALSE
 }
@@ -98,14 +94,8 @@ if (!is.null(SELECTED_GENES) && length(SELECTED_GENES) > 0) {
   # Use specified genes
   cat("Using", length(SELECTED_GENES), "specified genes\n")
   
-  # For Venn heatmaps, rownames are already in the correct format (no mapping needed)
-  if (IS_VENN_HEATMAP) {
-    cat("Venn heatmap: Using gene identifiers directly (no mapping)\n")
-    # SELECTED_GENES are already in the correct format (gene IDs or gene names)
-    # Just subset directly
-    plot_matrix <- normalized_counts_numeric[SELECTED_GENES, , drop = FALSE]
-  } else if (USE_GENE_NAMES && !is.null(gene_names_col)) {
-    # Regular heatmap: Map gene names to gene IDs for subsetting
+  if (USE_GENE_NAMES && !is.null(gene_names_col)) {
+    # Map gene names to gene IDs for subsetting
     cat("Mapping gene names to gene IDs for subsetting...\n")
     # Create a mapping from gene names to gene IDs
     gene_name_to_id <- names(gene_names_col)
@@ -161,10 +151,7 @@ if (!is.null(SELECTED_GENES) && length(SELECTED_GENES) > 0) {
 ################################################################################
 
 # Replace rownames with gene symbols for display
-if (IS_VENN_HEATMAP) {
-  # For Venn heatmaps, rownames are already in the correct format
-  cat("Venn heatmap: Using existing row labels (no display mapping needed)\n")
-} else if (USE_GENE_NAMES) {
+if (USE_GENE_NAMES) {
   if (!is.null(gene_names_col)) {
     # Gene names were separated earlier
     gene_ids <- rownames(plot_matrix)
@@ -199,26 +186,15 @@ if (!is.numeric(plot_matrix)) {
   }
 }
 
-if (IS_VENN_HEATMAP) {
-  cat("Data dimensions:", nrow(plot_matrix), "genes ×", ncol(plot_matrix), "comparisons\n")
-  cat("Data type: log2FoldChange values from DESeq2 comparisons\n")
-} else {
-  cat("Data dimensions:", nrow(plot_matrix), "genes ×", ncol(plot_matrix), "samples\n")
-}
-
+cat("Data dimensions:", nrow(plot_matrix), "genes ×", ncol(plot_matrix), "samples\n")
 cat("Data range before transformation: min =", round(min(plot_matrix, na.rm = TRUE), 2), 
     ", max =", round(max(plot_matrix, na.rm = TRUE), 2), "\n")
 
 # Log2 transform (adding pseudocount)
-# NOTE: Skip transformation for Venn heatmaps (already log2FoldChange)
-if (!IS_VENN_HEATMAP) {
-  # Assumes input data is RAW normalized counts (not already log-transformed)
-  plot_matrix <- log2(plot_matrix + 0.5)
-  cat("Data range after log2 transformation: min =", round(min(plot_matrix, na.rm = TRUE), 2), 
-      ", max =", round(max(plot_matrix, na.rm = TRUE), 2), "\n")
-} else {
-  cat("Skipping log2 transformation (data already in log2 scale)\n")
-}
+# Assumes input data is RAW normalized counts (not already log-transformed)
+plot_matrix <- log2(plot_matrix + 0.5)
+cat("Data range after log2 transformation: min =", round(min(plot_matrix, na.rm = TRUE), 2), 
+    ", max =", round(max(plot_matrix, na.rm = TRUE), 2), "\n")
 
 # NOTE: Z-score normalization (row scaling) is NOT applied
 # The Shiny app displays raw log2-transformed counts without scaling
@@ -229,20 +205,13 @@ if (!IS_VENN_HEATMAP) {
 ################################################################################
 
 # Create annotation (if metadata available)
-if (IS_VENN_HEATMAP) {
-  # For Venn heatmaps, metadata describes comparisons, not samples
-  # Skip column annotation for Venn heatmaps
-  annotation_col <- NA
+if (exists("sample_metadata") && !is.null(sample_metadata) && is.data.frame(sample_metadata) && nrow(sample_metadata) > 0) {
+  # Select annotation columns (adjust as needed)
+  annotation_col <- sample_metadata[colnames(plot_matrix), , drop = FALSE]
+  # Remove non-informative columns
+  annotation_col <- annotation_col[, !colnames(annotation_col) %in% c("sizeFactor", "replaceable"), drop = FALSE]
 } else {
-  # For regular heatmaps, create sample annotations
-  if (exists("sample_metadata") && !is.null(sample_metadata) && is.data.frame(sample_metadata) && nrow(sample_metadata) > 0) {
-    # Select annotation columns (adjust as needed)
-    annotation_col <- sample_metadata[colnames(plot_matrix), , drop = FALSE]
-    # Remove non-informative columns
-    annotation_col <- annotation_col[, !colnames(annotation_col) %in% c("sizeFactor", "replaceable"), drop = FALSE]
-  } else {
-    annotation_col <- NA
-  }
+  annotation_col <- NA
 }
 
 ################################################################################
@@ -306,18 +275,20 @@ col_fun <- colorRamp2(breaks, color_palette)
 cat("Color mapping: min=", round(min_val, 2), ", max=", round(max_val, 2), ", colors=255 (RdYlBu palette)\n")
 
 # Create heatmap using ComplexHeatmap (matches Shiny app)
-# Note: Both parent and brushed heatmaps now use explicit colorRamp2 for consistency
-heatmap_args <- list(
+heatmap_plot <- Heatmap(
   plot_matrix,
-  name = if (length(IS_VENN_HEATMAP) > 0 && IS_VENN_HEATMAP) "log2FC" else "Expression",  # legend title
+  name = "Expression",  # legend title
   
-  # Clustering: For brushed heatmaps, preserve original order for both genes and samples
-  cluster_rows = if (length(IS_BRUSHED_HEATMAP) > 0 && IS_BRUSHED_HEATMAP) FALSE else TRUE,  # Don't re-cluster genes for brushed heatmaps
-  cluster_columns = if (length(IS_BRUSHED_HEATMAP) > 0 && IS_BRUSHED_HEATMAP) FALSE else TRUE,  # Don't re-cluster columns for brushed heatmaps
-  clustering_distance_rows = if (length(IS_BRUSHED_HEATMAP) == 0 || !IS_BRUSHED_HEATMAP) "euclidean" else NULL,
-  clustering_distance_columns = if (length(IS_BRUSHED_HEATMAP) == 0 || !IS_BRUSHED_HEATMAP) "euclidean" else NULL,
-  clustering_method_rows = if (length(IS_BRUSHED_HEATMAP) == 0 || !IS_BRUSHED_HEATMAP) "complete" else NULL,
-  clustering_method_columns = if (length(IS_BRUSHED_HEATMAP) == 0 || !IS_BRUSHED_HEATMAP) "complete" else NULL,
+  # Color scale
+  col = col_fun,
+  
+  # Clustering
+  cluster_rows = !IS_BRUSHED_HEATMAP,  # Don't re-cluster genes for brushed heatmaps
+  cluster_columns = !IS_BRUSHED_HEATMAP,  # Don't re-cluster samples for brushed heatmaps
+  clustering_distance_rows = "euclidean",
+  clustering_distance_columns = "euclidean",
+  clustering_method_rows = "complete",
+  clustering_method_columns = "complete",
   
   # Display options
   show_row_names = SHOW_ROWNAMES,
@@ -329,25 +300,16 @@ heatmap_args <- list(
   top_annotation = ha,
   
   # Title
-  column_title = if (length(IS_VENN_HEATMAP) > 0 && IS_VENN_HEATMAP && length(IS_BRUSHED_HEATMAP) > 0 && IS_BRUSHED_HEATMAP) {
-    "Brushed Venn Sub-Heatmap (log2FC Comparisons)"
-  } else if (length(IS_BRUSHED_HEATMAP) > 0 && IS_BRUSHED_HEATMAP) {
+  column_title = if (IS_BRUSHED_HEATMAP) {
     "Brushed Sub-Heatmap (Original Sample Order Preserved)"
-  } else if (length(IS_VENN_HEATMAP) > 0 && IS_VENN_HEATMAP) {
-    "Venn Set Heatmap (log2FC Comparisons)"
   } else {
     "Expression Heatmap"
   },
   column_title_gp = gpar(fontsize = 12, fontface = "bold"),
   
-  # Heatmap body
-  border = TRUE,
-  
-  # Color function (explicitly set for both parent and brushed heatmaps)
-  col = col_fun
+  # Heatmap border
+  border = TRUE
 )
-
-heatmap_plot <- do.call(Heatmap, heatmap_args)
 
 # Display heatmap
 draw(heatmap_plot)
@@ -360,16 +322,25 @@ draw(heatmap_plot)
 heatmap_height <- max(8, nrow(plot_matrix) * 0.15)
 heatmap_height_px <- max(2400, nrow(plot_matrix) * 45)
 
+# Use different filenames for brushed vs non-brushed heatmaps
+if (IS_BRUSHED_HEATMAP) {
+  pdf_filename <- "heatmap_brushed.pdf"
+  png_filename <- "heatmap_brushed.png"
+} else {
+  pdf_filename <- "heatmap.pdf"
+  png_filename <- "heatmap.png"
+}
+
 # Save as PDF
-pdf("heatmap.pdf", width = 10, height = heatmap_height)
+pdf(pdf_filename, width = 10, height = heatmap_height)
 draw(heatmap_plot)
 dev.off()
 
 # Save as PNG
-png("heatmap.png", width = 3000, height = heatmap_height_px, res = 300)
+png(png_filename, width = 3000, height = heatmap_height_px, res = 300)
 draw(heatmap_plot)
 dev.off()
 
 cat("Heatmap saved successfully!\n")
-cat("  - heatmap.pdf (", nrow(plot_matrix), " genes)\n")
-cat("  - heatmap.png (high resolution)\n")
+cat("  -", pdf_filename, "(", nrow(plot_matrix), "genes)\n")
+cat("  -", png_filename, "(high resolution)\n")

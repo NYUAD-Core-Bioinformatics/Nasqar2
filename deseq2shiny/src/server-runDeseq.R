@@ -515,25 +515,32 @@ output$download_code_pca_vst <- downloadHandler(
             export_dir <- file.path(temp_dir, paste0("pca_vst_export_", timestamp))
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             
-            vst_filename <- paste0("vst_data_", timestamp, ".csv")
-            vst_file <- file.path(export_dir, vst_filename)
-            write.csv(myValues$vstMat, vst_file, row.names = TRUE)
+            # Calculate PCA coordinates (same as Shiny's display)
+            intgroup <- if(!is.null(input$vsdIntGroupsInput)) input$vsdIntGroupsInput else names(colData(myValues$dds))[1]
+            pca_data <- DESeq2::plotPCA(myValues$vsd, intgroup = intgroup, returnData = TRUE)
+            percentVar <- attr(pca_data, "percentVar")
             
+            # Export PCA coordinates with metadata
+            pca_filename <- paste0("pca_coordinates_", timestamp, ".csv")
+            pca_file <- file.path(export_dir, pca_filename)
+            write.csv(pca_data, pca_file, row.names = TRUE)
+            
+            # Export full metadata for reference
             metadata_filename <- paste0("metadata_", timestamp, ".csv")
             metadata_file <- file.path(export_dir, metadata_filename)
             write.csv(as.data.frame(colData(myValues$dds)), metadata_file, row.names = TRUE)
             
-            # NOW set params with actual filenames and generate R code
+            # NOW set params with actual filenames and generate simplified R code
             params <- list(
-                intgroup = if(!is.null(input$vsdIntGroupsInput)) input$vsdIntGroupsInput else names(colData(myValues$dds))[1],
+                intgroup = intgroup,
                 transform_type = "vst",
-                transformed_data_file = vst_filename,  # Use actual filename with timestamp!
-                metadata_file = metadata_filename  # Use actual filename with timestamp!
+                pca_data_file = pca_filename,  # Pre-calculated PCA coordinates!
+                pc1_var = percentVar[1],
+                pc2_var = percentVar[2]
             )
             
-            r_code <- generatePCACode(params, 
-                                     mode = export_mode, 
-            )
+            # Use simplified template - no gene selection or PCA calculation
+            r_code <- generatePCACodeSimple(params)
             
             code_filename <- paste0("pca_vst_", timestamp, ".R")
             code_file <- file.path(export_dir, code_filename)
@@ -545,12 +552,18 @@ output$download_code_pca_vst <- downloadHandler(
                 "============================\n\n",
                 "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
                 "Files included:\n",
-                "- ", code_filename, "\n",
-                "- ", vst_filename, "\n",
-                "- ", metadata_filename, "\n\n",
+                "- ", code_filename, " : R code to generate the PCA plot\n",
+                "- ", pca_filename, " : Pre-calculated PCA coordinates (PC1, PC2) with metadata\n",
+                "- ", metadata_filename, " : Full sample metadata (for reference)\n\n",
+                "Variance explained:\n",
+                "- PC1: ", percentVar[1], "%\n",
+                "- PC2: ", percentVar[2], "%\n\n",
                 "Instructions:\n",
                 "1. Extract all files to the same directory\n",
-                "2. Open the R script and run it in RStudio\n"
+                "2. Open the R script (", code_filename, ") in RStudio\n",
+                "3. Run the script to generate the plot\n\n",
+                "Note: PCA coordinates were pre-calculated by Shiny from VST-transformed data.\n",
+                "The script just loads these coordinates and creates the plot.\n"
             )
             writeLines(readme_text, readme_file)
             
@@ -603,25 +616,32 @@ output$download_code_pca_rlog <- downloadHandler(
             export_dir <- file.path(temp_dir, paste0("pca_rlog_export_", timestamp))
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             
-            rlog_filename <- paste0("rlog_data_", timestamp, ".csv")
-            rlog_file <- file.path(export_dir, rlog_filename)
-            write.csv(myValues$rlogMat, rlog_file, row.names = TRUE)
+            # Calculate PCA coordinates (same as Shiny's display)
+            intgroup <- if(!is.null(input$rlogIntGroupsInput)) input$rlogIntGroupsInput else names(colData(myValues$dds))[1]
+            pca_data <- DESeq2::plotPCA(myValues$rld, intgroup = intgroup, returnData = TRUE)
+            percentVar <- attr(pca_data, "percentVar")
             
+            # Export PCA coordinates with metadata
+            pca_filename <- paste0("pca_coordinates_", timestamp, ".csv")
+            pca_file <- file.path(export_dir, pca_filename)
+            write.csv(pca_data, pca_file, row.names = TRUE)
+            
+            # Export full metadata for reference
             metadata_filename <- paste0("metadata_", timestamp, ".csv")
             metadata_file <- file.path(export_dir, metadata_filename)
             write.csv(as.data.frame(colData(myValues$dds)), metadata_file, row.names = TRUE)
             
-            # NOW set params with actual filenames and generate R code
+            # NOW set params with actual filenames and generate simplified R code
             params <- list(
-                intgroup = if(!is.null(input$rlogIntGroupsInput)) input$rlogIntGroupsInput else names(colData(myValues$dds))[1],
+                intgroup = intgroup,
                 transform_type = "rlog",
-                transformed_data_file = rlog_filename,  # Use actual filename with timestamp!
-                metadata_file = metadata_filename  # Use actual filename with timestamp!
+                pca_data_file = pca_filename,  # Pre-calculated PCA coordinates!
+                pc1_var = percentVar[1],
+                pc2_var = percentVar[2]
             )
             
-            r_code <- generatePCACode(params, 
-                                     mode = export_mode, 
-            )
+            # Use simplified template - no gene selection or PCA calculation
+            r_code <- generatePCACodeSimple(params)
             
             code_filename <- paste0("pca_rlog_", timestamp, ".R")
             code_file <- file.path(export_dir, code_filename)
@@ -633,12 +653,18 @@ output$download_code_pca_rlog <- downloadHandler(
                 "=============================\n\n",
                 "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
                 "Files included:\n",
-                "- ", code_filename, "\n",
-                "- ", rlog_filename, "\n",
-                "- ", metadata_filename, "\n\n",
+                "- ", code_filename, " : R code to generate the PCA plot\n",
+                "- ", pca_filename, " : Pre-calculated PCA coordinates (PC1, PC2) with metadata\n",
+                "- ", metadata_filename, " : Full sample metadata (for reference)\n\n",
+                "Variance explained:\n",
+                "- PC1: ", percentVar[1], "%\n",
+                "- PC2: ", percentVar[2], "%\n\n",
                 "Instructions:\n",
                 "1. Extract all files to the same directory\n",
-                "2. Open the R script and run it in RStudio\n"
+                "2. Open the R script (", code_filename, ") in RStudio\n",
+                "3. Run the script to generate the plot\n\n",
+                "Note: PCA coordinates were pre-calculated by Shiny from RLOG-transformed data.\n",
+                "The script just loads these coordinates and creates the plot.\n"
             )
             writeLines(readme_text, readme_file)
             
@@ -691,24 +717,29 @@ output$download_code_distheat_vst <- downloadHandler(
             export_dir <- file.path(temp_dir, paste0("distance_heatmap_vst_export_", timestamp))
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             
-            vst_filename <- paste0("vst_data_", timestamp, ".csv")
-            vst_file <- file.path(export_dir, vst_filename)
-            write.csv(myValues$vstMat, vst_file, row.names = TRUE)
+            # Calculate sample distance matrix (same as Shiny's display)
+            sample_dists <- dist(t(myValues$vstMat))
+            sample_dist_matrix <- as.matrix(sample_dists)
             
+            # Export distance matrix
+            dist_filename <- paste0("distance_matrix_", timestamp, ".csv")
+            dist_file <- file.path(export_dir, dist_filename)
+            write.csv(sample_dist_matrix, dist_file, row.names = TRUE)
+            
+            # Export metadata
             metadata_filename <- paste0("metadata_", timestamp, ".csv")
             metadata_file <- file.path(export_dir, metadata_filename)
             write.csv(as.data.frame(colData(myValues$dds)), metadata_file, row.names = TRUE)
             
-            # NOW set params with actual filenames and generate R code
+            # NOW set params with actual filenames and generate simplified R code
             params <- list(
                 transform_type = "vst",
-                transformed_data_file = vst_filename,  # Use actual filename with timestamp!
-                metadata_file = metadata_filename  # Use actual filename with timestamp!
+                distance_matrix_file = dist_filename,  # Pre-calculated distance matrix!
+                metadata_file = metadata_filename
             )
             
-            r_code <- generateDistHeatmapCode(params, 
-                                              mode = export_mode, 
-             )
+            # Use simplified template - no distance calculation
+            r_code <- generateDistHeatmapCodeSimple(params)
             
             code_filename <- paste0("distance_heatmap_vst_", timestamp, ".R")
             code_file <- file.path(export_dir, code_filename)
@@ -720,12 +751,15 @@ output$download_code_distheat_vst <- downloadHandler(
                 "====================================\n\n",
                 "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
                 "Files included:\n",
-                "- ", code_filename, "\n",
-                "- ", vst_filename, "\n",
-                "- ", metadata_filename, "\n\n",
+                "- ", code_filename, " : R code to generate distance heatmaps\n",
+                "- ", dist_filename, " : Pre-calculated sample-to-sample distance matrix\n",
+                "- ", metadata_filename, " : Sample metadata\n\n",
                 "Instructions:\n",
                 "1. Extract all files to the same directory\n",
-                "2. Open the R script and run it in RStudio\n"
+                "2. Open the R script (", code_filename, ") in RStudio\n",
+                "3. Run the script to generate both interactive (HTML) and static (PDF/PNG) heatmaps\n\n",
+                "Note: Distance matrix was pre-calculated by Shiny from VST-transformed data.\n",
+                "The script just loads this matrix and creates the heatmaps.\n"
             )
             writeLines(readme_text, readme_file)
             
@@ -777,24 +811,29 @@ output$download_code_distheat_rlog <- downloadHandler(
             export_dir <- file.path(temp_dir, paste0("distance_heatmap_rlog_export_", timestamp))
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             
-            rlog_filename <- paste0("rlog_data_", timestamp, ".csv")
-            rlog_file <- file.path(export_dir, rlog_filename)
-            write.csv(myValues$rlogMat, rlog_file, row.names = TRUE)
+            # Calculate sample distance matrix (same as Shiny's display)
+            sample_dists <- dist(t(myValues$rlogMat))
+            sample_dist_matrix <- as.matrix(sample_dists)
             
+            # Export distance matrix
+            dist_filename <- paste0("distance_matrix_", timestamp, ".csv")
+            dist_file <- file.path(export_dir, dist_filename)
+            write.csv(sample_dist_matrix, dist_file, row.names = TRUE)
+            
+            # Export metadata
             metadata_filename <- paste0("metadata_", timestamp, ".csv")
             metadata_file <- file.path(export_dir, metadata_filename)
             write.csv(as.data.frame(colData(myValues$dds)), metadata_file, row.names = TRUE)
             
-            # NOW set params with actual filenames and generate R code
+            # NOW set params with actual filenames and generate simplified R code
             params <- list(
                 transform_type = "rlog",
-                transformed_data_file = rlog_filename,  # Use actual filename with timestamp!
-                metadata_file = metadata_filename  # Use actual filename with timestamp!
+                distance_matrix_file = dist_filename,  # Pre-calculated distance matrix!
+                metadata_file = metadata_filename
             )
             
-            r_code <- generateDistHeatmapCode(params, 
-                                              mode = export_mode, 
-             )
+            # Use simplified template - no distance calculation
+            r_code <- generateDistHeatmapCodeSimple(params)
             
             code_filename <- paste0("distance_heatmap_rlog_", timestamp, ".R")
             code_file <- file.path(export_dir, code_filename)
@@ -806,12 +845,15 @@ output$download_code_distheat_rlog <- downloadHandler(
                 "=====================================\n\n",
                 "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
                 "Files included:\n",
-                "- ", code_filename, "\n",
-                "- ", rlog_filename, "\n",
-                "- ", metadata_filename, "\n\n",
+                "- ", code_filename, " : R code to generate distance heatmaps\n",
+                "- ", dist_filename, " : Pre-calculated sample-to-sample distance matrix\n",
+                "- ", metadata_filename, " : Sample metadata\n\n",
                 "Instructions:\n",
                 "1. Extract all files to the same directory\n",
-                "2. Open the R script and run it in RStudio\n"
+                "2. Open the R script (", code_filename, ") in RStudio\n",
+                "3. Run the script to generate both interactive (HTML) and static (PDF/PNG) heatmaps\n\n",
+                "Note: Distance matrix was pre-calculated by Shiny from RLOG-transformed data.\n",
+                "The script just loads this matrix and creates the heatmaps.\n"
             )
             writeLines(readme_text, readme_file)
             

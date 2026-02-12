@@ -8,7 +8,7 @@
 ################################################################################
 
 # Load helper functions for MA plot generation
-{{HELPER_FUNCTIONS}}
+{{HELPER_FUNCTIONS_MA}}
 
 ################################################################################
 # CONFIGURATION PARAMETERS

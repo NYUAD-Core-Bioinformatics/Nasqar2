@@ -407,7 +407,7 @@ output$download_code_volcano <- downloadHandler(
         export_mode <- get_export_mode(input)
         
         if (export_mode == "full") {
-            paste0("volcano_plots_all_export_", timestamp, ".zip")
+            paste0("volcano_plots_export_", timestamp, ".zip")
         } else {
             paste0("volcano_plot_", input$select_avo_de_file, "_", timestamp, ".R")
         }
@@ -425,34 +425,18 @@ output$download_code_volcano <- downloadHandler(
         }
         
         if (export_mode == "full") {
-            # FULL MODE: Export volcano plots for ALL saved contrasts
+            # FULL MODE: Export volcano plots for multiple saved contrasts
             req(exists("filelist"), !is.null(filelist$file_list), length(filelist$file_list) > 0)
             
             temp_dir <- tempdir()
-            export_dir <- file.path(temp_dir, paste0("volcano_plots_all_export_", timestamp))
+            export_dir <- file.path(temp_dir, paste0("volcano_plots_export_", timestamp))
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             
             saved_files <- names(filelist$file_list)
             cat("Exporting volcano plots for", length(saved_files), "saved contrasts...\n")
             
-            all_code_sections <- list()
+            volcano_code_sections <- list()
             exported_files_list <- c()
-            
-            # Export original raw counts and metadata once (shared by all contrasts)
-            if (!is.null(myValues$fileContent)) {
-                raw_counts_file <- file.path(export_dir, paste0("raw_counts_", timestamp, ".csv"))
-                write.csv(myValues$fileContent, raw_counts_file, row.names = FALSE)
-                cat("  ✓ Exported raw counts (with gene names)\n")
-            } else if (!is.null(myValues$dataCounts)) {
-                raw_counts_file <- file.path(export_dir, paste0("raw_counts_", timestamp, ".csv"))
-                write.csv(myValues$dataCounts, raw_counts_file, row.names = TRUE)
-                cat("  ✓ Exported raw counts\n")
-            }
-            if (!is.null(myValues$coldata)) {
-                metadata_file <- file.path(export_dir, paste0("original_metadata_", timestamp, ".csv"))
-                write.csv(myValues$coldata, metadata_file, row.names = TRUE)
-                cat("  ✓ Exported metadata\n")
-            }
             
             # Export each saved contrast
             for (file_idx in seq_along(saved_files)) {
@@ -466,12 +450,37 @@ output$download_code_volcano <- downloadHandler(
                 results_data <- read.csv(filelist$file_list[[filename]], row.names = 1)
                 
                 # Add gene names if available (for gene symbol labeling)
-                if (!is.null(myValues$genenames) && !is.null(myValues$geneids)) {
-                    gene_names <- myValues$genenames[rownames(results_data), 1]
-                    # Keep gene ID where name is not available
-                    gene_names[is.na(gene_names)] <- rownames(results_data)[is.na(gene_names)]
-                    results_data$gene.name <- gene_names
-                    cat("    Added gene names to results data\n")
+                # Check multiple sources for gene names
+                if (!("gene.name" %in% colnames(results_data))) {
+                    # Gene names not already in results, try to add them
+                    if (!is.null(myValues$genenames) && !is.null(myValues$geneids)) {
+                        # Use myValues$genenames if available
+                        gene_names <- myValues$genenames[rownames(results_data), 1]
+                        # Keep gene ID where name is not available
+                        gene_names[is.na(gene_names)] <- rownames(results_data)[is.na(gene_names)]
+                        results_data$gene.name <- gene_names
+                        cat("    Added gene names from myValues$genenames\n")
+                    } else if (!is.null(myValues$fileContent) && "gene.names" %in% colnames(myValues$fileContent)) {
+                        # Try to get gene names from original file content
+                        gene_ids_in_results <- rownames(results_data)
+                        # Match by gene ID (first column of fileContent)
+                        gene_id_col <- myValues$fileContent[[1]]
+                        gene_name_col <- myValues$fileContent$gene.names
+                        
+                        # Create a lookup
+                        gene_name_lookup <- setNames(gene_name_col, gene_id_col)
+                        
+                        # Get gene names for results
+                        gene_names <- gene_name_lookup[gene_ids_in_results]
+                        # Keep gene ID where name is not available
+                        gene_names[is.na(gene_names)] <- gene_ids_in_results[is.na(gene_names)]
+                        results_data$gene.name <- gene_names
+                        cat("    Added gene names from original file content\n")
+                    } else {
+                        cat("    No gene names available\n")
+                    }
+                } else {
+                    cat("    Gene names already present in results\n")
                 }
                 
                 # Save results data (now includes gene.name column)
@@ -480,7 +489,7 @@ output$download_code_volcano <- downloadHandler(
                 write.csv(results_data, results_file, row.names = TRUE)
                 exported_files_list <- c(exported_files_list, results_filename)
                 
-                # Generate volcano plot code
+                # Generate volcano plot code (skip helpers as they're already at the top)
                 params <- list(
                     comparison_name = comparison_name_clean,
                     padj_threshold = padj_threshold,
@@ -491,10 +500,10 @@ output$download_code_volcano <- downloadHandler(
                     genes_of_interest = if (!is.null(input$volcano_genes_of_interest)) trimws(input$volcano_genes_of_interest) else ""
                 )
                 
-                r_code <- generateVolcanoCode(params, mode = "full")
+                r_code <- generateVolcanoCode(params, mode = "full", use_existing_objects = FALSE, include_helpers = FALSE)
                 
                 # Store code section
-                all_code_sections[[comparison_name_clean]] <- list(
+                volcano_code_sections[[comparison_name_clean]] <- list(
                     title = paste0("Volcano Plot: ", comparison_name_clean),
                     code = r_code,
                     order = file_idx
@@ -503,11 +512,11 @@ output$download_code_volcano <- downloadHandler(
                 cat("    ✓ Volcano plot for", comparison_name_clean, "prepared\n")
             }
             
-            # Create combined R script with all volcano plots
+            # Create combined R script for volcano plots
             combined_code <- paste0(
                 "################################################################################\n",
                 "#                                                                              #\n",
-                "#       VOLCANO PLOTS FOR ALL SAVED CONTRASTS                                 #\n",
+                "#       VOLCANO PLOTS FOR SAVED CONTRASTS                                     #\n",
                 "#       Generated from DESeq2Shiny                                            #\n",
                 "#       ", timestamp, "                                                       #\n",
                 "#                                                                              #\n",
@@ -520,23 +529,23 @@ output$download_code_volcano <- downloadHandler(
                 "# install.packages(c('ggplot2', 'ggrepel'))\n\n\n"
             )
             
-            # Add helper functions
-            helper_functions <- readTemplate("template_helper_functions")
+            # Add helper functions (Volcano plot specific only)
+            helper_functions_volcano <- readTemplate("template_helper_volcano")
             combined_code <- paste0(
                 combined_code,
                 "################################################################################\n",
-                "# HELPER FUNCTIONS\n",
+                "# HELPER FUNCTIONS (VOLCANO PLOT)\n",
                 "################################################################################\n\n",
                 "cat(\"\\n\")\n",
                 "cat(\"=\", rep(\"=\", 78), \"\\n\", sep = \"\")\n",
-                "cat(\"HELPER FUNCTIONS: Reusable code for efficient plot generation\\n\")\n",
+                "cat(\"HELPER FUNCTIONS: Volcano Plot specific functions\\n\")\n",
                 "cat(\"=\", rep(\"=\", 78), \"\\n\", sep = \"\")\n\n",
-                helper_functions,
+                helper_functions_volcano,
                 "\n\n"
             )
             
             # Add each volcano plot section
-            sections_ordered <- all_code_sections[order(sapply(all_code_sections, function(x) x$order))]
+            sections_ordered <- volcano_code_sections[order(sapply(volcano_code_sections, function(x) x$order))]
             for (section in sections_ordered) {
                 combined_code <- paste0(
                     combined_code,
@@ -549,29 +558,21 @@ output$download_code_volcano <- downloadHandler(
             }
             
             # Write combined R script
-            code_filename <- paste0("all_volcano_plots_", timestamp, ".R")
+            code_filename <- paste0("volcano_plots_", timestamp, ".R")
             code_file <- file.path(export_dir, code_filename)
             writeLines(combined_code, code_file)
             
             # Create README
             readme_file <- file.path(export_dir, "README.txt")
             readme_files_list <- paste0(
-                "- ", code_filename, " : R code to generate all volcano plots\n",
-                paste(sapply(exported_files_list, function(f) paste0("- ", f, " : DESeq2 results data\n")), collapse = "")
+                "- ", code_filename, " : R code to generate volcano plots\n",
+                paste(sapply(exported_files_list, function(f) paste0("- ", f, " : DESeq2 results data (includes gene.name if available)\n")), collapse = ""),
+                "- README.txt : This file\n"
             )
-            if (!is.null(myValues$dataCounts) || !is.null(myValues$fileContent)) {
-                readme_files_list <- paste0(readme_files_list,
-                    "- raw_counts_", timestamp, ".csv : Original raw count matrix (reference)\n")
-            }
-            if (!is.null(myValues$coldata)) {
-                readme_files_list <- paste0(readme_files_list,
-                    "- original_metadata_", timestamp, ".csv : Original sample metadata (reference)\n")
-            }
-            readme_files_list <- paste0(readme_files_list, "- README.txt : This file\n")
             
             readme_text <- paste0(
-                "Volcano Plots for All Saved Contrasts\n",
-                "======================================\n\n",
+                "Volcano Plots for Saved Contrasts\n",
+                "==================================\n\n",
                 "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
                 "Total contrasts: ", length(saved_files), "\n",
                 "Contrasts included:\n",
@@ -581,19 +582,21 @@ output$download_code_volcano <- downloadHandler(
                 "\nInstructions:\n",
                 "1. Extract all files to the same directory\n",
                 "2. Open ", code_filename, " in RStudio\n",
-                "3. Run the entire script to generate all ", length(saved_files), " volcano plots\n",
+                "3. Run the entire script to generate ", length(saved_files), " volcano plots\n",
                 "4. Each plot is saved as PDF and PNG in the same directory\n",
                 "5. Customize colors, labels, and thresholds in the script as needed\n\n",
                 "Thresholds used:\n",
                 "- padj < ", padj_threshold, "\n",
                 "- |log2FC| > ", input$log_fold_change_threshold, "\n\n",
-                "Note: The raw counts and metadata files are included for reference\n",
-                "and reproducibility. They are not used directly by the volcano plot scripts.\n"
+                "Data Format:\n",
+                "Each results file contains DESeq2 statistics with columns:\n",
+                "- baseMean, log2FoldChange, lfcSE, stat, pvalue, padj\n",
+                "- gene.name (if gene symbols are available in your data)\n"
             )
             writeLines(readme_text, readme_file)
             
             # Create ZIP
-            zip_file <- file.path(temp_dir, paste0("volcano_plots_all_export_", timestamp, ".zip"))
+            zip_file <- file.path(temp_dir, paste0("volcano_plots_export_", timestamp, ".zip"))
             zip_export_dir(export_dir, zip_file)
             
             # Copy to output

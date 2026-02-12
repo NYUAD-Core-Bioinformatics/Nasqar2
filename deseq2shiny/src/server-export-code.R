@@ -196,11 +196,16 @@ buildDataLoadSection <- function(mode, use_existing_objects, template_type, para
         "cat(\"Using ", transform_type, " data from DESeq2 pipeline\\n\\n\")\n"
       )
     } else if (template_type == "template_venn_set_heatmap") {
-      # Template now includes all data loading logic inline - no separate files needed
+      # For complete analysis: Load pre-computed matrix from Shiny (avoids NA/NaN/Inf issues)
+      matrix_file <- if (!is.null(params$expression_matrix_file) && length(params$expression_matrix_file) > 0) {
+        params$expression_matrix_file
+      } else {
+        "set_expression_matrix.csv"
+      }
       code <- paste0(
-        "# Use objects from Section 0 (DESeq2 pipeline)\n",
-        "# results_list and gene_annotations already generated\n",
-        "cat(\"Using results from DESeq2 pipeline for Venn set heatmap\\n\\n\")\n"
+        "# Load pre-computed Venn set matrix from Shiny (already filtered and clean)\n",
+        "set_expression_matrix <- read.csv(\"", matrix_file, "\", row.names = 1, check.names = FALSE)\n",
+        "cat(\"Loaded Venn set matrix from Shiny:\", nrow(set_expression_matrix), \"genes ×\", ncol(set_expression_matrix), \"comparisons\\n\\n\")\n"
       )
     } else if (template_type == "template_venn") {
       # Template now includes all data loading logic inline
@@ -319,7 +324,7 @@ buildDataLoadSection <- function(mode, use_existing_objects, template_type, para
 }
 
 # Main function to generate code from template
-generateCodeFromTemplate <- function(template_name, params, mode = "full", use_existing_objects = FALSE) {
+generateCodeFromTemplate <- function(template_name, params, mode = "full", use_existing_objects = FALSE, include_helpers = TRUE) {
   # Validate inputs
   if (is.null(template_name) || length(template_name) == 0 || !is.character(template_name)) {
     stop("Invalid template_name: must be a non-empty character string")
@@ -333,6 +338,9 @@ generateCodeFromTemplate <- function(template_name, params, mode = "full", use_e
   if (is.null(use_existing_objects) || length(use_existing_objects) == 0) {
     use_existing_objects <- FALSE
   }
+  if (is.null(include_helpers) || length(include_helpers) == 0) {
+    include_helpers <- TRUE
+  }
   
   # Read template
   template <- readTemplate(template_name)
@@ -344,10 +352,41 @@ generateCodeFromTemplate <- function(template_name, params, mode = "full", use_e
   data_load_section <- buildDataLoadSection(mode, use_existing_objects, template_name, params)
   code <- gsub("{{DATA_LOAD_SECTION}}", data_load_section, code, fixed = TRUE)
   
-  # Add helper functions if template uses them
-  if (grepl("{{HELPER_FUNCTIONS}}", code, fixed = TRUE)) {
-    helper_functions <- readTemplate("template_helper_functions")
-    code <- gsub("{{HELPER_FUNCTIONS}}", helper_functions, code, fixed = TRUE)
+  # Add helper functions if template uses them AND include_helpers is TRUE
+  # Support both legacy {{HELPER_FUNCTIONS}} and specific helpers
+  if (include_helpers) {
+    if (grepl("{{HELPER_FUNCTIONS}}", code, fixed = TRUE)) {
+      helper_functions <- readTemplate("template_helper_functions")
+      code <- gsub("{{HELPER_FUNCTIONS}}", helper_functions, code, fixed = TRUE)
+    }
+    
+    # MA plot specific helpers
+    if (grepl("{{HELPER_FUNCTIONS_MA}}", code, fixed = TRUE)) {
+      helper_functions_ma <- readTemplate("template_helper_ma")
+      code <- gsub("{{HELPER_FUNCTIONS_MA}}", helper_functions_ma, code, fixed = TRUE)
+    }
+    
+    # Volcano plot specific helpers
+    if (grepl("{{HELPER_FUNCTIONS_VOLCANO}}", code, fixed = TRUE)) {
+      helper_functions_volcano <- readTemplate("template_helper_volcano")
+      code <- gsub("{{HELPER_FUNCTIONS_VOLCANO}}", helper_functions_volcano, code, fixed = TRUE)
+    }
+  } else {
+    # Remove helper function sections if include_helpers is FALSE
+    # Remove the entire HELPER FUNCTIONS section for MA plots
+    code <- gsub("################################################################################\n# HELPER FUNCTIONS\n################################################################################\n\n# Load helper functions for MA plot generation\n{{HELPER_FUNCTIONS_MA}}\n\n", "", code, fixed = TRUE)
+    
+    # Remove the entire HELPER FUNCTIONS section for volcano plots
+    code <- gsub("################################################################################\n# HELPER FUNCTIONS\n################################################################################\n\n# Load helper functions for volcano plot generation\n{{HELPER_FUNCTIONS_VOLCANO}}\n\n", "", code, fixed = TRUE)
+    
+    # Fallback: remove just the placeholders if the full sections aren't found
+    code <- gsub("{{HELPER_FUNCTIONS}}", "", code, fixed = TRUE)
+    code <- gsub("{{HELPER_FUNCTIONS_MA}}", "", code, fixed = TRUE)
+    code <- gsub("{{HELPER_FUNCTIONS_VOLCANO}}", "", code, fixed = TRUE)
+    
+    # Also remove the "Publication-ready" header that's only needed for standalone scripts
+    code <- gsub("################################################################################\n# Publication-ready MA Plot \\(OPTIMIZED\\)\n# Generated from DESeq2Shiny\n################################################################################\n\n", "", code)
+    code <- gsub("################################################################################\n# Publication-ready Volcano Plot \\(OPTIMIZED\\)\n# Generated from DESeq2Shiny\n################################################################################\n\n", "", code)
   }
   
   # Only .R format is supported
@@ -360,12 +399,12 @@ generateCodeFromTemplate <- function(template_name, params, mode = "full", use_e
 # ============================================================================
 # These are wrapper functions around generateCodeFromTemplate() for each plot type
 
-generateVolcanoCode <- function(params, mode = "full", use_existing_objects = FALSE) {
-  return(generateCodeFromTemplate("template_volcano", params, mode, use_existing_objects))
+generateVolcanoCode <- function(params, mode = "full", use_existing_objects = FALSE, include_helpers = TRUE) {
+  return(generateCodeFromTemplate("template_volcano", params, mode, use_existing_objects, include_helpers))
 }
 
-generateMAPlotCode <- function(params, mode = "full", use_existing_objects = FALSE) {
-  return(generateCodeFromTemplate("template_maplot", params, mode, use_existing_objects))
+generateMAPlotCode <- function(params, mode = "full", use_existing_objects = FALSE, include_helpers = TRUE) {
+  return(generateCodeFromTemplate("template_maplot", params, mode, use_existing_objects, include_helpers))
 }
 
 generateBoxplotCode <- function(params, mode = "full", use_existing_objects = FALSE) {
@@ -376,20 +415,84 @@ generateHeatmapCode <- function(params, mode = "full", use_existing_objects = FA
   return(generateCodeFromTemplate("template_heatmap", params, mode, use_existing_objects))
 }
 
+generateHeatmapCodeSimple <- function(params) {
+  # Use simple template for individual heatmap exports
+  # This template just loads the pre-processed matrix and plots it
+  template <- readTemplate("template_heatmap_simple")
+  code <- replaceTemplateVars(template, params)
+  return(code)
+}
+
+generateBrushedHeatmapCodeSimple <- function(params) {
+  # Use simple template for brushed heatmap exports
+  # This template loads the brushed matrix and plots with parent colors
+  template <- readTemplate("template_brushed_heatmap_simple")
+  code <- replaceTemplateVars(template, params)
+  return(code)
+}
+
+generateBoxplotCodeSimple <- function(params) {
+  # Use simple template for boxplot exports
+  # This template loads pre-subset normalized counts and creates boxplots
+  template <- readTemplate("template_boxplot_simple")
+  code <- replaceTemplateVars(template, params)
+  return(code)
+}
+
 generatePCACode <- function(params, mode = "full", use_existing_objects = FALSE) {
   return(generateCodeFromTemplate("template_pca", params, mode, use_existing_objects))
+}
+
+generatePCACodeSimple <- function(params) {
+  # Use simple template for PCA exports
+  # This template loads pre-calculated PC coordinates and creates plots
+  template <- readTemplate("template_pca_simple")
+  code <- replaceTemplateVars(template, params)
+  return(code)
 }
 
 generateDistHeatmapCode <- function(params, mode = "full", use_existing_objects = FALSE) {
   return(generateCodeFromTemplate("template_distance_heatmap", params, mode, use_existing_objects))
 }
 
+generateDistHeatmapCodeSimple <- function(params) {
+  # Use simple template for distance heatmap exports
+  # This template loads pre-calculated distance matrix and creates heatmaps
+  template <- readTemplate("template_distance_heatmap_simple")
+  code <- replaceTemplateVars(template, params)
+  return(code)
+}
+
 generateVennCode <- function(params, mode = "full", use_existing_objects = FALSE) {
   return(generateCodeFromTemplate("template_venn", params, mode, use_existing_objects))
 }
 
+generateVennCodeSimple <- function(params) {
+  # Use simple template for Venn diagram exports
+  # This template loads pre-filtered gene lists and draws the Venn
+  template <- readTemplate("template_venn_simple")
+  code <- replaceTemplateVars(template, params)
+  return(code)
+}
+
 generateVennSetHeatmapCode <- function(params, mode = "full", use_existing_objects = FALSE) {
   return(generateCodeFromTemplate("template_venn_set_heatmap", params, mode, use_existing_objects))
+}
+
+generateVennSetHeatmapCodeSimple <- function(params) {
+  # Use simple template for Venn set heatmap exports
+  # This template loads the pre-processed matrix and plots
+  template <- readTemplate("template_venn_set_heatmap_simple")
+  code <- replaceTemplateVars(template, params)
+  return(code)
+}
+
+generateVennBrushedHeatmapCodeSimple <- function(params) {
+  # Use simple template for Venn brushed heatmap exports
+  # This template loads the brushed matrix and plots without clustering
+  template <- readTemplate("template_venn_brushed_heatmap_simple")
+  code <- replaceTemplateVars(template, params)
+  return(code)
 }
 
 # ============================================================================
