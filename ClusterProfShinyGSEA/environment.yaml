@@ -17,5 +17,7 @@ dependencies:
   - r-biocmanager
   - r-ggridges
   - r-europepmc
+  - r-readr
+  - r-sodium
   - bioconductor-clusterprofiler
   - bioconductor-pathview
