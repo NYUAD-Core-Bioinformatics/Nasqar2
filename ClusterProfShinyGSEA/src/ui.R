@@ -5,7 +5,7 @@ require(shinycssloaders)
 require(DT)
 require(shiny)
 
-
+library(sodium)
 library(clusterProfiler)
 library(DOSE)
 library(GOplot)
