@@ -7,7 +7,7 @@
 ################################################################################
 
 # Load helper functions for volcano plot generation
-{{HELPER_FUNCTIONS}}
+{{HELPER_FUNCTIONS_VOLCANO}}
 
 ################################################################################
 # CONFIGURATION PARAMETERS
@@ -69,8 +69,7 @@ volcano_plot <- create_volcano_plot(
   point_alpha = POINT_ALPHA,
   use_gene_names = USE_GENE_NAMES,
   genes_of_interest = GENES_OF_INTEREST,
-  max_labels = MAX_LABELS,
-  gene_annotations = if(exists("gene_annotations")) gene_annotations else NULL
+  max_labels = MAX_LABELS
 )
 
 # Display plot

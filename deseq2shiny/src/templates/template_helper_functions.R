@@ -53,17 +53,12 @@ create_ma_plot <- function(results_data, comparison_name, alpha = 0.1, ylim = 2)
 #'
 #' Prepare gene labels, preferring gene names over gene IDs
 #'
-#' @param results_data Data frame with DESeq2 results
+#' @param results_data Data frame with DESeq2 results (should include gene.name column if available)
 #' @param use_gene_names Logical, whether to use gene names
-#' @param gene_annotations Data frame with gene annotations (optional)
 #' @return Character vector of gene labels
-prepare_gene_labels <- function(results_data, use_gene_names = TRUE, gene_annotations = NULL) {
-  # Merge gene names from pipeline if available
-  if (use_gene_names && !is.null(gene_annotations)) {
-    results_data$gene.name <- gene_annotations[rownames(results_data), "gene.names"]
-  }
-  
+prepare_gene_labels <- function(results_data, use_gene_names = TRUE) {
   # Prepare gene labels - PREFER gene names over gene IDs
+  # Note: gene.name column should already be in results_data from export
   if ("gene.name" %in% colnames(results_data) && use_gene_names) {
     gene_labels <- results_data$gene.name
     # Replace NA with gene IDs
@@ -129,15 +124,14 @@ select_genes_to_label <- function(results_data, gene_labels, genes_of_interest =
 #' @param use_gene_names Logical, whether to use gene names for labels
 #' @param genes_of_interest Character vector of specific genes to label (optional)
 #' @param max_labels Integer, maximum number of labels if auto-selecting
-#' @param gene_annotations Data frame with gene annotations (optional)
 #' @return EnhancedVolcano plot object
 create_volcano_plot <- function(results_data, comparison_name, padj_threshold, 
                                 log2fc_threshold, point_size = 2.0, point_alpha = 0.5,
                                 use_gene_names = TRUE, genes_of_interest = NULL, 
-                                max_labels = 20, gene_annotations = NULL) {
+                                max_labels = 20) {
   
   # Prepare gene labels
-  gene_labels <- prepare_gene_labels(results_data, use_gene_names, gene_annotations)
+  gene_labels <- prepare_gene_labels(results_data, use_gene_names)
   
   # Count significant genes
   sig_up <- sum(results_data$padj < padj_threshold & 

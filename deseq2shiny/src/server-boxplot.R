@@ -435,21 +435,17 @@ output$download_code_boxplot <- downloadHandler(
         # For full mode, set params after saving files (to use actual filenames)
         if (export_mode != "full") {
             params <- list(
-                selected_genes = input$sel_gene,
                 x_axis = input$boxplotX,
                 fill_by = input$boxplotFill,
-                factors = input$sel_factors,
-                use_gene_names = use_gene_names_val,
                 custom_colors = if(!is.null(custom_colors) && !is.null(custom_colors$colors)) custom_colors$colors else NULL,
-                counts_file = "normalized_counts.csv",  # Generic for code-only mode
+                log2_counts_file = "log2_counts.csv",  # Generic for code-only mode
                 metadata_file = "metadata.csv",  # Generic for code-only mode
-                num_cols = 2  # Default number of columns for multi-gene plots
+                num_cols = 2,  # Default number of columns for multi-gene plots
+                num_genes = length(input$sel_gene)
             )
             
-            # Generate R code
-            r_code <- generateBoxplotCode(params, 
-                                          mode = export_mode, 
-            )
+            # Generate simplified R code (no preprocessing, just load and plot)
+            r_code <- generateBoxplotCodeSimple(params)
         }
         
         # If full mode, export data and create ZIP
@@ -465,20 +461,20 @@ output$download_code_boxplot <- downloadHandler(
                 sel_gene <- myValues$geneids[sel_gene, ]
             }
             
-            # Export normalized counts for selected genes
+            # Get normalized counts for selected genes and apply log2 transformation
             normalized_counts <- counts(myValues$dds[sel_gene, ], normalized = TRUE)
+            log2_counts <- log2(normalized_counts + 0.5)
             
-            # Add gene names if available
+            # Use gene names as rownames if available (for display in plot)
             if (use_gene_names_val && !is.null(myValues$genenames)) {
-                gene_names <- myValues$genenames[rownames(normalized_counts), ]
-                normalized_counts_df <- as.data.frame(normalized_counts)
-                normalized_counts_df <- cbind(gene.names = gene_names, normalized_counts_df)
-                normalized_counts <- normalized_counts_df
+                gene_names <- myValues$genenames[rownames(log2_counts), ]
+                rownames(log2_counts) <- gene_names
             }
             
-            counts_filename <- paste0("normalized_counts_", timestamp, ".csv")
-            counts_file <- file.path(export_dir, counts_filename)
-            write.csv(normalized_counts, counts_file, row.names = TRUE)
+            # Export log2-transformed counts (exactly what Shiny displays)
+            log2_counts_filename <- paste0("log2_counts_", timestamp, ".csv")
+            log2_counts_file <- file.path(export_dir, log2_counts_filename)
+            write.csv(log2_counts, log2_counts_file, row.names = TRUE)
             
             # Export metadata
             metadata_filename <- paste0("metadata_", timestamp, ".csv")
@@ -486,22 +482,19 @@ output$download_code_boxplot <- downloadHandler(
             write.csv(as.data.frame(colData(myValues$dds)), metadata_file, row.names = TRUE)
             
             # NOW set params with actual filenames and generate R code
+            # Use simplified template - just loads pre-processed log2 data and plots
             params <- list(
-                selected_genes = input$sel_gene,
                 x_axis = input$boxplotX,
                 fill_by = input$boxplotFill,
-                factors = input$sel_factors,
-                use_gene_names = use_gene_names_val,
                 custom_colors = if(!is.null(custom_colors) && !is.null(custom_colors$colors)) custom_colors$colors else NULL,
-                counts_file = counts_filename,  # Use actual filename with timestamp!
+                log2_counts_file = log2_counts_filename,  # Use actual filename with timestamp!
                 metadata_file = metadata_filename,  # Use actual filename with timestamp!
-                num_cols = 2
+                num_cols = 2,
+                num_genes = length(input$sel_gene)
             )
             
-            # Generate R code with correct filenames
-            r_code <- generateBoxplotCode(params, 
-                                          mode = export_mode, 
-            )
+            # Generate simplified R code (no preprocessing, just load and plot)
+            r_code <- generateBoxplotCodeSimple(params)
             
             # Write R code
             code_filename <- paste0("boxplot_", timestamp, ".R")
@@ -517,14 +510,16 @@ output$download_code_boxplot <- downloadHandler(
                 "Selected genes: ", paste(input$sel_gene, collapse = ", "), "\n\n",
                 "Files included:\n",
                 "- ", code_filename, " : R code to generate the boxplot\n",
-                "- ", counts_filename, " : Normalized counts data\n",
+                "- ", log2_counts_filename, " : Log2-transformed counts (log2(counts + 0.5))\n",
                 "- ", metadata_filename, " : Sample metadata\n",
                 "- README.txt : This file\n\n",
                 "Instructions:\n",
                 "1. Extract all files to the same directory\n",
-                "2. Open the R script in RStudio\n",
+                "2. Open the R script (", code_filename, ") in RStudio\n",
                 "3. Run the script to generate the plot\n",
-                "4. Customize colors, labels, and other parameters as needed\n"
+                "4. Customize colors, labels, and other parameters as needed\n\n",
+                "Note: Log2-transformed counts were pre-calculated by Shiny.\n",
+                "The script just loads these values and creates the boxplot.\n"
             )
             writeLines(readme_text, readme_file)
             

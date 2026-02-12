@@ -1521,6 +1521,12 @@ server <- function(input, output, session) {
                 cat("myValues$vsd:", !is.null(myValues$vsd), "\n")
                 cat("myValues$rld:", !is.null(myValues$rld), "\n")
                 cat("myValues$vsResults:", !is.null(myValues$vsResults), "\n")
+                cat("myValues$brushed_heatmap_data:", !is.null(myValues$brushed_heatmap_data), 
+                    if(!is.null(myValues$brushed_heatmap_data)) paste0("(", nrow(myValues$brushed_heatmap_data), " genes)") else "", "\n")
+                cat("myValues$brushed_venn_heatmap_data:", !is.null(myValues$brushed_venn_heatmap_data), 
+                    if(!is.null(myValues$brushed_venn_heatmap_data)) paste0("(", nrow(myValues$brushed_venn_heatmap_data), " genes)") else "", "\n")
+                cat("myValues$brushed_venn_genes:", !is.null(myValues$brushed_venn_genes), 
+                    if(!is.null(myValues$brushed_venn_genes)) paste0("(", length(myValues$brushed_venn_genes), " genes)") else "", "\n")
                 cat("input$select_avo_de_file:", if(!is.null(input$select_avo_de_file)) input$select_avo_de_file else "NULL", "\n")
                 cat("input$sel_gene:", if(!is.null(input$sel_gene)) paste(input$sel_gene, collapse=", ") else "NULL", "\n")
                 cat("input$boxplotX:", if(!is.null(input$boxplotX)) input$boxplotX else "NULL", "\n")
@@ -1560,6 +1566,14 @@ server <- function(input, output, session) {
                 # Venn set heatmap (if user has created set operations)
                 if (num_saved_contrasts > 1 && !is.null(input$venn_set_expression_input) && 
                     length(input$venn_set_expression_input) > 0 && nchar(input$venn_set_expression_input) > 0) {
+                    total_plots <- total_plots + 1
+                }
+                
+                # Brushed Venn set heatmap (if user brushed genes from Venn heatmap)
+                if (!is.null(myValues$brushed_venn_heatmap_data) && 
+                    nrow(myValues$brushed_venn_heatmap_data) > 0 &&
+                    !is.null(myValues$brushed_venn_genes) && 
+                    length(myValues$brushed_venn_genes) > 0) {
                     total_plots <- total_plots + 1
                 }
                 
@@ -1603,8 +1617,10 @@ server <- function(input, output, session) {
                             )
                             
                             # Generate code: use existing objects when in full mode for combined script
+                            # Skip helper functions since they're already loaded at the top
                             r_code <- generateVolcanoCode(params, mode = "full", 
-                                                          use_existing_objects = TRUE)
+                                                          use_existing_objects = TRUE,
+                                                          include_helpers = FALSE)
                             
                             # Store R code section for combined script with unique key
                             section_key <- paste0("volcano_", file_idx)
@@ -1800,8 +1816,10 @@ server <- function(input, output, session) {
                             )
                             
                             # Generate code: use existing objects when in full mode for combined script
+                            # Skip helper functions since they're already loaded at the top
                             r_code <- generateMAPlotCode(params, mode = "full",
-                                                        use_existing_objects = TRUE)
+                                                        use_existing_objects = TRUE,
+                                                        include_helpers = FALSE)
                             
                             # Store R code section for combined script with unique key
                             section_key <- paste0("ma_plot_", file_idx)
@@ -2050,6 +2068,54 @@ server <- function(input, output, session) {
                         }
                         fc_thresh <- as.numeric(input$venn_log_fold_change_threshold)
                         
+                        # Get the actual matrix from Shiny's evaluation (with real log2FC values!)
+                        # This avoids NA/NaN/Inf issues from rebuilding the matrix
+                        set_operation_data <- tryCatch({
+                            # Get the complete matrix from heatmap_matrix reactive
+                            hm <- heatmap_matrix()
+                            if (!is.null(hm) && nrow(hm) > 0) {
+                                # Convert gene names back to gene IDs for rownames if needed
+                                gene_ids <- rownames(hm)
+                                if (!is.null(input$gene_alias) && input$gene_alias == "included" && 
+                                    !is.null(input$venn_sel_gene_type) && input$venn_sel_gene_type == "gene.name" &&
+                                    !is.null(myValues$geneids)) {
+                                    # Reverse lookup: gene names -> gene IDs
+                                    gene_ids_mapped <- rownames(myValues$geneids)[match(gene_ids, myValues$geneids[,1])]
+                                    gene_ids <- ifelse(is.na(gene_ids_mapped), gene_ids, gene_ids_mapped)
+                                }
+                                
+                                # Create matrix with gene IDs as rownames and letter labels as colnames
+                                matrix_with_ids <- hm
+                                rownames(matrix_with_ids) <- gene_ids
+                                
+                                cat("Captured", nrow(hm), "genes ×", ncol(hm), "comparisons from Shiny's heatmap matrix\n")
+                                list(
+                                    genes = gene_ids,
+                                    matrix = matrix_with_ids,
+                                    has_data = TRUE
+                                )
+                            } else {
+                                list(genes = NULL, matrix = NULL, has_data = FALSE)
+                            }
+                        }, error = function(e) {
+                            cat("Warning: Could not capture data from heatmap_matrix:", e$message, "\n")
+                            list(genes = NULL, matrix = NULL, has_data = FALSE)
+                        })
+                        
+                        # Export the actual matrix as CSV for complete analysis
+                        if (set_operation_data$has_data && !is.null(set_operation_data$matrix)) {
+                            # Map letter labels (A, B, C) back to comparison names for CSV columns
+                            export_matrix <- set_operation_data$matrix
+                            comparison_mapping <- setNames(input$select_avo_de_venn_files, LETTERS[1:length(input$select_avo_de_venn_files)])
+                            colnames(export_matrix) <- comparison_mapping[colnames(export_matrix)]
+                            
+                            # Export matrix with comparison names as columns
+                            matrix_file <- file.path(export_dir, paste0("venn_set_matrix_", timestamp, ".csv"))
+                            write.csv(export_matrix, matrix_file, row.names = TRUE)
+                            all_files <- c(all_files, matrix_file)
+                            cat("  - Exported Venn set matrix:", nrow(export_matrix), "genes ×", ncol(export_matrix), "comparisons\n")
+                        }
+                        
                         params <- list(
                             comparisons = input$select_avo_de_venn_files,
                             set_expression = input$venn_set_expression_input,
@@ -2057,11 +2123,13 @@ server <- function(input, output, session) {
                             fc_threshold = fc_thresh,
                             use_gene_names = (!is.null(input$venn_sel_gene_type) && 
                                             input$venn_sel_gene_type == "gene.name"),
-                            num_genes = 50,  # Default number of genes to show
-                            expression_matrix_file = "set_expression_matrix.csv",  # Not needed when use_existing_objects = TRUE
+                            num_genes = if(set_operation_data$has_data) length(set_operation_data$genes) else 50,
+                            expression_matrix_file = paste0("venn_set_matrix_", timestamp, ".csv"),  # Exported matrix!
                             fontsize_row = 8,  # Default font size for gene labels
                             is_brushed = FALSE,
                             brushed_genes = NULL,
+                            brushed_gene_order = NULL,
+                            set_operation_genes = set_operation_data$genes,  # Still pass gene list for metadata
                             sample_order = NULL,
                             color_range = NULL
                         )
@@ -2113,16 +2181,33 @@ server <- function(input, output, session) {
                             cat("Using parent Venn heatmap color range:", parent_range[1], "to", parent_range[2], "\n")
                         }
                         
-                        # Use gene IDs for data extraction (these work with results_list)
+                        # Export the brushed matrix directly (already clean from Shiny)
+                        brushed_matrix <- myValues$brushed_venn_heatmap_data
+                        
+                        # Convert gene IDs back to rownames if needed
                         brushed_gene_ids <- if(!is.null(myValues$brushed_venn_gene_ids)) {
                             myValues$brushed_venn_gene_ids
                         } else {
-                            myValues$brushed_venn_genes  # Fallback if IDs not stored
+                            myValues$brushed_venn_genes
                         }
                         
-                        # Remove NAs from gene IDs (in case mapping failed)
+                        # Remove NAs
                         valid_idx <- !is.na(brushed_gene_ids)
                         valid_gene_ids <- brushed_gene_ids[valid_idx]
+                        
+                        # Create export matrix with gene IDs as rownames
+                        export_brushed_matrix <- brushed_matrix[valid_idx, , drop = FALSE]
+                        rownames(export_brushed_matrix) <- valid_gene_ids
+                        
+                        # Map letter labels to comparison names for columns
+                        comparison_mapping <- setNames(input$select_avo_de_venn_files, LETTERS[1:length(input$select_avo_de_venn_files)])
+                        colnames(export_brushed_matrix) <- comparison_mapping[colnames(export_brushed_matrix)]
+                        
+                        # Export brushed matrix
+                        brushed_matrix_file <- file.path(export_dir, paste0("venn_brushed_matrix_", timestamp, ".csv"))
+                        write.csv(export_brushed_matrix, brushed_matrix_file, row.names = TRUE)
+                        all_files <- c(all_files, brushed_matrix_file)
+                        cat("  - Exported brushed Venn matrix:", nrow(export_brushed_matrix), "genes ×", ncol(export_brushed_matrix), "comparisons\n")
                         
                         params <- list(
                             comparisons = input$select_avo_de_venn_files,
@@ -2132,11 +2217,12 @@ server <- function(input, output, session) {
                             use_gene_names = (!is.null(input$venn_sel_gene_type) && 
                                             input$venn_sel_gene_type == "gene.name"),
                             num_genes = length(valid_gene_ids),
-                            expression_matrix_file = "set_expression_matrix.csv",  # Not needed when use_existing_objects = TRUE
-                            fontsize_row = if(length(valid_gene_ids) > 50) 6 else 8,  # Adjust font size based on number of genes
+                            expression_matrix_file = paste0("venn_brushed_matrix_", timestamp, ".csv"),  # Exported brushed matrix!
+                            fontsize_row = if(length(valid_gene_ids) > 50) 6 else 8,
                             is_brushed = TRUE,
-                            brushed_genes = valid_gene_ids,  # Pass gene IDs for data extraction
+                            brushed_genes = valid_gene_ids,
                             brushed_gene_order = if(!is.null(myValues$brushed_venn_gene_order)) myValues$brushed_venn_gene_order[valid_idx] else NULL,
+                            set_operation_genes = valid_gene_ids,  # Add for template compatibility
                             sample_order = colnames(myValues$brushed_venn_heatmap_data),
                             color_range = parent_range
                         )
@@ -2158,6 +2244,10 @@ server <- function(input, output, session) {
                     current <- current + 1
                 } else {
                     cat("Brushed Venn Set Heatmap conditions not met, skipping.\n")
+                    cat("  - brushed_venn_heatmap_data:", if(!is.null(myValues$brushed_venn_heatmap_data)) 
+                        paste0("EXISTS (", nrow(myValues$brushed_venn_heatmap_data), " genes)") else "NULL", "\n")
+                    cat("  - brushed_venn_genes:", if(!is.null(myValues$brushed_venn_genes)) 
+                        paste0("EXISTS (", length(myValues$brushed_venn_genes), " genes)") else "NULL", "\n")
                 }
                 
                 cat("\n=== Export Summary ===\n")
