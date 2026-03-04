@@ -48,13 +48,19 @@ ui <- tagList(
                                 ),
                                 selected = "single"
                             ),
+                            checkboxInput("hasHeader", "Files have header row", value = FALSE),
                             fileInput("datafile", "",
                                 accept = c(
                                     "text/csv",
                                     "text/comma-separated-values,text/plain",
-                                    ".csv"
+                                    "text/tab-separated-values",
+                                    ".csv", ".txt", ".tsv"
                                 ), multiple = TRUE
                             )
+                        ),
+                        bsCollapsePanel(
+                            title = "Column Selection", value = "column_panel", style = "info",
+                            uiOutput("columnSelectionUI")
                         ),
                         bsCollapsePanel(
                             title = "Options", value = "analysis_panel",
@@ -307,8 +313,6 @@ ui <- tagList(
 options(shiny.maxRequestSize = 60 * 1024^2)
 # Define server logic required to draw a histogram ----
 server <- function(input, output, session) {
-    session$onSessionEnded(stopApp)
-
     observe({
         myValues$status <- "Upload file(s) first"
     })
@@ -460,9 +464,9 @@ server <- function(input, output, session) {
         }
 
         updateCollapse(session,
-            id = "input_collapse_panel", open = "analysis_panel",
+            id = "input_collapse_panel", open = "column_panel",
             style = list(
-                "analysis_panel" = "primary",
+                "column_panel" = "info",
                 "data_panel" = "success"
             )
         )
@@ -470,6 +474,57 @@ server <- function(input, output, session) {
         return(inFile)
     })
 
+
+    # Detect column names/indices from the first uploaded file
+    fileColumnsReactive <- reactive({
+        inFile <- input$datafile
+        if (is.null(inFile)) return(NULL)
+
+        useHeader <- isTRUE(input$hasHeader)
+
+        sep <- "\t"
+        firstFile <- tryCatch(
+            read.csv(inFile$datapath[1], header = useHeader, sep = "\t", nrows = 5),
+            error = function(e) NULL
+        )
+        if (is.null(firstFile) || ncol(firstFile) < 2) {
+            sep <- ","
+            firstFile <- tryCatch(
+                read.csv(inFile$datapath[1], header = useHeader, sep = ",", nrows = 5),
+                error = function(e) NULL
+            )
+        }
+
+        if (is.null(firstFile)) return(NULL)
+
+        if (useHeader) {
+            cols <- colnames(firstFile)
+        } else {
+            cols <- paste0("Column ", seq_len(ncol(firstFile)))
+        }
+
+        list(cols = cols, ncols = length(cols))
+    })
+
+    output$columnSelectionUI <- renderUI({
+        colInfo <- fileColumnsReactive()
+
+        if (is.null(colInfo)) {
+            return(p(em("Upload files first to see column options."), style = "color:#888;"))
+        }
+
+        cols <- colInfo$cols
+        choices <- setNames(as.list(seq_along(cols)), cols)
+        defaultCount <- if (length(cols) >= 2) 2 else 1
+
+        tagList(
+            p("Specify which columns in your files contain gene IDs and counts:"),
+            selectInput("idColumn", "Gene ID Column:", choices = choices, selected = 1),
+            if (input$mergeType == "single") {
+                selectInput("countColumn", "Count Column:", choices = choices, selected = defaultCount)
+            }
+        )
+    })
 
     analyzeDataReactive <-
         eventReactive(input$upload_data,
@@ -603,9 +658,29 @@ server <- function(input, output, session) {
     multmerge <- function(inFiles, sep, isMultiple) {
         filenames <- inFiles$datapath
 
+        idColIdx    <- if (!is.null(input$idColumn))    as.integer(input$idColumn)    else 1
+        countColIdx <- if (!is.null(input$countColumn)) as.integer(input$countColumn) else 2
+
+        useHeader <- isTRUE(input$hasHeader)
 
         datalist <- lapply(filenames, function(x) {
-            fileContent <- read.csv(file = x, header = isMultiple, sep = sep)
+            fileContent <- read.csv(file = x, header = useHeader, sep = sep)
+
+            n <- ncol(fileContent)
+
+            if (!isMultiple) {
+                # Single-sample mode: keep only the chosen ID and count columns
+                idIdx    <- min(idColIdx, n)
+                countIdx <- min(countColIdx, n)
+                fileContent <- fileContent[, c(idIdx, countIdx), drop = FALSE]
+            } else {
+                # Matrix mode: reorder so the chosen ID column is first
+                idIdx <- min(idColIdx, n)
+                if (idIdx != 1) {
+                    otherCols <- setdiff(seq_len(n), idIdx)
+                    fileContent <- fileContent[, c(idIdx, otherCols), drop = FALSE]
+                }
+            }
 
             colnames(fileContent)[1] <- "gene.ids"
             fileContent <- fileContent[!grepl("__", fileContent[, 1]), ] # remove rows containing underscores
