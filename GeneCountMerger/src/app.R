@@ -5,7 +5,6 @@ if (length(new.packages)) {
     install.packages(new.packages, repos = "https://cloud.r-project.org/", dependencies = T)
 }
 
-
 library(shiny)
 library(shinyBS)
 library(parallel)
@@ -13,6 +12,7 @@ library(shinyjs)
 library(sodium)
 library(uuid)
 library(readr)
+library(tximport)
 
 
 
@@ -38,52 +38,119 @@ ui <- tagList(
                         id = "input_collapse_panel", open = "data_panel", multiple = FALSE,
                         bsCollapsePanel(
                             title = "Upload Files", value = "data_panel", style = "primary",
-                            p("1. Select multiple files containing counts to upload (eg. output of htseq counts)"),
-                            tags$img(src = "inputFiles.png", width = "100px", height = "100px"),
-                            p(strong("Note: "), "File names will be used as sample (column) names in output table"),
-                            radioButtons("mergeType", "",
+                            radioButtons("inputType", "Input type:",
                                 c(
-                                    "Merge individual sample counts" = "single",
-                                    "Merge 2 or more matrices" = "multiple"
+                                    "Raw gene counts" = "raw",
+                                    "Kallisto estimated counts (.tsv)"              = "kallisto"
                                 ),
-                                selected = "single"
+                                selected = "raw"
                             ),
-                            checkboxInput("hasHeader", "Files have header row", value = FALSE),
-                            fileInput("datafile", "",
-                                accept = c(
-                                    "text/csv",
-                                    "text/comma-separated-values,text/plain",
-                                    "text/tab-separated-values",
-                                    ".csv", ".txt", ".tsv"
-                                ), multiple = TRUE
+                            hr(),
+
+                            # ---- RAW COUNTS ----
+                            conditionalPanel(
+                                "input.inputType == 'raw'",
+                                p("1. Select multiple files containing counts to upload"),
+                                p(strong("Note: "), "File names will be used as sample (column) names in output table"),
+                                radioButtons("mergeType", "",
+                                    c(
+                                        "Merge individual sample counts" = "single",
+                                        "Merge 2 or more matrices"       = "multiple"
+                                    ),
+                                    selected = "single"
+                                ),
+                                checkboxInput("hasHeader", "Files have header row", value = FALSE),
+                                fileInput("datafile", "",
+                                    accept = c(
+                                        "text/csv",
+                                        "text/comma-separated-values,text/plain",
+                                        "text/tab-separated-values",
+                                        ".csv", ".txt", ".tsv"
+                                    ), multiple = TRUE
+                                )
+                            ),
+
+                            # ---- KALLISTO ----
+                            conditionalPanel(
+                                "input.inputType == 'kallisto'",
+                                p("Upload one Kallisto output file per sample (output of ", code("kallisto quant"), ")."),
+                                p(strong("Note: "), "File names will be used as sample (column) names in output table"),
+                                fileInput("kallistoFiles", "",
+                                    accept  = c(".tsv", "text/tab-separated-values"),
+                                    multiple = TRUE
+                                )
                             )
                         ),
+
+                        # ------------------------------------------------------------------ #
+                        # CONFIGURE panel
+                        #   Raw mode    → column selectors (gene ID / count column)
+                        #   Kallisto    → transcript-to-gene mapping (prebuilt or custom CSV)
+                        # ------------------------------------------------------------------ #
                         bsCollapsePanel(
-                            title = "Column Selection", value = "column_panel", style = "info",
-                            uiOutput("columnSelectionUI")
-                        ),
-                        bsCollapsePanel(
-                            title = "Options", value = "analysis_panel",
+                            title = "Configure", value = "column_panel", style = "info",
+
+                            # ---- RAW: column selectors ----
+                            conditionalPanel(
+                                "input.inputType == 'raw'",
+                                uiOutput("columnSelectionUI")
+                            ),
+
+                            # ---- KALLISTO: tx2gene mapping ----
+                            conditionalPanel(
+                                "input.inputType == 'kallisto'",
+                                p(strong("Transcript-to-gene mapping:")),
+                                radioButtons("tx2geneSource", "",
+                                    c(
+                                        "Use pre-built genome mapping" = "prebuilt",
+                                        "Upload custom mapping (.csv)" = "custom"
+                                    ),
+                                    selected = "prebuilt"
+                                ),
+                                conditionalPanel(
+                                    "input.tx2geneSource == 'prebuilt'",
+                                    uiOutput("kallistoRefGenomeUI")
+                                ),
+                                conditionalPanel(
+                                    "input.tx2geneSource == 'custom'",
+                                    p("Upload a .csv with two columns:"),
+                                    tags$ul(
+                                        tags$li(strong("TX_NAME"), " – transcript IDs (must match those in the Kallisto output files)"),
+                                        tags$li(strong("GENE_ID"), " – corresponding gene IDs")
+                                    ),
+                                    p("If not available in the pre-built options and you have a .gtf file for your genome,",
+                                      a(href = "scripts/generate_tx2gene.R",
+                                        "download this R script to generate a mapping.", download = NA, target = "_blank")),
+                                    fileInput("tx2geneFile", "",
+                                        accept  = c("text/csv", ".csv"),
+                                        multiple = FALSE
+                                    )
+                                ),
+                                uiOutput("tx2genePreviewUI")
+                            ),
+                            hr(),
                             checkboxInput("addOne", "Add +1 to counts (Pseudocounts)", FALSE),
                             checkboxInput("addGeneNames", "Retrieve gene names from ensembl ids", FALSE),
                             conditionalPanel(
                                 "input.addGeneNames",
                                 wellPanel(
-                                    selectInput("refGenome", "Select genome/version:",
+
+                                    radioButtons("geneNamesSource", "",
                                         c(
-                                            "Homo_sapiens.GRCh38.81",
-                                            "Homo_sapiens.GRCh38.84",
-                                            "Mus_musculus.GRCm38.82",
-                                            "Danio_rerio.GRCz10.84",
-                                            "Drosophila_melanogaster.BDGP6.81",
-                                            "c_elegans.PRJNA13758.WS283",
-                                            "Other (not listed)"
+                                            "Use pre-built gene name mapping" = "prebuilt",
+                                            "Upload custom mapping (.csv)"    = "custom"
                                         ),
-                                        selected = "Homo_sapiens.GRCh38.81"
+                                        selected = "prebuilt"
                                     ),
                                     conditionalPanel(
-                                        "input.refGenome=='Other (not listed)'",
-                                        a(href = "https://github.com/nyuad-corebio/Nasqar2/tree/main//GeneidToNameFromGtf", "Click here if you have a .gtf file for your genome", target = "_blank"),
+                                        "input.geneNamesSource == 'prebuilt'",
+                                        uiOutput("refGenomeUI")
+                                    ),
+                                    conditionalPanel(
+                                        "input.geneNamesSource == 'custom'",
+                                        p("If not available in the options above and you have a .gtf file for your genome,",
+                                          a(href = "scripts/generate_gene_names.R",
+                                            "download this R script to generate a mapping.", download = NA, target = "_blank")),
                                         fileInput("gtfMappingFile", "Upload gene/id lookup table (.csv)",
                                             accept = c(
                                                 "text/csv",
@@ -92,6 +159,8 @@ ui <- tagList(
                                             ), multiple = F
                                         )
                                     ),
+                                    uiOutput("geneNamesPreviewUI"),
+
                                     radioButtons("geneNameColumn", "",
                                         c(
                                             "Add gene.names column after gene ids" = "add",
@@ -127,28 +196,40 @@ ui <- tagList(
                                 hr(),
                                 h4(strong("1) Introduction:")),
                                 wellPanel(
-                                    p("This is a simple preprocessing tool to merge individual gene count files (Eg. output count files from htseq)"),
-                                    p(strong("NOTE:"), "first column must contain the genes. If the gene columns do not match in all files, this tool will not work"),
+                                    p("A preprocessing tool to merge individual gene count files into a single count matrix, supporting both raw count files (e.g. HTSeq, featureCounts) and Kallisto abundance files."),
                                     hr(),
                                     h5(strong("Features")),
                                     tags$ul(
-                                        tags$li("Merge individual sample count files. See ", strong("Sample Input Files"), " below for more details"),
-                                        tags$li("Or merge", strong(" multiple matrices")),
                                         tags$li(
-                                            strong("Convert ensembl gene IDs to gene names"),
+                                            strong("Two input types:"),
                                             tags$ul(
-                                                tags$li("Option to choose from available genome/versions"),
-                                                tags$li("If genome/version is not available in the options and you have a ", a(target = "_blank", href = "https://asia.ensembl.org/info/website/upload/gff.html", ".gtf"), " file for your genome", a(href = "https://github.com/nyuad-corebio/Nasqar2/tree/main//GeneidToNameFromGtf", "follow these instructions."))
+                                                tags$li(strong("Raw counts"), " – merge individual per-sample count files (e.g. HTSeq, featureCounts). First column must contain gene IDs and must match across all files."),
+                                                tags$li(strong("Kallisto"), " – merge Kallisto output files. Requires a transcript-to-gene (tx2gene) mapping.")
                                             )
                                         ),
-                                        tags$li("Option to add ", strong("pseudocounts (+1)")),
+                                        tags$li("Or merge", strong(" multiple pre-merged matrices")),
+                                        tags$li(
+                                            strong("Transcript-to-gene mapping (Kallisto only)"),
+                                            tags$ul(
+                                                tags$li("Choose from pre-built mappings for supported genomes"),
+                                                tags$li("Or upload a custom two-column CSV with columns ", strong("TX_NAME"), " (transcript ID) and ", strong("GENE_ID"), " (gene ID). If you have a .gtf file, ", a(href = "scripts/generate_tx2gene.R", "download this R script to generate the mapping.", download = NA, target = "_blank"))
+                                            )
+                                        ),
+                                        tags$li(
+                                            strong("Convert Ensembl gene IDs to gene names"),
+                                            tags$ul(
+                                                tags$li("Choose from pre-built mappings for supported genomes"),
+                                                tags$li("Or upload a custom two-column CSV with columns ", strong("GENE_ID"), " (Ensembl gene ID) and ", strong("GENE_NAME"), " (gene symbol). If you have a .gtf file, ", a(href = "scripts/generate_gene_names.R", "download this R script to generate the mapping.", download = NA, target = "_blank"))
+                                            )
+                                        ),
+                                        tags$li("Option to add ", strong("pseudocounts (+1)"), " to all counts"),
                                         tags$li(strong("Download"), " merged counts file in .csv format"),
                                         tags$li(
-                                            strong("Transcriptome Analysis (Optional)"), " after merging your counts:",
+                                            strong("Transcriptome Analysis (Optional)"), " – launch downstream analysis directly from the merged output:",
                                             tags$ul(
-                                                tags$li("Use our ", strong("Seurat Wizard"), " to carry out single-cell RNA analysis"),
-                                                tags$li("Use ", strong("DESeq2Shiny"), " or ", strong("START"), " apps to carry out bulk RNA analysis"),
-                                                tags$li("If there are ", strong("NO replicates"), ", use DESeq2Shiny app for exploratory analysis")
+                                                tags$li("Use our ", strong("Seurat Wizard"), " for single-cell RNA analysis"),
+                                                tags$li("Use ", strong("DESeq2Shiny"), " or ", strong("START"), " for bulk RNA analysis"),
+                                                tags$li("If there are ", strong("no replicates"), ", use DESeq2Shiny for exploratory analysis")
                                             )
                                         )
                                     )
@@ -158,19 +239,46 @@ ui <- tagList(
                                 h4(strong("2) Sample Input Files:")),
                                 tags$div(
                                     class = "BoxArea2",
+                                    h5(strong("A) Raw counts")),
+                                    p("Upload one count file per sample. Each file must have:"),
+                                    tags$ul(
+                                        tags$li("Column 1 – gene IDs (must match across all files)"),
+                                        tags$li("Column 2 – raw read counts for that sample"),
+                                        tags$li(strong("No header row"), " by default (tick ", em("Files have header row"), " if your files include column names)")
+                                    ),
                                     fluidRow(
                                         column(
                                             12,
-                                            p(strong("Select multiple files to upload, E.g. Input files:")),
+                                            p(strong("Example input files (no header):")),
                                             column(
                                                 3,
                                                 p(strong(tags$em("File 1 of 8: ")), "CT6_1.txt"),
-                                                tags$img(src = "inputFiles.png", width = "100%")
+                                                tags$table(
+                                                    class = "table table-bordered table-condensed",
+                                                    style = "width:100%; font-size:12px; background-color:#fff;",
+                                                    tags$tbody(
+                                                        tags$tr(tags$td("ENSMUSG00000000001"), tags$td("27")),
+                                                        tags$tr(tags$td("ENSMUSG00000000003"), tags$td("0")),
+                                                        tags$tr(tags$td("ENSMUSG00000000028"), tags$td("155")),
+                                                        tags$tr(tags$td("ENSMUSG00000000037"), tags$td("5")),
+                                                        tags$tr(tags$td("..."),               tags$td("..."))
+                                                    )
+                                                )
                                             ),
                                             column(
                                                 3,
                                                 p(strong(tags$em("File 2 of 8: ")), "CT6_2.txt"),
-                                                tags$img(src = "inputFiles.png", width = "100%")
+                                                tags$table(
+                                                    class = "table table-bordered table-condensed",
+                                                    style = "width:100%; font-size:12px; background-color:#fff;",
+                                                    tags$tbody(
+                                                        tags$tr(tags$td("ENSMUSG00000000001"), tags$td("31")),
+                                                        tags$tr(tags$td("ENSMUSG00000000003"), tags$td("0")),
+                                                        tags$tr(tags$td("ENSMUSG00000000028"), tags$td("203")),
+                                                        tags$tr(tags$td("ENSMUSG00000000037"), tags$td("8")),
+                                                        tags$tr(tags$td("..."),               tags$td("..."))
+                                                    )
+                                                )
                                             ),
                                             column(
                                                 6,
@@ -179,13 +287,53 @@ ui <- tagList(
                                         ),
                                         div(style = "clear:both;")
                                     ),
+                                    p(strong("Note: "), "File names are used as sample (column) names in the output table. Column names can be edited after merging."),
+                                    hr(),
+                                    h5(strong("B) Kallisto")),
+                                    p("Upload all Kallisto output files (one file per sample)."),
                                     fluidRow(
                                         column(
                                             12,
-                                            p(""),
-                                            p(strong("Note: "), "File names will be used as sample (column) names in output table. You can edit the column names after merging")
-                                        )
-                                    )
+                                            p(strong("Example input files:")),
+                                            column(
+                                                5,
+                                                p(strong(tags$em("File 1 of N: ")), "sample1.tsv"),
+                                                tags$table(
+                                                    class = "table table-bordered table-condensed",
+                                                    style = "width:100%; font-size:12px; background-color:#fff;",
+                                                    tags$thead(
+                                                        tags$tr(style = "background-color:#f5f5f5;",
+                                                            tags$th("target_id"),
+                                                            tags$th("length"),
+                                                            tags$th("eff_length"),
+                                                            tags$th("est_counts"),
+                                                            tags$th("tpm")
+                                                        )
+                                                    ),
+                                                    tags$tbody(
+                                                        tags$tr(tags$td("ENSMUST00000193812"), tags$td("1070"), tags$td("880.305"), tags$td("0"),       tags$td("0")),
+                                                        tags$tr(tags$td("ENSMUST00000082908"), tags$td("110"),  tags$td("34.085"),  tags$td("0"),       tags$td("0")),
+                                                        tags$tr(tags$td("ENSMUST00000162897"), tags$td("4153"), tags$td("3963.3"),  tags$td("0"),       tags$td("0")),
+                                                        tags$tr(tags$td("ENSMUST00000195166"), tags$td("3012"), tags$td("3264.45"), tags$td("1.00032"), tags$td("0.1035")),
+                                                        tags$tr(tags$td("ENSMUST00000194454"), tags$td("2351"), tags$td("2908.04"), tags$td("1"),       tags$td("0.1161")),
+                                                        tags$tr(tags$td("..."),                tags$td("..."),  tags$td("..."),     tags$td("..."),     tags$td("..."))
+                                                    )
+                                                )
+                                            ),
+                                            column(
+                                                3,
+                                                p("etc ...")
+                                            )
+                                        ),
+                                        div(style = "clear:both;")
+                                    ),
+                                    tags$ul(
+                                        tags$li("A transcript-to-gene (tx2gene) mapping is required to summarise transcript-level estimates to gene level."),
+                                        tags$li("Choose a pre-built mapping for a supported genome, or upload a custom two-column CSV with columns ", strong("TX_NAME"), " and ", strong("GENE_ID"), "."),
+                                        tags$li("If you have a .gtf file for your genome, ", a(href = "scripts/generate_tx2gene.R", "download this R script to generate a mapping.", download = NA, target = "_blank")),
+                                        tags$li("After upload, a ", strong("preview of the first uploaded file (first 6 rows)"), " is shown automatically.")
+                                    ),
+                                    p(strong("Note: "), "File names are used as sample (column) names. Column names can be edited after merging.")
                                 ),
                                 column(12, hr()),
                                 h4(strong("3) Sample Output File:")),
@@ -193,10 +341,26 @@ ui <- tagList(
                                 tags$div(
                                     class = "BoxArea2",
                                     p(strong("Output depending on options selected:")),
+                                    p("The merged output is a ", strong("tab-separated CSV with a header row"), ". Column 1 contains gene IDs (or names if replaced); remaining columns are sample counts named after the uploaded file names."),
                                     column(
                                         12,
                                         p(strong(em("A) Without renaming/converting genes (Default)"))),
-                                        tags$img(src = "output_geneids.png", width = "100%")
+                                        tags$div(style = "overflow-x:auto;",
+                                            tags$table(
+                                                class = "table table-bordered table-condensed",
+                                                style = "width:auto; font-size:12px; background-color:#fff;",
+                                                tags$thead(tags$tr(style = "background-color:#f5f5f5;",
+                                                    tags$th("gene.ids"),            tags$th("CT6_1"), tags$th("CT6_2"), tags$th("CT6_3"), tags$th("...")
+                                                )),
+                                                tags$tbody(
+                                                    tags$tr(tags$td("ENSMUSG00000000001"), tags$td("27"),  tags$td("31"),  tags$td("18"),  tags$td("...")),
+                                                    tags$tr(tags$td("ENSMUSG00000000003"), tags$td("0"),   tags$td("0"),   tags$td("0"),   tags$td("...")),
+                                                    tags$tr(tags$td("ENSMUSG00000000028"), tags$td("155"), tags$td("203"), tags$td("98"),  tags$td("...")),
+                                                    tags$tr(tags$td("ENSMUSG00000000037"), tags$td("5"),   tags$td("8"),   tags$td("3"),   tags$td("...")),
+                                                    tags$tr(tags$td("..."),               tags$td("..."), tags$td("..."), tags$td("..."), tags$td("..."))
+                                                )
+                                            )
+                                        )
                                     ),
                                     column(
                                         12,
@@ -205,7 +369,22 @@ ui <- tagList(
                                     column(
                                         12,
                                         p(strong(em("B) Retrieve gene names (replace), E.g. output file"))),
-                                        tags$img(src = "output_genenames.png", width = "100%")
+                                        tags$div(style = "overflow-x:auto;",
+                                            tags$table(
+                                                class = "table table-bordered table-condensed",
+                                                style = "width:auto; font-size:12px; background-color:#fff;",
+                                                tags$thead(tags$tr(style = "background-color:#f5f5f5;",
+                                                    tags$th("gene.names"), tags$th("CT6_1"), tags$th("CT6_2"), tags$th("CT6_3"), tags$th("...")
+                                                )),
+                                                tags$tbody(
+                                                    tags$tr(tags$td("Gnai3"), tags$td("27"),  tags$td("31"),  tags$td("18"),  tags$td("...")),
+                                                    tags$tr(tags$td("Pbsn"),  tags$td("0"),   tags$td("0"),   tags$td("0"),   tags$td("...")),
+                                                    tags$tr(tags$td("Cdc45"), tags$td("155"), tags$td("203"), tags$td("98"),  tags$td("...")),
+                                                    tags$tr(tags$td("Hira"),  tags$td("5"),   tags$td("8"),   tags$td("3"),   tags$td("...")),
+                                                    tags$tr(tags$td("..."),   tags$td("..."), tags$td("..."), tags$td("..."), tags$td("..."))
+                                                )
+                                            )
+                                        )
                                     ),
                                     column(
                                         12,
@@ -214,7 +393,22 @@ ui <- tagList(
                                     column(
                                         12,
                                         p(strong(em("C) Retrieve gene names (add), E.g. output file"))),
-                                        tags$img(src = "output_both.png", width = "100%")
+                                        tags$div(style = "overflow-x:auto;",
+                                            tags$table(
+                                                class = "table table-bordered table-condensed",
+                                                style = "width:auto; font-size:12px; background-color:#fff;",
+                                                tags$thead(tags$tr(style = "background-color:#f5f5f5;",
+                                                    tags$th("gene.ids"),            tags$th("gene.names"), tags$th("CT6_1"), tags$th("CT6_2"), tags$th("CT6_3"), tags$th("...")
+                                                )),
+                                                tags$tbody(
+                                                    tags$tr(tags$td("ENSMUSG00000000001"), tags$td("Gnai3"), tags$td("27"),  tags$td("31"),  tags$td("18"),  tags$td("...")),
+                                                    tags$tr(tags$td("ENSMUSG00000000003"), tags$td("Pbsn"),  tags$td("0"),   tags$td("0"),   tags$td("0"),   tags$td("...")),
+                                                    tags$tr(tags$td("ENSMUSG00000000028"), tags$td("Cdc45"), tags$td("155"), tags$td("203"), tags$td("98"),  tags$td("...")),
+                                                    tags$tr(tags$td("ENSMUSG00000000037"), tags$td("Hira"),  tags$td("5"),   tags$td("8"),   tags$td("3"),   tags$td("...")),
+                                                    tags$tr(tags$td("..."),               tags$td("..."),   tags$td("..."), tags$td("..."), tags$td("..."), tags$td("..."))
+                                                )
+                                            )
+                                        )
                                     ),
                                     div(style = "clear:both;")
                                 ),
@@ -226,9 +420,27 @@ ui <- tagList(
                                     p(strong("Start your analysis by launching the appropriate application for your data")),
                                     p(strong("Your merged counts data will be automatically loaded")),
                                     fluidRow(
-                                        column(6,
-                                            offset = 3,
-                                            tags$img(src = "transcAnalysis.png", width="100%")
+                                        column(
+                                            4,
+                                            tags$div(
+                                                class = "BoxArea3", style = "text-align:center;",
+                                                p(strong("Single-Cell RNA")),
+                                                tags$span(class = "btn btn-success btn-sm", style = "width:100%; pointer-events:none;", "Seurat Wizard")
+                                            )
+                                        ),
+                                        column(
+                                            4,
+                                            tags$div(
+                                                class = "BoxArea3", style = "text-align:center;",
+                                                p(strong("Bulk RNA")),
+                                                tags$span(class = "btn btn-success btn-sm", style = "width:100%; pointer-events:none; margin-bottom:6px;", "DESeq2Shiny"),
+                                                tags$br(),
+                                                tags$span(class = "btn btn-success btn-sm", style = "width:100%; pointer-events:none; margin-top:6px;", "START")
+                                            )
+                                        ),
+                                        column(
+                                            4,
+                                            p(em("Buttons appear automatically after merging is complete."))
                                         )
                                     ),
                                     column(
@@ -267,7 +479,7 @@ ui <- tagList(
                                         downloadLink("downloadData", "Download Merged File", class = "btn btn-warning", style = "color: #fff; background-color: #9E0000; border-color: #9E0000")
                                     ),
                                     hr(),
-                                    dataTableOutput("contents")
+                                    DT::DTOutput("contents")
                                 ),
                                 conditionalPanel(
                                     "!output.filesMerged",
@@ -319,6 +531,106 @@ server <- function(input, output, session) {
 
     myValues <- reactiveValues()
 
+    # ---------------------------------------------------------------------- #
+    # tx2gene preview – loads the first 6 rows from whichever source is active
+    # ---------------------------------------------------------------------- #
+    tx2genePreviewReactive <- reactive({
+        if (!isTRUE(input$inputType == "kallisto")) return(NULL)
+
+        if (isTRUE(input$tx2geneSource == "prebuilt")) {
+            rda_path <- paste0("www/tx2gene/", input$kallistoRefGenome, ".Rda")
+            if (!file.exists(rda_path)) return(NULL)
+            e <- new.env(parent = emptyenv())
+            load(rda_path, envir = e)
+            return(head(e$tx2gene, 6))
+        } else {
+            if (is.null(input$tx2geneFile)) return(NULL)
+            tbl <- tryCatch(
+                read.csv(input$tx2geneFile$datapath, header = TRUE,
+                         colClasses = c("character", "character"),
+                         strip.white = TRUE),
+                error = function(e) NULL
+            )
+            if (is.null(tbl) || ncol(tbl) < 2) return(NULL)
+            colnames(tbl)[1:2] <- c("TX_NAME", "GENE_ID")
+            return(head(tbl, 6))
+        }
+    })
+
+    # Dynamically list only the tx2gene .Rda files that actually exist on disk
+    output$kallistoRefGenomeUI <- renderUI({
+        choices <- tools::file_path_sans_ext(
+            list.files("www/tx2gene", pattern = "\\.Rda$")
+        )
+        selectInput("kallistoRefGenome", "Select pre-built tx2gene mapping:",
+                    choices  = choices,
+                    selected = choices[1])
+    })
+
+    # Dynamically list only the gene name .Rda files that actually exist on disk
+    output$refGenomeUI <- renderUI({
+        choices <- tools::file_path_sans_ext(
+            list.files("www/gene_names", pattern = "\\.Rda$")
+        )
+        selectInput("refGenome", "Select pre-built gene name mapping:",
+                    choices  = choices,
+                    selected = choices[1])
+    })
+
+    output$tx2genePreviewUI <- renderUI({
+        preview <- tx2genePreviewReactive()
+        if (is.null(preview)) return(NULL)
+        tagList(
+            hr(),
+            p(strong("Mapping preview (first 6 rows):")),
+            tableOutput("tx2genePreviewTable")
+        )
+    })
+
+    output$tx2genePreviewTable <- renderTable({
+        tx2genePreviewReactive()
+    }, bordered = TRUE, striped = TRUE, hover = TRUE, width = "100%")
+
+    # ---------------------------------------------------------------------- #
+    # Gene names preview – first 6 rows from whichever source is active
+    # ---------------------------------------------------------------------- #
+    geneNamesPreviewReactive <- reactive({
+        if (!isTRUE(input$addGeneNames)) return(NULL)
+
+        if (isTRUE(input$geneNamesSource == "prebuilt")) {
+            rda_path <- paste0("www/gene_names/", input$refGenome, ".Rda")
+            if (!file.exists(rda_path)) return(NULL)
+            e <- new.env(parent = emptyenv())
+            load(rda_path, envir = e)
+            return(head(e$geneid2name, 6))
+        } else {
+            if (is.null(input$gtfMappingFile)) return(NULL)
+            tbl <- tryCatch(
+                read.csv(input$gtfMappingFile$datapath, header = TRUE,
+                         colClasses = c("character", "character"),
+                         strip.white = TRUE),
+                error = function(e) NULL
+            )
+            if (is.null(tbl) || ncol(tbl) < 2) return(NULL)
+            colnames(tbl)[1:2] <- c("GENE_ID", "GENE_NAME")
+            return(head(tbl, 6))
+        }
+    })
+
+    output$geneNamesPreviewUI <- renderUI({
+        preview <- geneNamesPreviewReactive()
+        if (is.null(preview)) return(NULL)
+        tagList(
+            hr(),
+            p(strong("Mapping preview (first 6 rows):")),
+            tableOutput("geneNamesPreviewTable")
+        )
+    })
+
+    output$geneNamesPreviewTable <- renderTable({
+        geneNamesPreviewReactive()
+    }, bordered = TRUE, striped = TRUE, hover = TRUE, width = "100%")
+
     output$mergeStatus <- renderUI({
         div(
             class = "alert alert-danger",
@@ -330,63 +642,74 @@ server <- function(input, output, session) {
         toggle("editColumnNamesView", TRUE)
     })
 
+    # Auto-open the Configure panel when Kallisto abundance.tsv files are uploaded,
+    # mirroring the raw-mode behaviour (inputDataReactive opens it for raw files).
+    observeEvent(input$kallistoFiles, {
+        req(input$kallistoFiles)
+        updateCollapse(session,
+            id = "input_collapse_panel", open = "column_panel",
+            style = list("column_panel" = "info", "data_panel" = "success")
+        )
+    })
 
-    output$editColumnNamesView <- renderUI({
-        tmp <- analyzeDataReactive()
-        if (!is.null(tmp)) {
-            columnNames <- colnames(tmp$data)
-
-            outputUI <- lapply(seq(length(columnNames)), function(i) {
-                output[[paste0("textboxColumns", i)]] <- renderUI({
-                    if (i == 1) {
-                        column(
-                            4,
-                            shinyjs::disabled(textInput(paste0("textboxColumns", i), paste("Column", i), columnNames[i]))
-                        )
-                    } else {
-                        column(
-                            4,
-                            # tags$label( paste("Column", i)),
-                            # div(class = "input-group form-group",
-                            #
-                            #     tags$input(id = paste0("textboxColumns",i), type = "text", class = "form-control shiny-bound-input shinyjs-resettable", value = columnNames[i]),
-                            #     tags$span(class = "input-group-btn",
-                            #               tags$button(type = "button", class = "btn btn-default action-button btn-danger", icon("times"), title = "Delete")
-                            #               )
-                            #     )
-                            #
-
-                            textInput(paste0("textboxColumns", i), paste("Column", i), columnNames[i])
-                            # actionButton("test", "",icon = icon("times"), class = "btn-sm btn-danger")
-                        )
-                    }
-                })
-            })
-
-            outputUI[[length(outputUI) + 1]] <- div(style = "clear:both;")
-
-            outputUI[[length(outputUI) + 2]] <- actionButton("saveColumnNames", "Save")
-
-
-            wellPanel(outputUI)
+    # Trigger that increments each time the Edit Column Names panel is opened.
+    # renderUI observes this trigger (not myValues$mergedData) so that the
+    # textboxes are only rebuilt when the panel opens – never while the user
+    # is actively typing inside them.
+    # Increments each time the Edit Column Names panel is opened so renderUI
+    # gets fresh input IDs — Shiny never restores a stale cached value.
+    editColsTrigger <- reactiveVal(0)
+    observeEvent(input$editCols_collapse_panel, {
+        if ("editCols_panel" %in% input$editCols_collapse_panel) {
+            editColsTrigger(editColsTrigger() + 1)
         }
     })
 
+    output$editColumnNamesView <- renderUI({
+        trigger     <- editColsTrigger()
+        columnNames <- isolate(colnames(myValues$mergedData))
+        req(length(columnNames) > 0)
+
+        outputUI <- lapply(seq_along(columnNames), function(i) {
+            id <- paste0("textboxColumns", i, "_", trigger)
+            div(style = "margin-bottom: 12px;",
+                tags$label(
+                    style = "display:block; font-weight:600;",
+                    paste0("Column ", i, ":  "),
+                    tags$small(style = "font-weight:normal; color:#555;",
+                               columnNames[i])
+                ),
+                tags$input(
+                    id       = id,
+                    type     = "text",
+                    class    = "form-control",
+                    value    = columnNames[i],
+                    style    = "width:100%;",
+                    disabled = if (i == 1) NA else NULL
+                )
+            )
+        })
+
+        outputUI[[length(outputUI) + 1]] <- tags$br()
+        outputUI[[length(outputUI) + 2]] <- actionButton("saveColumnNames", "Save")
+
+        wellPanel(style = "overflow-x: auto;", outputUI)
+    })
+
     observeEvent(input$saveColumnNames, {
-        if (!is.null(myValues$mergedData)) {
-            newColNames <- c()
-            for (i in seq(ncol(myValues$mergedData))) {
-                newColNames <- c(newColNames, input[[paste0("textboxColumns", i)]])
-            }
-
-            colnames(myValues$mergedData) <- newColNames
-
-            updateCollapse(session, id = "editCols_collapse_panel", close = "editCols_panel")
-        }
+        req(myValues$mergedData)
+        trigger     <- isolate(editColsTrigger())
+        newColNames <- sapply(seq_along(colnames(myValues$mergedData)), function(i) {
+            val <- input[[paste0("textboxColumns", i, "_", trigger)]]
+            if (is.null(val) || nchar(trimws(val)) == 0) colnames(myValues$mergedData)[i] else val
+        })
+        colnames(myValues$mergedData) <- newColNames
+        updateCollapse(session, id = "editCols_collapse_panel", close = "editCols_panel")
     })
 
 
     output$tab <- renderUI({
+        if (is.null(myValues$fileUrl)) return(NULL)
         tagList(
             h4(strong("Transcriptome Analysis (Optional):")),
             p("Start your analysis by launching the appropriate application for your data"),
@@ -438,13 +761,11 @@ server <- function(input, output, session) {
         bin2hex(ciphertext)
     }
 
-    output$contents <- renderDataTable(
+    output$contents <- DT::renderDT(
         {
-            # tmp <- analyzeDataReactive()
-            # if(!is.null(tmp)) tmp$data
-
             if (!is.null(myValues$mergedData)) myValues$mergedData
         },
+        filter  = "none",
         options = list(scrollX = TRUE, pageLength = 10)
     )
 
@@ -532,51 +853,85 @@ server <- function(input, output, session) {
             {
                 removeNotification("errorNotify")
 
-                inFile <- inputDataReactive()
-                if (is.null(inFile)) {
-                    return(NULL)
-                }
+                isKallisto <- isTRUE(input$inputType == "kallisto")
 
-                progress <- Progress$new(session, min = 0, max = 1)
-                on.exit(progress$close())
-
-                progress$set(message = "Merging files ...")
-
-                files <- list()
-
-                sep <- "\t"
-                if (length(inFile$datapath) > 0) {
-                    testSep <- read.csv(inFile$datapath[1], header = FALSE, sep = "\t")
-                    if (ncol(testSep) < 2) {
-                        sep <- ","
+                if (isKallisto) {
+                    # ------------------------------------------------------------------ #
+                    # KALLISTO PATH – import estimated counts from abundance.h5 via tximport
+                    # ------------------------------------------------------------------ #
+                    tx2geneReady <- isTRUE(input$tx2geneSource == "prebuilt") || !is.null(input$tx2geneFile)
+                    if (is.null(input$kallistoFiles) || !tx2geneReady) {
+                        return(NULL)
                     }
+
+                    progress <- Progress$new(session, min = 0, max = 1)
+                    on.exit(progress$close())
+                    progress$set(message = "Importing Kallisto counts via tximport ...")
+
+                    suppressWarnings(
+                        validate(need(
+                            tryCatch(
+                                {
+                                    total <- multmerge_kallisto(input$kallistoFiles)
+                                },
+                                error = function(e) {
+                                    myValues$status <- paste("Error: ", e$message)
+                                    updateTabsetPanel(session, "tabs", selected = "Output")
+                                    showNotification(id = "errorNotify", myValues$status, type = "error", duration = 20)
+                                    return(NULL)
+                                }
+                            ),
+                            "Error importing Kallisto files. Check!"
+                        ))
+                    )
+
                 } else {
-                    return(NULL)
+                    # ------------------------------------------------------------------ #
+                    # RAW COUNTS PATH – merge individual count files / matrices
+                    # ------------------------------------------------------------------ #
+                    inFile <- inputDataReactive()
+                    if (is.null(inFile)) {
+                        return(NULL)
+                    }
+
+                    progress <- Progress$new(session, min = 0, max = 1)
+                    on.exit(progress$close())
+                    progress$set(message = "Merging files ...")
+
+                    sep <- "\t"
+                    if (length(inFile$datapath) > 0) {
+                        testSep <- read.csv(inFile$datapath[1], header = FALSE, sep = "\t")
+                        if (ncol(testSep) < 2) {
+                            sep <- ","
+                        }
+                    } else {
+                        return(NULL)
+                    }
+
+                    # remove zero size files
+                    inFile <- inFile[inFile$size != 0, ]
+
+                    suppressWarnings(
+                        validate(need(
+                            tryCatch(
+                                {
+                                    total <- multmerge(inFile, sep, input$mergeType == "multiple")
+                                },
+                                error = function(e) {
+                                    myValues$status <- paste("Error: ", e$message, "\nMake sure your file(s) have the same dimensions")
+                                    updateTabsetPanel(session, "tabs", selected = "Output")
+                                    showNotification(id = "errorNotify", myValues$status, type = "error", duration = 20)
+                                    return(NULL)
+                                }
+                            ),
+                            "Error merging files. Check!"
+                        ))
+                    )
                 }
 
-                # remove zero size files
-                inFile <- inFile[inFile$size != 0, ]
-
-
-                ######
-                suppressWarnings(
-                    validate(need(
-                        tryCatch(
-                            {
-                                total <- multmerge(inFile, sep, input$mergeType == "multiple")
-                            },
-                            error = function(e) {
-                                myValues$status <- paste("Error: ", e$message, "\nMake sure your file(s) have the same dimensions")
-                                updateTabsetPanel(session, "tabs", selected = "Output")
-                                showNotification(id = "errorNotify", myValues$status, type = "error", duration = 20)
-                                return(NULL)
-                            }
-                        ),
-                        "Error merging files. Check!"
-                    ))
-                )
-
-
+                # ------------------------------------------------------------------ #
+                # SHARED DOWNSTREAM – gene name conversion, pseudocounts, save & launch
+                # ------------------------------------------------------------------ #
 
                 if (input$addGeneNames) {
                     geneNames <- getNamesFromEnsembl(total[, 1], progress)
@@ -711,6 +1066,61 @@ server <- function(input, output, session) {
 
 
 
+    # ---------------------------------------------------------------------- #
+    # multmerge_kallisto – import per-sample abundance.h5 files via tximport
+    #   inFiles : the data.frame returned by input$kallistoFiles
+    #   Reads input$tx2geneFile from the reactive environment (same as multmerge
+    #   reads input$idColumn / input$countColumn).
+    # ---------------------------------------------------------------------- #
+    multmerge_kallisto <- function(inFiles) {
+        # Named vector: path on server -> sample name (filename without extension)
+        sampleNames <- tools::file_path_sans_ext(inFiles$name)
+        files       <- setNames(inFiles$datapath, sampleNames)
+
+        # Load transcript-to-gene mapping (TX_NAME, GENE_ID)
+        # – prebuilt: load the pre-generated .Rda for the selected genome/version
+        # – custom  : read the user-supplied two-column CSV
+        if (isTRUE(input$tx2geneSource == "prebuilt")) {
+            rda_path <- paste0("www/tx2gene/", input$kallistoRefGenome, ".Rda")
+            if (!file.exists(rda_path)) {
+                stop(
+                    "Pre-built transcript-to-gene mapping for '", input$kallistoRefGenome, "' is not yet available. ",
+                    "Please select 'Upload custom mapping (.csv)' and supply your own tx2gene file, ",
+                    "or run www/scripts/generate_tx2gene.R to build the pre-built mappings."
+                )
+            }
+            load(rda_path)   # expects an object named 'tx2gene' in the .Rda
+        } else {
+            tx2gene <- read.csv(
+                input$tx2geneFile$datapath,
+                header      = TRUE,
+                colClasses  = c("character", "character"),
+                strip.white = TRUE
+            )
+            colnames(tx2gene)[1:2] <- c("TX_NAME", "GENE_ID")
+        }
+
+        # Import via tximport (type = "kallisto", TSV format).
+        # abundance.tsv columns: target_id, length, eff_length, est_counts, tpm
+        txi <- tximport::tximport(
+            files,
+            type            = "kallisto",
+            tx2gene         = tx2gene,
+            ignoreTxVersion = TRUE
+        )
+
+        # Round estimated counts to integers and convert to data.frame
+        counts_mat <- round(txi$counts)
+        df         <- as.data.frame(counts_mat, stringsAsFactors = FALSE)
+        df         <- cbind(gene.ids = rownames(df), df)
+        rownames(df) <- NULL
+
+        # Sort by gene id (consistent with multmerge behaviour)
+        df <- df[order(df[, 1]), ]
+
+        return(df)
+    }
+
     getNamesFromEnsembl <- function(ensNames, progress) {
         # <- Progress$new(session, min=0, max=1)
         progress$set(value = 0.3)
@@ -719,12 +1129,14 @@ server <- function(input, output, session) {
 
         # load("geneid2name.Rda")
 
-        rda_file_path <- paste0("www/gene_names/", input$refGenome, ".Rda" )
-
-        if (input$refGenome == "Other (not listed)") {
-             geneid2name <- read.csv2(input$gtfMappingFile$datapath, sep = ",", colClasses = c("character", "character"))
+        # Determine which gene name lookup to use:
+        #   1. Custom upload → read user-supplied CSV
+        #   2. Pre-built     → load from refGenome .Rda
+        if (isTRUE(input$geneNamesSource == "custom")) {
+            geneid2name <- read.csv2(input$gtfMappingFile$datapath, sep = ",",
+                                     colClasses = c("character", "character"))
         } else {
-            load(rda_file_path)
+            load(paste0("www/gene_names/", input$refGenome, ".Rda"))
         }
 
         #   ids<-bitr(ensNames, fromType = "ENSEMBL", toType = "SYMBOL", OrgDb="org.Ce.eg.db")
@@ -756,8 +1168,8 @@ server <- function(input, output, session) {
         print(paste(format(Sys.time(), "%H:%M:%OS3"), ": Started Renaming ", length(ensNames), " genes"))
         # levelsList = character(length(ensNames))
         levelsList <- parallel::parLapply(cl, ensNames, function(x) {
-            # return(ids[geneid2name$gene_id == as.character(x),]$gene_name)
-            return(geneid2name[geneid2name$gene_id == as.character(x), ]$gene_name)
+            # return(ids[geneid2name$GENE_ID == as.character(x),]$GENE_NAME)
+            return(geneid2name[geneid2name$GENE_ID == as.character(x), ]$GENE_NAME)
         })
 
         print(paste(format(Sys.time(), "%H:%M:%OS3"), ": Finished renaming"))
@@ -775,6 +1187,11 @@ server <- function(input, output, session) {
 
 
     output$filesUploaded <- reactive({
+        if (isTRUE(input$inputType == "kallisto")) {
+            h5Ready      <- !is.null(input$kallistoFiles)
+            tx2geneReady <- isTRUE(input$tx2geneSource == "prebuilt") || !is.null(input$tx2geneFile)
+            return(h5Ready && tx2geneReady)
+        }
         return(!is.null(inputDataReactive()))
     })
     outputOptions(output, "filesUploaded", suspendWhenHidden = FALSE)

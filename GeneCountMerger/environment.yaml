@@ -14,4 +14,7 @@ dependencies:
   - r-sodium
   - r-uuid
   - r-markdown
+  - bioconductor-tximport
+  - bioconductor-rhdf5
+  - r-dt
 
