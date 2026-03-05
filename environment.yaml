@@ -83,11 +83,13 @@ dependencies:
 - bioconductor-multiassayexperiment
 - bioconductor-pathview
 - bioconductor-phyloseq
+- bioconductor-rhdf5
 - bioconductor-rsamtools
 - bioconductor-s4vectors
 - bioconductor-singlecellexperiment
 - bioconductor-summarizedexperiment
 - bioconductor-sva
+- bioconductor-tximport
 - binutils
 - biom-format
 - bpp-core
