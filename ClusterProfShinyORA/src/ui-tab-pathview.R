@@ -10,7 +10,7 @@ tabItem(
                 multiple = F,
                 options = list(
                     placeholder =
-                        "Start typing pathway id"
+                        "Start typing pathway id or name"
                 )
             )
         ),
@@ -19,8 +19,24 @@ tabItem(
             selectInput("geneid_type", "Gene ID type:", choices = c(""), selected = NULL)
         ),
         column(
+            12,
+            uiOutput("keggColorUrl")
+        ),
+        tags$hr(),
+        column(
+            12,
+            tags$p(
+                class = "text-muted",
+                style = "font-size:12px;",
+                icon("info-circle"),
+                " The KEGG link above opens the pathway directly in your browser with genes colored by fold change — no computation needed.",
+                tags$br(),
+                "Use ", tags$strong("Generate Pathview"), " below to download a local PNG/PDF overlay instead."
+            )
+        ),
+        column(
             6,
-            actionButton("generatePathview", "Generate Pathview", class = "btn btn-info")
+            actionButton("generatePathview", "Generate Pathview (local PNG/PDF)", class = "btn btn-info")
         ),
         conditionalPanel(
             "output.pathviewPlotsAvailable",
@@ -35,5 +51,10 @@ tabItem(
         ),
         tags$div(class = "clearBoth")
     ),
-    withSpinner(imageOutput(outputId = "pathview_plot", inline = T), type = 8)
+    fluidRow(
+        column(12, uiOutput("pathwayGenesTableUI"))
+    ),
+    fluidRow(
+        column(12, withSpinner(imageOutput(outputId = "pathview_plot", inline = T), type = 8))
+    )
 )

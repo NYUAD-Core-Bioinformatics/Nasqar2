@@ -100,6 +100,13 @@ inputDataReactive <- reactive({
     js$addStatusIcon("datainput", "loading")
 
     if (!is.null(inFile)) {
+        if (!file.exists(inFile$datapath)) {
+            showNotification(
+                "The uploaded file is no longer available (session may have restarted). Please re-upload your file.",
+                type = "warning", duration = NULL
+            )
+            return(NULL)
+        }
         seqdata <- read.csv(inFile$datapath, header = TRUE, sep = ",")
         print("uploaded seqdata")
         if (ncol(seqdata) == 1) { # if file appears not to work as csv try tsv

@@ -16,6 +16,21 @@ library(wordcloud2)
 # BiocInstaller::biocLite(c("org.Hs.eg.db","org.Mm.eg.db","org.Rn.eg.db","org.Sc.sgd.db","org.Dm.eg.db","org.At.tair.db","org.Dr.eg.db","org.Bt.eg.db","org.Ce.eg.db","org.Gg.eg.db","org.Cf.eg.db","org.Ss.eg.db","org.Mmu.eg.db","org.EcK12.eg.db","org.Xl.eg.db","org.Pt.eg.db","org.Ag.eg.db","org.Pf.plasmo.db","org.EcSakai.eg.db"))
 
 
+# UI helper: small PNG / PDF / SVG download strip placed below a plotOutput
+plot_dl_buttons <- function(plot_id) {
+    tags$div(
+        style = "margin-top:6px;",
+        downloadButton(paste0("dl_", plot_id, "_png"), "PNG",
+                       class = "btn btn-xs btn-default"),
+        tags$span("\u00a0"),
+        downloadButton(paste0("dl_", plot_id, "_pdf"), "PDF",
+                       class = "btn btn-xs btn-default"),
+        tags$span("\u00a0"),
+        downloadButton(paste0("dl_", plot_id, "_svg"), "SVG",
+                       class = "btn btn-xs btn-default")
+    )
+}
+
 ui <- tagList(
     dashboardPage(
         #skin = "purple",
@@ -44,7 +59,54 @@ ui <- tagList(
                     type = "text/css",
                     "#pathview_plot img {max-width: 100%; width: 100%; height: auto}"
                 ),
-                tags$link(rel = "stylesheet", type = "text/css", href = "custom.css")
+                tags$link(rel = "stylesheet", type = "text/css", href = "custom.css"),
+                tags$script(HTML("
+                    function resizeGoUpset() {
+                        var el = document.getElementById('genesInGoTerm');
+                        if (el) Plotly.Plots.resize(el);
+                    }
+                    /* Resize when GO Plots tab becomes visible */
+                    $(document).on('shown.bs.tab', function() {
+                        setTimeout(resizeGoUpset, 150);
+                    });
+                    /* Also resize on any Shiny output update for this plot */
+                    $(document).on('shiny:value', function(e) {
+                        if (e.name === 'genesInGoTerm') {
+                            setTimeout(resizeGoUpset, 150);
+                        }
+                    });
+                ")),
+                tags$style(HTML("
+                    .help-tip {
+                        position: relative;
+                        display: inline-block;
+                        color: #3c8dbc;
+                        cursor: help;
+                        vertical-align: middle;
+                        margin-left: 4px;
+                    }
+                    .help-tip-content {
+                        display: none !important;
+                        position: absolute;
+                        z-index: 9999;
+                        width: 300px;
+                        background: #fff;
+                        color: #333;
+                        border: 1px solid #ccc;
+                        border-radius: 5px;
+                        padding: 10px 14px;
+                        font-size: 13px;
+                        font-weight: normal;
+                        line-height: 1.55;
+                        box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+                        left: 22px;
+                        top: -6px;
+                        white-space: normal;
+                    }
+                    .help-tip:hover .help-tip-content {
+                        display: block !important;
+                    }
+                "))
             ),
             tabItems(
                 source("ui-tab-intro.R", local = TRUE)$value,

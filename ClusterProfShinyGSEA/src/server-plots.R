@@ -1,139 +1,622 @@
-output$dotPlot <- renderPlot({
-    withProgress(message = "Plotting dotplot ...", {
-        go_gse <- gseGoReactive()$go_gse
+### GO ───────────────────────────────────────────────────────────────────────
 
-        dotplot(go_gse,
-            # drop = TRUE,
-            showCategory = input$showCategory_dot,
-            # title = "GO Biological Pathways",
-            font.size = 8,
-            split = ".sign"
-        ) + facet_grid(. ~ .sign)
-    })
-})
-
-output$gsePlotMap <- renderPlot({
-    withProgress(message = "Plotting  enrichment map ...", {
-        go_gse <- gseGoReactive()$go_gse
-
-        emapplot(pairwise_termsim(go_gse), showCategory = input$showCategory_enrichmap)
-    })
-})
-
-
-output$ridgePlot <- renderPlot({
-    withProgress(message = "Plotting ridgeplot ...", {
-        go_gse <- gseGoReactive()$go_gse
-
-        ridgeplot(go_gse,
-            showCategory = input$showCategory_ridge
+# Info banner shown at the top of the GO Plots tab
+output$goPlots_selectionBanner <- renderUI({
+    go_gse <- gseGoReactive()$go_gse
+    req(!is.null(go_gse))
+    s <- input$go_checked_rows
+    if (!is.null(s) && length(s) > 0) {
+        descs <- go_gse@result$Description[s]
+        tags$div(
+            class = "alert alert-info",
+            style = "margin-bottom:10px;",
+            icon("filter"),
+            strong(paste0(" Plotting ", length(s), " selected term(s): ")),
+            paste(descs, collapse = ", ")
         )
-    })
-})
-
-
-
-output$gseaplot <- renderPlot({
-    withProgress(message = "Plotting  gsea plot ...", {
-        go_gse <- gseGoReactive()$go_gse
-
-        # Use the `Gene Set` param for the index in the title, and as the value for geneSetId
-        gseaplot(go_gse, by = "all", title = go_gse$Description[input$geneSetId_gsea], geneSetID = input$geneSetId_gsea)
-
-        # goplot(go_gse, showCategory = input$showCategory_goplot)
-    })
-})
-
-output$cnetplot <- renderPlot({
-    withProgress(message = "Plotting Gene-Concept Network ...", {
-        go_gse <- gseGoReactive()$go_gse
-
-        cnetplot(go_gse, categorySize = "pvalue", color.params = list(foldChange = myValues$gene_list), showCategory = input$showCategory_cnet)
-    })
-})
-
-
-
-### KEGG
-
-
-output$dotPlot_kegg <- renderPlot({
-    withProgress(message = "Plotting dotplot ...", {
-        kegg_gse <- gseGoReactive()$kegg_gse
-
-        dotplot(kegg_gse,
-            # drop = TRUE,
-            showCategory = input$showCategory_dot_kegg,
-            title = "Enriched Pathways",
-            font.size = 8
+    } else {
+        n_avail <- nrow(go_gse@result)
+        tags$div(
+            class = "alert alert-warning",
+            style = "margin-bottom:10px;",
+            icon("info-circle"),
+            strong(" No terms selected — "),
+            paste0("showing top ", input$showCategory_go_global, " of ", n_avail,
+                   " terms. Select rows in the gseGO tab to customise.")
         )
-    })
+    }
 })
 
-output$gsePlotMap_kegg <- renderPlot({
-    withProgress(message = "Plotting Enrichment Map ...", {
-        kegg_gse <- gseGoReactive()$kegg_gse
+# Reactive: go_gse filtered to checkbox-selected rows.
+# Falls back to top N (global input) when nothing is checked.
+gseGoForPlots <- reactive({
+    go_gse <- gseGoReactive()$go_gse
+    req(!is.null(go_gse), nrow(go_gse@result) > 0)
 
-        emapplot(pairwise_termsim(kegg_gse), showCategory = input$showCategory_enrichmap_kegg)
-    })
+    s <- input$go_checked_rows
+    idx <- if (!is.null(s) && length(s) > 0) {
+        s
+    } else {
+        seq_len(min(input$showCategory_go_global, nrow(go_gse@result)))
+    }
+
+    gs <- go_gse
+    gs@result <- go_gse@result[idx, , drop = FALSE]
+    gs
 })
 
+# Keep the global GO category input in sync and disable when terms are selected
+observe({
+    s      <- input$go_checked_rows
+    gs_full <- gseGoReactive()$go_gse
+    n      <- if (!is.null(gs_full)) nrow(gs_full@result) else 1L
 
-output$cnetplot_kegg <- renderPlot({
-    withProgress(message = "Plotting Gene-Concept Network ...", {
-        kegg_gse <- gseGoReactive()$kegg_gse
-
-        cnetplot(kegg_gse, categorySize = "pvalue", color.params = list(foldChange = myValues$kegg_gene_list), showCategory = input$showCategory_cnet_kegg)
-    })
+    if (!is.null(s) && length(s) > 0) {
+        shinyjs::disable("showCategory_go_global")
+    } else {
+        shinyjs::enable("showCategory_go_global")
+        cur_val <- isolate(input$showCategory_go_global)
+        if (!is.null(cur_val) && cur_val > n) {
+            updateNumericInput(session, "showCategory_go_global", max = n, value = n)
+        } else {
+            updateNumericInput(session, "showCategory_go_global", max = n)
+        }
+    }
 })
 
-output$ridgePlot_kegg <- renderPlot({
-    withProgress(message = "Plotting ridgeplot ...", {
-        kegg_gse <- gseGoReactive()$kegg_gse
+# ── Interactive plotly UpSet plot for GO terms ────────────────────────────────
+output$genesInGoTerm <- plotly::renderPlotly({
+    gse_data <- gseGoReactive()
+    req(!is.null(gse_data))
+    go_gse <- gse_data$go_gse
+    req(!is.null(go_gse), nrow(go_gse@result) > 0)
 
-        ridgeplot(kegg_gse,
-            showCategory = input$showCategory_ridge_kegg
+    s <- input$go_checked_rows
+    if (is.null(s) || length(s) == 0) s <- seq_len(min(input$showCategory_go_global, nrow(go_gse@result)))
+    validate(need(length(s) >= 2, "Please select at least 2 GO terms to view the gene intersection plot."))
+
+    go_gse_readable <- tryCatch(
+        setReadable(go_gse, OrgDb = input$organismDb, keyType = "ENTREZID"),
+        error = function(e) go_gse
+    )
+    selected_results <- go_gse_readable@result[s, , drop = FALSE]
+
+    set_labels <- substr(selected_results$Description, 1, 35)
+    gene_sets  <- setNames(
+        lapply(selected_results$core_enrichment, function(g) unlist(strsplit(g, "/"))),
+        set_labels
+    )
+    gene_sets  <- gene_sets[order(sapply(gene_sets, length))]
+    set_labels <- names(gene_sets)
+    n_sets     <- length(gene_sets)
+    all_genes  <- unique(unlist(gene_sets))
+
+    membership_mat  <- sapply(gene_sets, function(gs) as.integer(all_genes %in% gs))
+    rownames(membership_mat) <- all_genes
+    patterns        <- apply(membership_mat, 1, paste, collapse = "")
+    by_pattern      <- split(all_genes, patterns)
+    sizes           <- sapply(by_pattern, length)
+    ord             <- order(sizes, decreasing = TRUE)
+    sorted_patterns <- names(by_pattern)[ord]
+    sorted_sizes    <- sizes[ord]
+    sorted_genes    <- by_pattern[ord]
+    n_inter         <- length(sorted_patterns)
+    x_pos           <- seq_len(n_inter)
+
+    get_label <- function(pat) {
+        bits <- as.integer(strsplit(pat, "")[[1]])
+        paste(set_labels[which(bits == 1)], collapse = " \u2229 ")
+    }
+    inter_labels <- sapply(sorted_patterns, get_label)
+
+    myValues$go_sorted_genes <- sorted_genes
+    myValues$go_inter_labels <- inter_labels
+
+    p_top <- plotly::plot_ly(
+        x = x_pos, y = sorted_sizes,
+        type = "bar",
+        marker = list(color = "#2c3e50"),
+        text = paste0(sorted_sizes, " genes — click to see"),
+        hoverinfo = "text", textposition = "none"
+    ) %>% plotly::layout(
+        xaxis = list(showticklabels = FALSE, zeroline = FALSE, showgrid = FALSE, range = c(0.5, n_inter + 0.5)),
+        yaxis = list(title = "Intersection Size"),
+        showlegend = FALSE, bargap = 0.35
+    )
+
+    dot_df <- expand.grid(x = x_pos, y = seq_len(n_sets))
+    dot_df$filled <- mapply(function(xi, yi) {
+        as.integer(strsplit(sorted_patterns[xi], "")[[1]])[yi] == 1
+    }, dot_df$x, dot_df$y)
+
+    p_bottom <- plotly::plot_ly(hoverinfo = "none") %>%
+        plotly::add_markers(
+            data = dot_df[!dot_df$filled, ], x = ~x, y = ~y,
+            marker = list(color = "#cccccc", size = 10), showlegend = FALSE
+        ) %>%
+        plotly::add_markers(
+            data = dot_df[dot_df$filled, ], x = ~x, y = ~y,
+            marker = list(color = "#2c3e50", size = 12), showlegend = FALSE
+        ) %>%
+        plotly::layout(
+            xaxis = list(showticklabels = FALSE, zeroline = FALSE, showgrid = FALSE, range = c(0.5, n_inter + 0.5)),
+            yaxis = list(ticktext = set_labels, tickvals = seq_len(n_sets), tickmode = "array", zeroline = FALSE, showgrid = FALSE),
+            showlegend = FALSE
         )
+
+    for (xi in x_pos) {
+        bits     <- as.integer(strsplit(sorted_patterns[xi], "")[[1]])
+        filled_y <- which(bits == 1)
+        if (length(filled_y) >= 2) {
+            p_bottom <- p_bottom %>%
+                plotly::add_segments(
+                    x = xi, xend = xi, y = min(filled_y), yend = max(filled_y),
+                    line = list(color = "#2c3e50", width = 2),
+                    hoverinfo = "none", showlegend = FALSE
+                )
+        }
+    }
+
+    plotly::subplot(p_top, p_bottom, nrows = 2, heights = c(0.55, 0.45),
+                    shareX = TRUE, titleY = TRUE) %>%
+        plotly::layout(plot_bgcolor = "#ffffff", paper_bgcolor = "#ffffff",
+                       margin = list(l = 220), autosize = TRUE) %>%
+        plotly::config(responsive = TRUE) %>%
+        htmlwidgets::onRender("function(el) { setTimeout(function() { Plotly.Plots.resize(el); }, 300); }")
+})
+
+observeEvent(plotly::event_data("plotly_click", source = "A"), {
+    click    <- plotly::event_data("plotly_click", source = "A")
+    s_genes  <- myValues$go_sorted_genes
+    s_labels <- myValues$go_inter_labels
+    req(!is.null(click), !is.null(s_genes))
+    req(isTRUE(click$curveNumber == 0))
+
+    bar_idx <- round(click$x)
+    req(bar_idx >= 1, bar_idx <= length(s_genes))
+    myValues$go_clicked_inter_genes <- sort(s_genes[[bar_idx]])
+    myValues$go_clicked_inter_label <- s_labels[bar_idx]
+})
+
+observeEvent(input$go_checked_rows, {
+    myValues$go_clicked_inter_genes <- NULL
+    myValues$go_clicked_inter_label <- NULL
+}, ignoreNULL = FALSE)
+
+output$go_clicked_genes_inline <- renderUI({
+    req(myValues$go_clicked_inter_genes)
+    tagList(
+        tags$hr(),
+        h4(strong(paste0(myValues$go_clicked_inter_label, "  \u2014  ", length(myValues$go_clicked_inter_genes), " genes"))),
+        DT::dataTableOutput("go_clicked_genes_table")
+    )
+})
+
+output$go_clicked_genes_table <- DT::renderDataTable({
+    req(myValues$go_clicked_inter_genes)
+    DT::datatable(data.frame(Gene = myValues$go_clicked_inter_genes),
+                  options = list(pageLength = 25, scrollX = TRUE), rownames = FALSE)
+})
+
+output$genesGoMembershipTable <- renderDataTable({
+    gse_data <- gseGoReactive()
+    req(!is.null(gse_data))
+    go_gse <- gse_data$go_gse
+    s <- input$go_checked_rows
+    if (is.null(s) || length(s) == 0) s <- seq_len(min(input$showCategory_go_global, nrow(go_gse@result)))
+    req(nrow(go_gse@result) > 0)
+
+    go_gse_readable <- tryCatch(
+        setReadable(go_gse, OrgDb = input$organismDb, keyType = "ENTREZID"),
+        error = function(e) go_gse
+    )
+    selected_results <- go_gse_readable@result[s, , drop = FALSE]
+    all_genes <- unique(unlist(lapply(selected_results$core_enrichment, function(g) unlist(strsplit(g, "/")))))
+
+    membership <- data.frame(Gene = sort(all_genes), stringsAsFactors = FALSE)
+    for (i in seq_len(nrow(selected_results))) {
+        term_genes <- unlist(strsplit(selected_results$core_enrichment[i], "/"))
+        col_name   <- substr(selected_results$Description[i], 1, 35)
+        membership[[col_name]] <- ifelse(membership$Gene %in% term_genes, "\u2713", "")
+    }
+    DT::datatable(membership, options = list(scrollX = TRUE, pageLength = 25), rownames = FALSE)
+})
+
+# ── GO plot reactives (shared between renderPlot and downloadHandlers) ─────────
+
+plot_dotPlot <- reactive({
+    gs <- gseGoForPlots(); n <- nrow(gs@result); req(n > 0)
+    dotplot(gs, showCategory = n, font.size = 8, split = ".sign") + facet_grid(. ~ .sign)
+})
+plot_gsePlotMap <- reactive({
+    gs <- gseGoForPlots(); n <- nrow(gs@result); req(n > 0)
+    validate(need(n >= 2, "Enrichment map requires at least 2 terms."))
+    tryCatch(emapplot(pairwise_termsim(gs), showCategory = n),
+             error = function(e) validate(need(FALSE, conditionMessage(e))))
+})
+plot_ridgePlot <- reactive({
+    gs <- gseGoForPlots(); n <- nrow(gs@result); req(n > 0)
+    ridgeplot(gs, showCategory = n)
+})
+plot_gseaplot <- reactive({
+    gs <- gseGoForPlots(); n <- nrow(gs@result); req(n > 0)
+    idx <- max(1L, min(input$geneSetId_gsea, n))
+    gseaplot(gs, by = "all", title = gs$Description[idx], geneSetID = idx)
+})
+plot_cnetplot <- reactive({
+    gs <- gseGoForPlots(); n <- nrow(gs@result); req(n > 0)
+    cnetplot(gs, showCategory = n, categorySize = "pvalue",
+             color.params = list(foldChange = myValues$gene_list))
+})
+
+output$dotPlot   <- renderPlot({ withProgress(message = "Plotting dotplot ...",               plot_dotPlot()) })
+output$gsePlotMap <- renderPlot({ withProgress(message = "Plotting enrichment map ...",        plot_gsePlotMap()) })
+output$ridgePlot <- renderPlot({ withProgress(message = "Plotting ridgeplot ...",             plot_ridgePlot()) })
+output$gseaplot  <- renderPlot({ withProgress(message = "Plotting GSEA plot ...",             plot_gseaplot()) })
+output$cnetplot  <- renderPlot({ withProgress(message = "Plotting Gene-Concept Network ...",  plot_cnetplot()) })
+
+make_downloader(output, "dotPlot",    plot_dotPlot,    width = 10, height = 7)
+make_downloader(output, "gsePlotMap", plot_gsePlotMap, width = 10, height = 8)
+make_downloader(output, "ridgePlot",  plot_ridgePlot,  width = 10, height = 8)
+make_downloader(output, "gseaplot",   plot_gseaplot,   width = 10, height = 6)
+make_downloader(output, "cnetplot",   plot_cnetplot,   width = 10, height = 8)
+
+
+### KEGG ─────────────────────────────────────────────────────────────────────
+
+# Info banner shown at the top of the KEGG Plots tab
+output$keggPlots_selectionBanner <- renderUI({
+    kegg_gse <- gseGoReactive()$kegg_gse
+    req(!is.null(kegg_gse))
+    s <- input$kegg_checked_rows
+    if (!is.null(s) && length(s) > 0) {
+        ids <- kegg_gse@result$ID[s]
+        tags$div(
+            class = "alert alert-info",
+            style = "margin-bottom:10px;",
+            icon("filter"),
+            strong(paste0(" Plotting ", length(ids), " selected pathway(s): ")),
+            paste(ids, collapse = ", ")
+        )
+    } else {
+        n_avail <- nrow(kegg_gse@result)
+        tags$div(
+            class = "alert alert-warning",
+            style = "margin-bottom:10px;",
+            icon("info-circle"),
+            strong(" No pathways selected — "),
+            paste0("showing top ", input$showCategory_kegg_global, " of ", n_avail,
+                   " pathways. Select rows in the gseKEGG tab to customise.")
+        )
+    }
+})
+
+# Reactive: kegg_gse filtered to checkbox-selected rows.
+gseKeggForPlots <- reactive({
+    kegg_gse <- gseGoReactive()$kegg_gse
+    req(!is.null(kegg_gse), nrow(kegg_gse@result) > 0)
+
+    s <- input$kegg_checked_rows
+    idx <- if (!is.null(s) && length(s) > 0) {
+        s
+    } else {
+        seq_len(min(input$showCategory_kegg_global, nrow(kegg_gse@result)))
+    }
+
+    ks <- kegg_gse
+    ks@result <- kegg_gse@result[idx, , drop = FALSE]
+    ks
+})
+
+# Reset global KEGG category input when fresh KEGG results arrive
+observeEvent(gseGoReactive()$kegg_gse, {
+    ks_full <- gseGoReactive()$kegg_gse
+    req(!is.null(ks_full))
+    n <- nrow(ks_full@result)
+    updateNumericInput(session, "showCategory_kegg_global", max = n, value = min(5L, n))
+}, ignoreNULL = TRUE)
+
+# Keep global KEGG category input in sync and disable when pathways are selected
+observe({
+    s       <- input$kegg_checked_rows
+    ks_full <- gseGoReactive()$kegg_gse
+    n       <- if (!is.null(ks_full)) nrow(ks_full@result) else 1L
+
+    if (!is.null(s) && length(s) > 0) {
+        shinyjs::disable("showCategory_kegg_global")
+    } else {
+        shinyjs::enable("showCategory_kegg_global")
+        cur_val     <- isolate(input$showCategory_kegg_global)
+        default_val <- min(5L, n)
+        if (is.null(cur_val) || cur_val < 1) {
+            updateNumericInput(session, "showCategory_kegg_global", max = n, value = default_val)
+        } else if (cur_val > n) {
+            updateNumericInput(session, "showCategory_kegg_global", max = n, value = n)
+        } else {
+            updateNumericInput(session, "showCategory_kegg_global", max = n)
+        }
+    }
+})
+
+# ── KEGG plot reactives ────────────────────────────────────────────────────────
+
+plot_dotPlot_kegg <- reactive({
+    ks <- gseKeggForPlots(); n <- nrow(ks@result); req(n > 0)
+    dotplot(ks, showCategory = n, title = "Enriched Pathways", font.size = 8)
+})
+plot_gsePlotMap_kegg <- reactive({
+    ks <- gseKeggForPlots(); n <- nrow(ks@result); req(n > 0)
+    validate(need(n >= 2, "Enrichment map requires at least 2 pathways."))
+    tryCatch(emapplot(pairwise_termsim(ks), showCategory = n),
+             error = function(e) validate(need(FALSE, conditionMessage(e))))
+})
+plot_cnetplot_kegg <- reactive({
+    ks <- gseKeggForPlots(); n <- nrow(ks@result); req(n > 0)
+    ks_readable <- tryCatch(
+        setReadable(ks, OrgDb = input$organismDb, keyType = "ENTREZID"),
+        error = function(e) ks
+    )
+    cnetplot(ks_readable, showCategory = n, categorySize = "pvalue",
+             color.params = list(foldChange = myValues$kegg_gene_list))
+})
+plot_ridgePlot_kegg <- reactive({
+    ks <- gseKeggForPlots(); n <- nrow(ks@result); req(n > 0)
+    ridgeplot(ks, showCategory = n)
+})
+plot_gseaplot_kegg <- reactive({
+    ks <- gseKeggForPlots(); n <- nrow(ks@result); req(n > 0)
+    idx <- max(1L, min(input$geneSetId_gsea_kegg, n))
+    gseaplot(ks, by = "all", title = ks$Description[idx], geneSetID = idx)
+})
+
+output$dotPlot_kegg    <- renderPlot({ withProgress(message = "Plotting dotplot ...",               plot_dotPlot_kegg()) })
+output$gsePlotMap_kegg <- renderPlot({ withProgress(message = "Plotting Enrichment Map ...",        plot_gsePlotMap_kegg()) })
+output$cnetplot_kegg   <- renderPlot({ withProgress(message = "Plotting Gene-Concept Network ...",  plot_cnetplot_kegg()) })
+output$ridgePlot_kegg  <- renderPlot({ withProgress(message = "Plotting ridgeplot ...",             plot_ridgePlot_kegg()) })
+output$gseaplot_kegg   <- renderPlot({ withProgress(message = "Plotting GSEA plot ...",             plot_gseaplot_kegg()) })
+
+make_downloader(output, "dotPlot_kegg",    plot_dotPlot_kegg,    width = 10, height = 7)
+make_downloader(output, "gsePlotMap_kegg", plot_gsePlotMap_kegg, width = 10, height = 8)
+make_downloader(output, "cnetplot_kegg",   plot_cnetplot_kegg,   width = 10, height = 8)
+make_downloader(output, "ridgePlot_kegg",  plot_ridgePlot_kegg,  width = 10, height = 8)
+make_downloader(output, "gseaplot_kegg",   plot_gseaplot_kegg,   width = 10, height = 6)
+
+
+# Green-white-red palette: green (down) → lightgrey → red (up)
+fc_to_hex <- function(fc_values, max_abs_fc = NULL) {
+    if (length(fc_values) == 0) return(character(0))
+    if (is.null(max_abs_fc)) max_abs_fc <- max(abs(fc_values), na.rm = TRUE)
+    if (!is.finite(max_abs_fc) || max_abs_fc == 0) return(rep("#d3d3d3", length(fc_values)))
+    pal    <- grDevices::colorRampPalette(c("#1a9641", "#d3d3d3", "#d7191c"))
+    colors <- pal(101)
+    sapply(fc_values, function(fc) {
+        idx <- round(50 + 50 * max(min(fc / max_abs_fc, 1), -1))
+        colors[idx + 1]
     })
+}
+
+# Reactive: build the KEGG reference-map coloring URL for the selected pathway.
+# Format: map{id}/{KO_id}%09%23{hex}  e.g. map04130/K08513%09%23FBEAE9
+keggColorUrl <- reactive({
+    req(input$pathwayIds, myValues$kegg_gene_list)
+    kegg_gse <- gseGoReactive()$kegg_gse
+    req(!is.null(kegg_gse))
+
+    pathway_row <- kegg_gse@result[kegg_gse@result$ID == input$pathwayIds, , drop = FALSE]
+    req(nrow(pathway_row) > 0, nzchar(pathway_row$core_enrichment[1]))
+
+    gene_ids <- unlist(strsplit(pathway_row$core_enrichment[1], "/"))
+    gene_fcs <- myValues$kegg_gene_list[gene_ids]
+    gene_fcs <- na.omit(gene_fcs)
+    req(length(gene_fcs) > 0)
+
+    max_abs_fc <- max(abs(myValues$kegg_gene_list), na.rm = TRUE)
+    bg_colors  <- fc_to_hex(gene_fcs, max_abs_fc)
+
+    # Convert ENTREZ IDs → KO IDs  (e.g. "38742" → "K08513")
+    entrez_ids <- names(gene_fcs)
+    org        <- myValues$organismKegg
+    ko_map     <- build_ko_map(entrez_ids, org)
+    ko_ids     <- ko_map[as.character(entrez_ids)]
+
+    # Drop genes with no KO assignment or empty KO string
+    valid      <- !is.na(ko_ids) & nzchar(ko_ids)
+    ko_ids     <- ko_ids[valid]
+    bg_colors  <- bg_colors[valid]
+    req(length(ko_ids) > 0)   # hide button entirely if no valid KO mappings
+
+    # Use reference map ID: dme04080 → map04080
+    map_id <- sub("^[a-z]+", "map", input$pathwayIds)
+    parts  <- paste0(ko_ids, "%09%23", substring(bg_colors, 2))
+    paste0("https://www.kegg.jp/kegg-bin/show_pathway?",
+           map_id, "/",
+           paste(parts, collapse = "/"))
+})
+
+output$keggColorUrl <- renderUI({
+    url <- tryCatch(keggColorUrl(), error = function(e) NULL)
+    req(!is.null(url))
+    tagList(
+        tags$a(
+            href   = url,
+            target = "_blank",
+            class  = "btn btn-success",
+            style  = "margin-top:6px;",
+            icon("external-link"), " View on KEGG (colored by fold change)"
+        ),
+        tags$p(
+            class = "text-muted",
+            style = "font-size:11px; margin-top:4px;",
+            "Genes colored: red = up-regulated, green = down-regulated. ",
+            "Color intensity scales with log2 fold change magnitude."
+        )
+    )
 })
 
 
+# ── Pathway gene table ────────────────────────────────────────────────────────
+# Reactive: build gene table for selected pathway (ENTREZ → Symbol + LFC)
+pathwayGenesDf <- reactive({
+    req(input$pathwayIds)
+    kegg_gse <- gseGoReactive()$kegg_gse
+    req(!is.null(kegg_gse))
 
-output$gseaplot_kegg <- renderPlot({
-    withProgress(message = "Plotting  gsea plot ...", {
-        kegg_gse <- gseGoReactive()$kegg_gse
+    pathway_row <- kegg_gse@result[kegg_gse@result$ID == input$pathwayIds, , drop = FALSE]
+    req(nrow(pathway_row) > 0, nzchar(pathway_row$core_enrichment[1]))
 
-        # Use the `Gene Set` param for the index in the title, and as the value for geneSetId
-        gseaplot(kegg_gse, by = "all", title = kegg_gse$Description[input$geneSetId_gsea_kegg], geneSetID = input$geneSetId_gsea_kegg)
-    })
+    entrez_ids <- unlist(strsplit(pathway_row$core_enrichment[1], "/"))
+    lfc_vals   <- myValues$kegg_gene_list[entrez_ids]
+    org        <- myValues$organismKegg
+    keytype    <- input$keytype   # original input ID type, e.g. "ENSEMBL"
+
+    # ENTREZ → gene symbol
+    sym_map <- tryCatch(
+        bitr(entrez_ids, fromType = "ENTREZID", toType = "SYMBOL",
+             OrgDb = input$organismDb),
+        error = function(e) NULL
+    )
+    symbols <- if (!is.null(sym_map) && nrow(sym_map) > 0)
+        sym_map$SYMBOL[match(entrez_ids, sym_map$ENTREZID)]
+    else
+        rep(NA_character_, length(entrez_ids))
+
+    # ENTREZ → original input ID (only when keytype differs from what's already shown)
+    orig_ids <- NULL
+    if (!is.null(keytype) && !keytype %in% c("ENTREZID", "SYMBOL")) {
+        orig_map <- tryCatch(
+            bitr(entrez_ids, fromType = "ENTREZID", toType = keytype,
+                 OrgDb = input$organismDb),
+            error = function(e) NULL
+        )
+        if (!is.null(orig_map) && nrow(orig_map) > 0)
+            orig_ids <- orig_map[[keytype]][match(entrez_ids, orig_map$ENTREZID)]
+    }
+
+    # ENTREZ → KO ID  (e.g. "38742" → "K08513")
+    ko_map   <- build_ko_map(entrez_ids, org)
+    kegg_ids <- ko_map[as.character(entrez_ids)]
+
+    # Build data frame — insert original ID column right after Symbol when present
+    df <- data.frame(Symbol = symbols, stringsAsFactors = FALSE)
+    if (!is.null(orig_ids))
+        df[[keytype]] <- orig_ids
+    df$KO_ID  <- kegg_ids
+    df$ENTREZ <- entrez_ids
+    df$Log2FC <- round(as.numeric(lfc_vals), 3)
+
+    df[order(abs(df$Log2FC), decreasing = TRUE, na.last = TRUE), ]
 })
 
+output$pathwayGenesTableUI <- renderUI({
+    req(input$pathwayIds)
+    # Progress lives here (render context), not inside the reactive.
+    df <- withProgress(
+        message = paste0("Loading genes \u2014 ", input$pathwayIds),
+        value   = 0,
+    {
+        setProgress(0.3, detail = if (kegg_is_cached(myValues$organismKegg))
+            "Loading KEGG data from cache \u2026"
+        else
+            "Downloading KEGG ortholog table (first use \u2014 will be cached) \u2026")
+        result <- tryCatch(pathwayGenesDf(), error = function(e) NULL)
+        setProgress(1.0)
+        result
+    })
+    req(!is.null(df))
+    tagList(
+        h4(strong(paste0("Core genes in pathway: ", input$pathwayIds,
+                         " (", nrow(df), " enriched)"))),
+        DT::dataTableOutput("pathwayGenesTable")
+    )
+})
+
+output$pathwayGenesTable <- DT::renderDataTable({
+    df    <- pathwayGenesDf()
+    fname <- paste0("pathway_genes_", input$pathwayIds)
+    DT::datatable(
+        df, rownames = FALSE,
+        extensions = "Buttons",
+        options = list(
+            pageLength = 15,
+            scrollX    = TRUE,
+            dom        = "Bfrtip",
+            buttons    = list(
+                list(extend = "copy",  text = "Copy"),
+                list(extend = "csv",   text = "CSV",   filename = fname),
+                list(extend = "excel", text = "Excel", filename = fname)
+            )
+        ),
+        class = "compact stripe"
+    ) %>%
+    DT::formatStyle(
+        "Log2FC",
+        color      = DT::styleInterval(0, c("#1a9641", "#d7191c")),
+        fontWeight = "bold"
+    )
+})
 
 
 pathviewReactive <- eventReactive(input$generatePathview, {
-    withProgress(message = "Plotting Pathview ...", {
+    withProgress(message = "Generating Pathview ...", {
         isolate({
-            kegg_gse <- gseGoReactive()$kegg_gse
+            tryCatch({
+                setProgress(0.3, detail = paste0("Downloading pathway map \u2014 ", input$pathwayIds, " \u2026"))
+                dme <- pathview(
+                    gene.data   = myValues$gene_list,
+                    pathway.id  = input$pathwayIds,
+                    species     = myValues$organismKegg,
+                    gene.idtype = input$geneid_type
+                )
+                unique_img <- paste0("testimage_", input$pathwayIds, ".png")
+                file.copy(paste0(input$pathwayIds, ".pathview.png"), unique_img, overwrite = TRUE)
 
-            setProgress(value = 0.3, detail = paste0("Pathview ID ", input$pathwayIds, " ..."))
-            dme <- pathview(gene.data = myValues$gene_list, pathway.id = input$pathwayIds, species = myValues$organismKegg, gene.idtype = input$geneid_type)
-            file.copy(paste0(input$pathwayIds, ".pathview.png"), paste0("testimage"))
+                setProgress(0.7, detail = paste0("Generating PDF \u2014 ", input$pathwayIds, " \u2026"))
+                dmePdf <- pathview(
+                    gene.data   = myValues$gene_list,
+                    pathway.id  = input$pathwayIds,
+                    species     = myValues$organismKegg,
+                    gene.idtype = input$geneid_type,
+                    kegg.native = FALSE
+                )
 
-            setProgress(value = 0.7, detail = paste0("Pathview ID ", input$pathwayIds, " generating pdf ..."))
-            dmePdf <- pathview(gene.data = myValues$gene_list, pathway.id = input$pathwayIds, species = myValues$organismKegg, gene.idtype = input$geneid_type, kegg.native = F)
+                myValues$imagePath <- paste0(input$pathwayIds, ".pathview.")
+                list(src = unique_img, filetype = "image/png", alt = "pathview image")
 
-            myValues$imagePath <- paste0(input$pathwayIds, ".pathview.")
-            return(list(
-                src = paste0("testimage"),
-                filetype = "image/png",
-                alt = "pathview image"
-            ))
+            }, error = function(e) {
+                msg <- conditionMessage(e)
+                is_network <- grepl(
+                    "curl|connection|reset|peer|timeout|could not resolve|network|recv failure",
+                    msg, ignore.case = TRUE
+                )
+                if (is_network) {
+                    showNotification(
+                        ui       = tagList(
+                            icon("exclamation-triangle"), strong(" KEGG network error"),
+                            tags$br(),
+                            "Connection to rest.kegg.jp was interrupted.",
+                            tags$br(),
+                            "Please click \u201cGenerate Pathview\u201d again to retry."
+                        ),
+                        type     = "error",
+                        duration = 15
+                    )
+                } else {
+                    showNotification(
+                        ui       = tagList(icon("times-circle"), strong(" Pathview error: "), msg),
+                        type     = "error",
+                        duration = 15
+                    )
+                }
+                NULL
+            })
         })
     })
 })
 
 output$pathview_plot <- renderImage({
-    return(pathviewReactive())
+    img <- pathviewReactive()
+    req(!is.null(img))
+    img
 })
 
 output$pathviewPlotsAvailable <-
@@ -162,11 +645,9 @@ output$downloadPathviewPdf <- downloadHandler(
 
 
 output$pmcPlot <- renderPlotly({
-    withProgress(message = "Generating  pmc plot ...", {
+    withProgress(message = "Generating pmc plot ...", {
         if (input$plotTrends) {
             isolate({
-                go_gse <- gseGoReactive()$go_gse
-
                 terms <- input$pubmedTerms
                 if (is.null(terms)) {
                     return(NULL)
