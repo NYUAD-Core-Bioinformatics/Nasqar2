@@ -3,6 +3,7 @@ options(shiny.maxRequestSize = 60 * 1024^2)
 
 # Define server
 server <- function(input, output, session) {
+    source("plot-helpers.R",     local = TRUE)
     source("server-inputData.R", local = TRUE)
     #
     source("server-gseGo.R", local = TRUE)
