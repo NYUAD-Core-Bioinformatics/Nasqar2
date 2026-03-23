@@ -1,5 +1,5 @@
 # Installl missing packages
-list.of.packages <- c("parallel")
+list.of.packages <- c("parallel", "shinythemes")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
 if (length(new.packages)) {
     install.packages(new.packages, repos = "https://cloud.r-project.org/", dependencies = T)
@@ -22,10 +22,11 @@ ui <- tagList(
         tags$style(".mybuttonclass{background-color:#CD0000;} .mybuttonclass{color: #fff;} .mybuttonclass{border-color: #9E0000;}"),
         tags$style(".BoxArea2 { padding:19px; margin: 5px; border: 3px solid; border-color:#c7dbe6; border-radius:10px;}"),
         tags$style(".BoxArea3 { padding:19px; margin: 5px; border: 3px solid; border-color:#ced2d6; border-radius:10px;}"),
-        includeCSS("www/custom.css")
+        includeCSS("www/custom.css"),
+        includeScript("www/shinybs_fix.js")
     ),
     navbarPage(
-        theme = "https://bootswatch.com/3/cerulean/bootstrap.min.css",
+        theme = shinythemes::shinytheme("cerulean"),
         inverse = T,
         title = "Gene Count Merger (Pre-processing)",
         tabPanel("Home",
