@@ -42,8 +42,7 @@ export function AppStampsGrid() {
         { title: 'DEseq2',         href: '/applications/rna_seq/bulk_rna/deseq2' },
         { title: 'STARTApp',       href: '/applications/rna_seq/bulk_rna/startapp' },
         { title: 'DeBrowser',      href: '/applications/rna_seq/bulk_rna/debrowser' },
-        { title: 'ORA Enrichment',  href: '/ClusterProfShinyORA/' },
-        { title: 'GSEA Enrichment', href: '/ClusterProfShinyGSEA/' },
+        { title: 'Enrichment', href: '/applications/rna_seq/bulk_rna/enrichment' }
       ]
     },
     {
