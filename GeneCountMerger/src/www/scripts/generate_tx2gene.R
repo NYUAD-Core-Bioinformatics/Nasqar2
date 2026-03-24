@@ -2,6 +2,9 @@
 # generate_tx2gene.R
 #
 # Build a transcript-to-gene mapping file (tx2gene) from a GTF file.
+# Uses GenomicFeatures::makeTxDbFromGFF() and AnnotationDbi::select() rather
+# than manual GTF parsing, following the approach described at:
+# https://aaronmitchd.github.io/RNA_Seq/kallisto_h5_to_tximport_to_DESeq2_eval.html
 #
 # Two output files are written from the same data:
 #   <output_prefix>.Rda  – R data file for use with the Gene Count Merger app
@@ -12,7 +15,13 @@
 #   TX_NAME  – Ensembl transcript ID  (e.g. ENSMUST00000000001)
 #   GENE_ID  – Ensembl gene ID        (e.g. ENSMUSG00000000001)
 #
-# No extra packages required – mapping is parsed directly from the GTF file.
+# Dependencies:
+#   BiocManager, GenomicFeatures, AnnotationDbi
+#   Install once with (conda):
+#     conda install -c bioconda -c conda-forge bioconductor-genomicfeatures bioconductor-annotationdbi
+#   Or with R/BiocManager:
+#     install.packages("BiocManager")
+#     BiocManager::install(c("GenomicFeatures", "AnnotationDbi"))
 #
 # Usage:
 #   Rscript generate_tx2gene.R <input.gtf> <output_prefix>
@@ -44,28 +53,29 @@ out_dir <- dirname(out_prefix)
 if (out_dir != "." && !dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 
 # ---------------------------------------------------------------------------
-# Parse GTF → tx2gene data.frame
+# Install / load dependencies
 # ---------------------------------------------------------------------------
-message("Reading: ", gtf_path)
-lines <- readLines(gtf_path, warn = FALSE)
-lines <- lines[!startsWith(lines, "#")]        # drop comment lines
-lines <- lines[grepl("\ttranscript\t", lines)] # keep transcript feature rows only
-message("Transcript rows: ", length(lines))
+if (!require("BiocManager",      quietly = TRUE)) install.packages("BiocManager")
+if (!require("GenomicFeatures",  quietly = TRUE)) BiocManager::install("GenomicFeatures")
+if (!require("AnnotationDbi",    quietly = TRUE)) BiocManager::install("AnnotationDbi")
 
-extract_attr <- function(attr_str, key) {
-    pattern <- paste0(key, ' "([^"]+)"')
-    m <- regmatches(attr_str, regexpr(pattern, attr_str))
-    ifelse(length(m) > 0, sub(paste0(key, ' "([^"]+)"'), "\\1", m), NA_character_)
-}
+library(GenomicFeatures)
+library(AnnotationDbi)
 
-attr_col <- sub(".*\t", "", lines)
-TX_NAME  <- extract_attr(attr_col, "transcript_id")
-GENE_ID  <- extract_attr(attr_col, "gene_id")
+# ---------------------------------------------------------------------------
+# Build TxDb → extract tx2gene mapping
+# ---------------------------------------------------------------------------
+message("Building TxDb from: ", gtf_path)
+txdb <- makeTxDbFromGFF(gtf_path)
 
-tx2gene <- data.frame(TX_NAME = TX_NAME, GENE_ID = GENE_ID, stringsAsFactors = FALSE)
+k       <- keys(txdb, keytype = "TXNAME")
+tx_map  <- AnnotationDbi::select(txdb, keys = k, columns = "GENEID", keytype = "TXNAME")
+
+tx2gene <- tx_map
+colnames(tx2gene) <- c("TX_NAME", "GENE_ID")
 tx2gene <- unique(tx2gene)
 tx2gene <- tx2gene[!is.na(tx2gene$TX_NAME) & tx2gene$TX_NAME != "" &
-                   !is.na(tx2gene$GENE_ID) & tx2gene$GENE_ID != "", ]
+                   !is.na(tx2gene$GENE_ID)  & tx2gene$GENE_ID  != "", ]
 
 message("Unique transcript-gene pairs: ", nrow(tx2gene))
 
