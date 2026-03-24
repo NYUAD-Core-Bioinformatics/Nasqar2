@@ -93,8 +93,8 @@ Build the complete NASQAR2 Docker container with all applications from source co
 1. **Clone NASQAR2 Repository:**
 
 ```bash
-git clone https://github.com/nyuadcorebio/nasqar2.git
-cd nasqar2
+git clone https://github.com/NYUAD-Core-Bioinformatics/Nasqar2.git
+cd Nasqar2
 ```
 
 2. **Build Docker Image:**
@@ -140,8 +140,8 @@ NASQAR2 includes the following applications that can be built individually:
 1. **Clone NASQAR2 Repository:**
 
 ```bash
-git clone https://github.com/nyuadcorebio/nasqar2.git
-cd nasqar2
+git clone https://github.com/NYUAD-Core-Bioinformatics/Nasqar2.git
+cd Nasqar2
 ```
 
 2. **Navigate to the specific application directory:**
@@ -197,8 +197,8 @@ Each NASQAR2 application has its own `environment.yaml` file for creating an iso
 1. **Clone NASQAR2 Repository:**
 
 ```bash
-git clone https://github.com/nyuadcorebio/nasqar2.git
-cd nasqar2
+git clone https://github.com/NYUAD-Core-Bioinformatics/Nasqar2.git
+cd Nasqar2
 ```
 
 2. **Navigate to the application directory:**
@@ -244,7 +244,7 @@ Access the application at `http://localhost:9001/`
 **Example: Setting up DADA2 application:**
 
 ```bash
-cd nasqar2/dada2Shiny
+cd Nasqar2/dada2Shiny
 mamba env create -f environment.yaml
 conda activate dada2Shiny
 cd src
@@ -254,7 +254,7 @@ R -e "shiny::runApp('.', port = 9002, host = '0.0.0.0')"
 **Example: Setting up Seurat application:**
 
 ```bash
-cd nasqar2/SeuratV5Shiny
+cd Nasqar2/SeuratV5Shiny
 mamba env create -f environment.yaml
 conda activate SeuratV5Shiny
 cd src
