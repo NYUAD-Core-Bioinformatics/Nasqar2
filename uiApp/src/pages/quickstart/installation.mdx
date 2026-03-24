@@ -64,16 +64,22 @@ Build and run specific NASQAR2 applications (e.g., DESeq2, DADA2, Seurat) as sep
 
 We provide prebuilt Docker images with all NASQAR2 applications bundled together. This is the fastest and easiest way to get started.
 
+**Pull the image:**
+
+```bash
+docker pull nyuadcorebio/nasqarall:latest
+```
+
 **To run NASQAR2 on port 80:**
 
 ```bash
-docker run -p 80:3232 nyuadcorebio/nasqarall:nasqar
+docker run -p 80:80 nyuadcorebio/nasqarall:latest
 ```
 
 **To run NASQAR2 on a different port** (e.g., port 8083):
 
 ```bash
-docker run -p 8083:3232 nyuadcorebio/nasqarall:nasqar
+docker run -p 8083:80 nyuadcorebio/nasqarall:latest
 ```
 
 Access via web browser at `http://localhost/` or `http://localhost:8083/` depending on the port used.
@@ -100,7 +106,7 @@ docker build -t nasqar2-all .
 3. **Run Docker Container:**
 
 ```bash
-docker run -p 80:3232 nasqar2-all
+docker run -p 80:80 nasqar2-all
 ```
 
 Access via web browser at `http://localhost/`
