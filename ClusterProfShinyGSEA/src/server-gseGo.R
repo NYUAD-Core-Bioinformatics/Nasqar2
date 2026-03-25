@@ -116,7 +116,6 @@ gseGoReactive <- eventReactive(input$initGo, {
                             updateNumericInput(session, "showCategory_kegg_global", max = n_kegg, value = min(5L, n_kegg))
                         }
 
-                        updateSelectInput(session, "geneid_type", choices = gene.idtype.list, selected = input$keytype)
                         pathway_choices <- setNames(
                             kegg_gse@result$ID,
                             paste0(kegg_gse@result$ID, " \u2014 ", kegg_gse@result$Description)
