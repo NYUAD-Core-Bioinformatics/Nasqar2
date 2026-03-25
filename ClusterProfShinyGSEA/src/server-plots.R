@@ -470,9 +470,11 @@ pathwayGenesDf <- reactive({
     keytype    <- input$keytype   # original input ID type, e.g. "ENSEMBL"
 
     # ENTREZ → gene symbol
+    # as.data.frame() forces collection of any lazy-table returned by bitr
+    # so that nrow() / $ access below don't throw "Failed to collect lazy table"
     sym_map <- tryCatch(
-        bitr(entrez_ids, fromType = "ENTREZID", toType = "SYMBOL",
-             OrgDb = input$organismDb),
+        as.data.frame(bitr(entrez_ids, fromType = "ENTREZID", toType = "SYMBOL",
+             OrgDb = input$organismDb)),
         error = function(e) NULL
     )
     symbols <- if (!is.null(sym_map) && nrow(sym_map) > 0)
@@ -484,8 +486,8 @@ pathwayGenesDf <- reactive({
     orig_ids <- NULL
     if (!is.null(keytype) && !keytype %in% c("ENTREZID", "SYMBOL")) {
         orig_map <- tryCatch(
-            bitr(entrez_ids, fromType = "ENTREZID", toType = keytype,
-                 OrgDb = input$organismDb),
+            as.data.frame(bitr(entrez_ids, fromType = "ENTREZID", toType = keytype,
+                 OrgDb = input$organismDb)),
             error = function(e) NULL
         )
         if (!is.null(orig_map) && nrow(orig_map) > 0)

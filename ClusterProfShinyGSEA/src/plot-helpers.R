@@ -53,39 +53,31 @@ make_downloader <- function(output, plot_id, plot_fn, width = 10, height = 7) {
 
 .kegg_mem <- new.env(parent = emptyenv())   # Level 1: in-memory (per session)
 
-# BiocFileCache is used for Level 2 if available; silently falls back to
-# in-memory-only when the package is not installed.
-.bfc_ok <- requireNamespace("BiocFileCache", quietly = TRUE)
+# Level 2: plain RDS files in a user cache directory.
+# Uses only base R — no BiocFileCache, no dplyr, no SQL.
+.kegg_cache_dir <- tools::R_user_dir("nasqar_kegg", which = "cache")
 
-# ── BiocFileCache helpers ─────────────────────────────────────────────────────
+.cache_path <- function(key) {
+    file.path(.kegg_cache_dir, paste0(key, ".rds"))
+}
+
 .bfc_get_kegg <- function(key) {
-    if (!.bfc_ok) return(NULL)
-    bfc  <- BiocFileCache::BiocFileCache(ask = FALSE)
-    hits <- BiocFileCache::bfcquery(bfc, key, field = "rname", exact = TRUE)
-    if (nrow(hits) == 0) return(NULL)
-    readRDS(BiocFileCache::bfcrpath(bfc, rids = hits$rid[1]))
+    p <- .cache_path(key)
+    if (!file.exists(p)) return(NULL)
+    readRDS(p)
 }
 
 .bfc_set_kegg <- function(key, value) {
-    if (!.bfc_ok) return(invisible(value))
-    bfc  <- BiocFileCache::BiocFileCache(ask = FALSE)
-    hits <- BiocFileCache::bfcquery(bfc, key, field = "rname", exact = TRUE)
-    if (nrow(hits) > 0) BiocFileCache::bfcremove(bfc, hits$rid)  # clear stale
-    path <- BiocFileCache::bfcnew(bfc, key, ext = ".rds")
-    saveRDS(value, path)
+    dir.create(.kegg_cache_dir, recursive = TRUE, showWarnings = FALSE)
+    saveRDS(value, .cache_path(key))
     invisible(value)
 }
 
 # Returns TRUE if KO data for 'org' is already cached (memory or disk).
-# Callers use this to show "downloading…" vs "loading from cache…" messages.
 kegg_is_cached <- function(org) {
     if (exists(paste0("ko_", org), envir = .kegg_mem, inherits = FALSE))
         return(TRUE)
-    if (!.bfc_ok) return(FALSE)
-    bfc  <- BiocFileCache::BiocFileCache(ask = FALSE)
-    hits <- BiocFileCache::bfcquery(bfc, paste0("kegg_ko_", org),
-                                    field = "rname", exact = TRUE)
-    nrow(hits) > 0
+    file.exists(.cache_path(paste0("kegg_ko_", org)))
 }
 
 # ── Main converter ────────────────────────────────────────────────────────────
