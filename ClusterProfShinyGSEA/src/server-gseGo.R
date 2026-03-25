@@ -354,6 +354,14 @@ output$gseKEGGTable <- renderDataTable(
             }
             resultDF$ID <- mapply(make_kegg_link, resultDF$ID, resultDF$core_enrichment)
 
+            # Convert core_enrichment ENTREZ → symbols for display (links already built above)
+            readable <- tryCatch(
+                setReadable(gse_data$kegg_gse, OrgDb = input$organismDb, keyType = "ENTREZID")@result,
+                error = function(e) NULL
+            )
+            if (!is.null(readable))
+                resultDF$core_enrichment <- readable[rownames(resultDF), "core_enrichment"]
+
             if (!isTRUE(input$showAllColumns_kegg)) {
                 resultDF <- resultDF[, seq_len(min(9, ncol(resultDF))), drop = FALSE]
             }
