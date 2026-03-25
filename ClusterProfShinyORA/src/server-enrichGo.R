@@ -230,7 +230,6 @@ enrichGoReactive <- eventReactive(input$initGo, {
                             myValues$organismKegg <- organismsDbKegg[input$organismDb]
 
 
-                            updateSelectInput(session, "geneid_type", choices = gene.idtype.list, selected = input$keytype)
                             pathway_choices <- setNames(
                                 kegg_enrich@result$ID,
                                 paste0(kegg_enrich@result$ID, " \u2014 ", kegg_enrich@result$Description)

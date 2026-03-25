@@ -4,17 +4,13 @@ tabItem(
     wellPanel(
         fluidRow(
             column(
-                6,
+                9,
                 selectizeInput("pathwayIds",
                     label = "Select Pathway ID",
                     choices = NULL,
                     multiple = F,
                     options = list(placeholder = "Start typing pathway id or name")
                 )
-            ),
-            column(
-                3,
-                selectInput("geneid_type", "Gene ID type:", choices = c(""), selected = NULL)
             ),
             column(
                 3,

@@ -3,7 +3,7 @@ tabItem(
     h2(strong("Pathview Plot")),
     wellPanel(
         column(
-            6,
+            12,
             selectizeInput("pathwayIds",
                 label = "Select Pathway ID",
                 choices = NULL,
@@ -13,10 +13,6 @@ tabItem(
                         "Start typing pathway id or name"
                 )
             )
-        ),
-        column(
-            6,
-            selectInput("geneid_type", "Gene ID type:", choices = c(""), selected = NULL)
         ),
         column(
             12,
