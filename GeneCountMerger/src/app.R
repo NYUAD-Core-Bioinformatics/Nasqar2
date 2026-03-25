@@ -130,7 +130,6 @@ ui <- tagList(
                                 uiOutput("tx2genePreviewUI")
                             ),
                             hr(),
-                            checkboxInput("addOne", "Add +1 to counts (Pseudocounts)", FALSE),
                             checkboxInput("addGeneNames", "Retrieve gene names from ensembl ids", FALSE),
                             conditionalPanel(
                                 "input.addGeneNames",
@@ -223,7 +222,6 @@ ui <- tagList(
                                                 tags$li("Or upload a custom two-column CSV with columns ", strong("GENE_ID"), " (Ensembl gene ID) and ", strong("GENE_NAME"), " (gene symbol). If you have a .gtf file, ", a(href = "scripts/generate_gene_names.R", "download this R script to generate the mapping.", download = NA, target = "_blank"))
                                             )
                                         ),
-                                        tags$li("Option to add ", strong("pseudocounts (+1)"), " to all counts"),
                                         tags$li(strong("Download"), " merged counts file in .csv format"),
                                         tags$li(
                                             strong("Transcriptome Analysis (Optional)"), " – launch downstream analysis directly from the merged output:",
@@ -956,9 +954,6 @@ server <- function(input, output, session) {
                     }
                 }
 
-                if (input$addOne) {
-                    total[, !(names(total) %in% c("gene.ids", "gene.names"))] <- total[, !(names(total) %in% c("gene.ids", "gene.names"))] + 1
-                }
 
                 myValues$fileUrl <- UUIDgenerate()
                 myValues$fileUrl <- paste0(tempdir(), "/", myValues$fileUrl, ".csv")
@@ -1110,8 +1105,8 @@ server <- function(input, output, session) {
             ignoreTxVersion = TRUE
         )
 
-        # Round estimated counts to integers and convert to data.frame
-        counts_mat <- round(txi$counts)
+        # Convert estimated counts to data.frame (preserving decimal values)
+        counts_mat <- txi$counts
         df         <- as.data.frame(counts_mat, stringsAsFactors = FALSE)
         df         <- cbind(gene.ids = rownames(df), df)
         rownames(df) <- NULL
