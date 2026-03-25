@@ -63,7 +63,7 @@ ui <- tagList(
                 tags$script(HTML("
                     function resizeGoUpset() {
                         var el = document.getElementById('genesInGoTerm');
-                        if (el) Plotly.Plots.resize(el);
+                        if (el && typeof Plotly !== 'undefined') Plotly.Plots.resize(el);
                     }
                     /* Resize when GO Plots tab becomes visible */
                     $(document).on('shown.bs.tab', function() {

@@ -63,11 +63,11 @@ ui <- tagList(
                 tags$script(HTML("
                     function resizeGoUpset() {
                         var el = document.getElementById('genesInGoTerm');
-                        if (el) Plotly.Plots.resize(el);
+                        if (el && typeof Plotly !== 'undefined') Plotly.Plots.resize(el);
                     }
                     function resizeKeggUpset() {
                         var el = document.getElementById('genesInKeggPathway');
-                        if (el) Plotly.Plots.resize(el);
+                        if (el && typeof Plotly !== 'undefined') Plotly.Plots.resize(el);
                     }
                     $(document).on('shown.bs.tab', function() {
                         setTimeout(resizeGoUpset, 150);
