@@ -510,7 +510,7 @@ keggColorUrl <- reactive({
     valid      <- !is.na(ko_ids) & nzchar(ko_ids)
     ko_ids     <- ko_ids[valid]
     bg_colors  <- bg_colors[valid]
-    req(length(ko_ids) > 0)   # hide button entirely if no valid KO mappings
+    req(length(ko_ids) > 0)
 
     # Use reference map ID: dme04080 → map04080
     map_id <- sub("^[a-z]+", "map", input$pathwayIds)
@@ -647,15 +647,15 @@ output$pathwayGenesTable <- DT::renderDataTable({
 pathviewReactive <- eventReactive(input$generatePathview, {
     withProgress(message = "Generating Pathview ...", {
         isolate({
-            kegg_enrich <- enrichGoReactive()$kegg_enrich
+            req(myValues$kegg_gene_list)
 
             tryCatch({
                 setProgress(0.3, detail = paste0("Downloading pathway map — ", input$pathwayIds, " \u2026"))
                 dme <- pathview(
-                    gene.data  = myValues$gene_list,
-                    pathway.id = input$pathwayIds,
-                    species    = myValues$organismKegg,
-                    gene.idtype = input$geneid_type
+                    gene.data   = myValues$kegg_gene_list,
+                    pathway.id  = input$pathwayIds,
+                    species     = myValues$organismKegg,
+                    gene.idtype = "ENTREZ"
                 )
                 # Copy to a unique name so the UI preview refreshes each run
                 unique_img <- paste0("testimage_", input$pathwayIds, ".png")
@@ -663,10 +663,10 @@ pathviewReactive <- eventReactive(input$generatePathview, {
 
                 setProgress(0.7, detail = paste0("Generating PDF \u2014 ", input$pathwayIds, " \u2026"))
                 dmePdf <- pathview(
-                    gene.data   = myValues$gene_list,
+                    gene.data   = myValues$kegg_gene_list,
                     pathway.id  = input$pathwayIds,
                     species     = myValues$organismKegg,
-                    gene.idtype = input$geneid_type,
+                    gene.idtype = "ENTREZ",
                     kegg.native = FALSE
                 )
 
