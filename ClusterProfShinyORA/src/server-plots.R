@@ -254,7 +254,16 @@ plot_treePlot <- reactive({
     ge <- goEnrichForPlots(); n <- nrow(ge@result); req(n > 0)
     validate(need(n >= 2, "Tree plot requires at least 2 terms. Please select 2 or more GO terms."))
     n_clust <- max(1L, min(input$nCluster_tree, n - 1L))
-    treeplot(pairwise_termsim(ge), showCategory = n, cluster.params = list(n = n_clust))
+    tryCatch(
+        treeplot(pairwise_termsim(ge), showCategory = n, cluster.params = list(n = n_clust)),
+        error = function(e) {
+            validate(need(FALSE, paste0(
+                "Tree plot failed: ", conditionMessage(e), "\n",
+                "This may be due to a tidytree version incompatibility. ",
+                "Try updating the enrichplot and tidytree packages."
+            )))
+        }
+    )
 })
 plot_heatPlot <- reactive({
     ge <- goEnrichForPlots(); n <- nrow(ge@result); req(n > 0)
@@ -428,7 +437,16 @@ plot_treePlot_kegg <- reactive({
         error = function(e) ke
     )
     n_clust <- max(1L, min(input$nCluster_tree_kegg, n - 1L))
-    treeplot(pairwise_termsim(ke_readable), showCategory = n, cluster.params = list(n = n_clust))
+    tryCatch(
+        treeplot(pairwise_termsim(ke_readable), showCategory = n, cluster.params = list(n = n_clust)),
+        error = function(e) {
+            validate(need(FALSE, paste0(
+                "Tree plot failed: ", conditionMessage(e), "\n",
+                "This may be due to a tidytree version incompatibility. ",
+                "Try updating the enrichplot and tidytree packages."
+            )))
+        }
+    )
 })
 plot_heatPlot_kegg <- reactive({
     ke <- keggEnrichForPlots(); n <- nrow(ke@result); req(n > 0)
@@ -556,9 +574,11 @@ pathwayGenesDf <- reactive({
     keytype    <- input$keytype   # original input ID type, e.g. "ENSEMBL"
 
     # ENTREZ → gene symbol
+    # as.data.frame() forces collection of any lazy-table returned by bitr
+    # so that nrow() / $ access below don't throw "Failed to collect lazy table"
     sym_map <- tryCatch(
-        bitr(entrez_ids, fromType = "ENTREZID", toType = "SYMBOL",
-             OrgDb = input$organismDb),
+        as.data.frame(bitr(entrez_ids, fromType = "ENTREZID", toType = "SYMBOL",
+             OrgDb = input$organismDb)),
         error = function(e) NULL
     )
     symbols <- if (!is.null(sym_map) && nrow(sym_map) > 0)
@@ -570,8 +590,8 @@ pathwayGenesDf <- reactive({
     orig_ids <- NULL
     if (!is.null(keytype) && !keytype %in% c("ENTREZID", "SYMBOL")) {
         orig_map <- tryCatch(
-            bitr(entrez_ids, fromType = "ENTREZID", toType = keytype,
-                 OrgDb = input$organismDb),
+            as.data.frame(bitr(entrez_ids, fromType = "ENTREZID", toType = keytype,
+                 OrgDb = input$organismDb)),
             error = function(e) NULL
         )
         if (!is.null(orig_map) && nrow(orig_map) > 0)
