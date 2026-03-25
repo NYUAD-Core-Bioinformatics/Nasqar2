@@ -279,7 +279,10 @@ output$enrich_kegg_selected <- renderDataTable(
     
  
         if (!is.null(enrichKEGG) && length(s) > 0) {
-            kegg_enrich <- enrichKEGG$kegg_enrich
+            kegg_enrich <- tryCatch(
+                setReadable(enrichKEGG$kegg_enrich, OrgDb = input$organismDb, keyType = "ENTREZID"),
+                error = function(e) enrichKEGG$kegg_enrich
+            )
             # Directly subset @result to avoid S4 filter() issues with multiple rows
             resultDF <- kegg_enrich@result[s, , drop = FALSE]
 
@@ -742,6 +745,14 @@ output$enrichKEGGTable <- renderDataTable(
                 paste0('<a href="', url, '" target="_blank">', pathway_id, '</a>')
             }
             resultDF$ID <- mapply(make_kegg_link, resultDF$ID, resultDF$geneID)
+
+            # Convert geneID ENTREZ → symbols for display (links already built above)
+            readable <- tryCatch(
+                setReadable(enrichKEGG$kegg_enrich, OrgDb = input$organismDb, keyType = "ENTREZID")@result,
+                error = function(e) NULL
+            )
+            if (!is.null(readable))
+                resultDF$geneID <- readable[rownames(resultDF), "geneID"]
 
             if (!isTRUE(input$showGeneidKegg)) {
                 resultDF <- resultDF[, setdiff(names(resultDF), "geneID"), drop = FALSE]
