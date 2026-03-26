@@ -34,6 +34,7 @@ If you want to customize the code and then build the docker image. Refer to belo
 Build the docker image as follows:-
 Note:- Make sure you have sufficient space. It will be around 10GB and takes an hour to finish.
 ```
+sh extract_data.sh  
 docker build  --progress=plain  -t <specify-image-name> .
 ```
 
