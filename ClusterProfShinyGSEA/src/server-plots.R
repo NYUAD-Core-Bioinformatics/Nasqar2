@@ -200,7 +200,7 @@ output$go_clicked_genes_table <- DT::renderDataTable({
 
 output$genesGoMembershipTable <- renderDataTable({
     gse_data <- gseGoReactive()
-    req(!is.null(gse_data))
+    req(!is.null(gse_data), !is.null(gse_data$go_gse))
     go_gse <- gse_data$go_gse
     s <- input$go_checked_rows
     if (is.null(s) || length(s) == 0) s <- seq_len(min(input$showCategory_go_global, nrow(go_gse@result)))
@@ -248,18 +248,38 @@ plot_cnetplot <- reactive({
     cnetplot(gs, showCategory = n, categorySize = "pvalue",
              color.params = list(foldChange = myValues$gene_list))
 })
+plot_treePlot <- reactive({
+    gs <- gseGoForPlots(); n <- nrow(gs@result); req(n > 0)
+    validate(need(n >= 2, "Tree plot requires at least 2 GO terms."))
+    n_clust <- max(1L, min(input$nCluster_tree, n - 1L))
+    tryCatch(
+        treeplot(pairwise_termsim(gs), showCategory = n,
+                 cluster.params = list(n = n_clust)),
+        error = function(e) validate(need(FALSE, paste("Tree plot failed:", conditionMessage(e))))
+    )
+})
+plot_heatPlot <- reactive({
+    gs <- gseGoForPlots(); n <- nrow(gs@result); req(n > 0)
+    fc <- if (!is.null(myValues$gene_list) && length(myValues$gene_list) > 0)
+        myValues$gene_list else NULL
+    heatplot(gs, showCategory = n, foldChange = fc)
+})
 
 output$dotPlot   <- renderPlot({ withProgress(message = "Plotting dotplot ...",               plot_dotPlot()) })
 output$gsePlotMap <- renderPlot({ withProgress(message = "Plotting enrichment map ...",        plot_gsePlotMap()) })
 output$ridgePlot <- renderPlot({ withProgress(message = "Plotting ridgeplot ...",             plot_ridgePlot()) })
 output$gseaplot  <- renderPlot({ withProgress(message = "Plotting GSEA plot ...",             plot_gseaplot()) })
 output$cnetplot  <- renderPlot({ withProgress(message = "Plotting Gene-Concept Network ...",  plot_cnetplot()) })
+output$treePlot  <- renderPlot({ withProgress(message = "Plotting tree plot ...",             plot_treePlot()) })
+output$heatPlot  <- renderPlot({ withProgress(message = "Plotting heat plot ...",             plot_heatPlot()) })
 
 make_downloader(output, "dotPlot",    plot_dotPlot,    width = 10, height = 7)
 make_downloader(output, "gsePlotMap", plot_gsePlotMap, width = 10, height = 8)
 make_downloader(output, "ridgePlot",  plot_ridgePlot,  width = 10, height = 8)
 make_downloader(output, "gseaplot",   plot_gseaplot,   width = 10, height = 6)
 make_downloader(output, "cnetplot",   plot_cnetplot,   width = 10, height = 8)
+make_downloader(output, "treePlot",   plot_treePlot,   width = 14, height = 8)
+make_downloader(output, "heatPlot",   plot_heatPlot,   width = 14, height = 6)
 
 
 ### KEGG ─────────────────────────────────────────────────────────────────────
@@ -368,18 +388,56 @@ plot_gseaplot_kegg <- reactive({
     idx <- max(1L, min(input$geneSetId_gsea_kegg, n))
     gseaplot(ks, by = "all", title = ks$Description[idx], geneSetID = idx)
 })
+plot_treePlot_kegg <- reactive({
+    ks <- gseKeggForPlots(); n <- nrow(ks@result); req(n > 0)
+    validate(need(n >= 2, "Tree plot requires at least 2 KEGG pathways."))
+    ks_readable <- tryCatch(
+        setReadable(ks, OrgDb = input$organismDb, keyType = "ENTREZID"),
+        error = function(e) ks
+    )
+    n_clust <- max(1L, min(input$nCluster_tree_kegg, n - 1L))
+    tryCatch(
+        treeplot(pairwise_termsim(ks_readable), showCategory = n,
+                 cluster.params = list(n = n_clust)),
+        error = function(e) validate(need(FALSE, paste("Tree plot failed:", conditionMessage(e))))
+    )
+})
+plot_heatPlot_kegg <- reactive({
+    ks <- gseKeggForPlots(); n <- nrow(ks@result); req(n > 0)
+    ks_readable <- tryCatch(
+        setReadable(ks, OrgDb = input$organismDb, keyType = "ENTREZID"),
+        error = function(e) ks
+    )
+    fold_change <- myValues$kegg_gene_list
+    if (!identical(ks_readable, ks) && !is.null(fold_change) && length(fold_change) > 0) {
+        symbol_map <- tryCatch(
+            bitr(names(fold_change), fromType = "ENTREZID", toType = "SYMBOL",
+                 OrgDb = input$organismDb),
+            error = function(e) NULL
+        )
+        if (!is.null(symbol_map) && nrow(symbol_map) > 0) {
+            symbols <- symbol_map$SYMBOL[match(names(fold_change), symbol_map$ENTREZID)]
+            names(fold_change) <- ifelse(is.na(symbols), names(fold_change), symbols)
+        }
+    }
+    heatplot(ks_readable, showCategory = n, foldChange = fold_change)
+})
 
 output$dotPlot_kegg    <- renderPlot({ withProgress(message = "Plotting dotplot ...",               plot_dotPlot_kegg()) })
 output$gsePlotMap_kegg <- renderPlot({ withProgress(message = "Plotting Enrichment Map ...",        plot_gsePlotMap_kegg()) })
 output$cnetplot_kegg   <- renderPlot({ withProgress(message = "Plotting Gene-Concept Network ...",  plot_cnetplot_kegg()) })
 output$ridgePlot_kegg  <- renderPlot({ withProgress(message = "Plotting ridgeplot ...",             plot_ridgePlot_kegg()) })
 output$gseaplot_kegg   <- renderPlot({ withProgress(message = "Plotting GSEA plot ...",             plot_gseaplot_kegg()) })
+output$treePlot_kegg   <- renderPlot({ withProgress(message = "Plotting tree plot ...",             plot_treePlot_kegg()) })
+output$heatPlot_kegg   <- renderPlot({ withProgress(message = "Plotting heat plot ...",             plot_heatPlot_kegg()) })
 
 make_downloader(output, "dotPlot_kegg",    plot_dotPlot_kegg,    width = 10, height = 7)
 make_downloader(output, "gsePlotMap_kegg", plot_gsePlotMap_kegg, width = 10, height = 8)
 make_downloader(output, "cnetplot_kegg",   plot_cnetplot_kegg,   width = 10, height = 8)
 make_downloader(output, "ridgePlot_kegg",  plot_ridgePlot_kegg,  width = 10, height = 8)
 make_downloader(output, "gseaplot_kegg",   plot_gseaplot_kegg,   width = 10, height = 6)
+make_downloader(output, "treePlot_kegg",   plot_treePlot_kegg,   width = 14, height = 8)
+make_downloader(output, "heatPlot_kegg",   plot_heatPlot_kegg,   width = 14, height = 6)
 
 
 # Green-white-red palette: green (down) → lightgrey → red (up)

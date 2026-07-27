@@ -65,14 +65,22 @@ ui <- tagList(
                         var el = document.getElementById('genesInGoTerm');
                         if (el && typeof Plotly !== 'undefined') Plotly.Plots.resize(el);
                     }
-                    /* Resize when GO Plots tab becomes visible */
+                    function resizeKeggUpset() {
+                        var el = document.getElementById('genesInKeggPathway');
+                        if (el && typeof Plotly !== 'undefined') Plotly.Plots.resize(el);
+                    }
+                    /* Resize when plot tabs become visible */
                     $(document).on('shown.bs.tab', function() {
                         setTimeout(resizeGoUpset, 150);
+                        setTimeout(resizeKeggUpset, 150);
                     });
-                    /* Also resize on any Shiny output update for this plot */
+                    /* Also resize after either interactive plot updates */
                     $(document).on('shiny:value', function(e) {
                         if (e.name === 'genesInGoTerm') {
                             setTimeout(resizeGoUpset, 150);
+                        }
+                        if (e.name === 'genesInKeggPathway') {
+                            setTimeout(resizeKeggUpset, 150);
                         }
                     });
                 ")),
