@@ -6,7 +6,10 @@ options(shiny.port = NULL)  # Let Shiny auto-detect
 options(shiny.host = "0.0.0.0")
 
 # Ensure proper handling of selectize inputs behind proxy
-options(shiny.sanitize.errors = FALSE)  # For debugging
+options(shiny.sanitize.errors = TRUE)
+
+# Load pure validation and persistence helpers.
+source("core-functions.R", local = FALSE)
 
 # Export helpers to avoid NULL input issues in download handlers
 get_export_mode <- function(input) {

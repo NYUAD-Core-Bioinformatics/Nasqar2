@@ -47,12 +47,14 @@ ddsReactive <- eventReactive(input$run_deseq2, {
         removeNotification("errorNotify")
         removeNotification("errorNotify1")
         # nasqar use 3 cores
-        BiocParallel::register(MulticoreParam(3))
-
         validate(need(
             tryCatch(
                 {
-                    dds <- DESeq(dds, parallel = T)
+                    dds <- DESeq(
+                        dds,
+                        parallel = TRUE,
+                        BPPARAM = MulticoreParam(3)
+                    )
                 },
                 error = function(e) {
                     myValues$status <- paste("DESeq2 Error: ", e$message)
@@ -68,9 +70,6 @@ ddsReactive <- eventReactive(input$run_deseq2, {
             ),
             "Error"
         ))
-
-        BiocParallel::register(SerialParam())
-
 
         if (input$computeRlog) {
             shiny::setProgress(value = 0.5, detail = "Calculating RLog transformation ...")
@@ -511,7 +510,7 @@ output$download_code_pca_vst <- downloadHandler(
         
         if (export_mode == "full") {
             timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-            temp_dir <- tempdir()
+            temp_dir <- session_dir
             export_dir <- file.path(temp_dir, paste0("pca_vst_export_", timestamp))
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             
@@ -535,8 +534,8 @@ output$download_code_pca_vst <- downloadHandler(
                 intgroup = intgroup,
                 transform_type = "vst",
                 pca_data_file = pca_filename,  # Pre-calculated PCA coordinates!
-                pc1_var = percentVar[1],
-                pc2_var = percentVar[2]
+                pc1_var = round(percentVar[1] * 100, 1),
+                pc2_var = round(percentVar[2] * 100, 1)
             )
             
             # Use simplified template - no gene selection or PCA calculation
@@ -556,8 +555,8 @@ output$download_code_pca_vst <- downloadHandler(
                 "- ", pca_filename, " : Pre-calculated PCA coordinates (PC1, PC2) with metadata\n",
                 "- ", metadata_filename, " : Full sample metadata (for reference)\n\n",
                 "Variance explained:\n",
-                "- PC1: ", percentVar[1], "%\n",
-                "- PC2: ", percentVar[2], "%\n\n",
+                "- PC1: ", round(percentVar[1] * 100, 1), "%\n",
+                "- PC2: ", round(percentVar[2] * 100, 1), "%\n\n",
                 "Instructions:\n",
                 "1. Extract all files to the same directory\n",
                 "2. Open the R script (", code_filename, ") in RStudio\n",
@@ -612,7 +611,7 @@ output$download_code_pca_rlog <- downloadHandler(
         
         if (export_mode == "full") {
             timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-            temp_dir <- tempdir()
+            temp_dir <- session_dir
             export_dir <- file.path(temp_dir, paste0("pca_rlog_export_", timestamp))
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             
@@ -636,8 +635,8 @@ output$download_code_pca_rlog <- downloadHandler(
                 intgroup = intgroup,
                 transform_type = "rlog",
                 pca_data_file = pca_filename,  # Pre-calculated PCA coordinates!
-                pc1_var = percentVar[1],
-                pc2_var = percentVar[2]
+                pc1_var = round(percentVar[1] * 100, 1),
+                pc2_var = round(percentVar[2] * 100, 1)
             )
             
             # Use simplified template - no gene selection or PCA calculation
@@ -657,8 +656,8 @@ output$download_code_pca_rlog <- downloadHandler(
                 "- ", pca_filename, " : Pre-calculated PCA coordinates (PC1, PC2) with metadata\n",
                 "- ", metadata_filename, " : Full sample metadata (for reference)\n\n",
                 "Variance explained:\n",
-                "- PC1: ", percentVar[1], "%\n",
-                "- PC2: ", percentVar[2], "%\n\n",
+                "- PC1: ", round(percentVar[1] * 100, 1), "%\n",
+                "- PC2: ", round(percentVar[2] * 100, 1), "%\n\n",
                 "Instructions:\n",
                 "1. Extract all files to the same directory\n",
                 "2. Open the R script (", code_filename, ") in RStudio\n",
@@ -713,7 +712,7 @@ output$download_code_distheat_vst <- downloadHandler(
         
         if (export_mode == "full") {
             timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-            temp_dir <- tempdir()
+            temp_dir <- session_dir
             export_dir <- file.path(temp_dir, paste0("distance_heatmap_vst_export_", timestamp))
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             
@@ -807,7 +806,7 @@ output$download_code_distheat_rlog <- downloadHandler(
         
         if (export_mode == "full") {
             timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-            temp_dir <- tempdir()
+            temp_dir <- session_dir
             export_dir <- file.path(temp_dir, paste0("distance_heatmap_rlog_export_", timestamp))
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             

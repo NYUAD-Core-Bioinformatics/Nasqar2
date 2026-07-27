@@ -12,31 +12,7 @@ generate_random_colors <- function(n) {
 
 # Helper function to check if a variable is categorical (suitable for factor analysis)
 isCategoricalFactor <- function(factor_data, sample_count) {
-    # Remove NA values for analysis
-    factor_data_clean <- factor_data[!is.na(factor_data)]
-    
-    if (length(factor_data_clean) == 0) {
-        return(FALSE)  # All NA values
-    }
-    
-    # Explicit factor or character variables are categorical
-    if (is.factor(factor_data) || is.character(factor_data)) {
-        unique_count <- length(unique(factor_data_clean))
-        # Must have at least 2 levels and no more than half the sample size
-        return(unique_count >= 2 && unique_count <= max(2, sample_count * 0.5))
-    }
-    
-    # For numeric variables, be very strict
-    if (is.numeric(factor_data)) {
-        unique_count <- length(unique(factor_data_clean))
-        # Only consider numeric as categorical if:
-        # 1. Very few unique values (≤ 5)
-        # 2. At least 2 levels for comparison
-        # 3. No more than 20% of sample size
-        return(unique_count >= 2 && unique_count <= min(5, sample_count * 0.2))
-    }
-    
-    return(FALSE)
+    is_categorical_factor(factor_data, sample_count)
 }
 
     # Helper function to safely validate input values for restoration
@@ -313,6 +289,12 @@ isCategoricalFactor <- function(factor_data, sample_count) {
 
 
 server <- function(input, output, session) {
+    session_dir <- file.path(
+        tempdir(),
+        paste0("deseq2-session-", safe_file_name(session$token))
+    )
+    dir.create(session_dir, recursive = TRUE, showWarnings = FALSE)
+
     # Add error handling for client-side communication issues
     session$onFlushed(function() {
         # This runs after the session is flushed to the client
@@ -321,7 +303,7 @@ server <- function(input, output, session) {
     
     # Add error handling for session errors
     session$onSessionEnded(function() {
-        # Clean up any resources
+        unlink(session_dir, recursive = TRUE, force = TRUE)
     })
     
     source("server-inputdata.R", local = TRUE)
@@ -382,10 +364,19 @@ server <- function(input, output, session) {
             status = myValues$status,
             
             # Plot-specific data and selections
-            heatmap_path = myValues$heatmap_path,
+            heatmap_path = NULL,
             
             # Volcano plot and Venn diagram data (saved analysis results for different datasets)
-            filelist_file_list = if(exists("filelist") && !is.null(filelist$file_list)) filelist$file_list else NULL,
+            filelist_file_list = if(exists("filelist") && !is.null(filelist$file_list)) {
+                snapshot_saved_results(filelist$file_list)
+            } else {
+                NULL
+            },
+            contrast_specs = if(exists("contrast_specs") && !is.null(contrast_specs$specs)) {
+                contrast_specs$specs
+            } else {
+                NULL
+            },
             
             # Boxplot custom colors
             custom_colors_colors = if(exists("custom_colors") && !is.null(custom_colors$colors)) custom_colors$colors else NULL,
@@ -462,18 +453,14 @@ server <- function(input, output, session) {
             
             # Metadata for state restoration
             save_timestamp = Sys.time(),
-            app_version = "deseq2shiny_v1.1_enhanced_plots"
+            app_version = "deseq2shiny_v2_portable_state"
         )
         
         return(state_object)
     }
     
     loadAppState <- function(state_object) {
-        # Validate state object
-        if (!is.list(state_object)) {
-            showNotification("Invalid state file format", type = "error", duration = 5)
-            return(FALSE)
-        }
+        state_object <- validate_state_object(state_object)
         
         # Clean the state object to remove any problematic values
         state_object <- cleanStateObject(state_object)
@@ -512,7 +499,18 @@ server <- function(input, output, session) {
             if (!exists("filelist")) {
                 filelist <<- reactiveValues()
             }
-            filelist$file_list <<- state_object$filelist_file_list
+            filelist$file_list <<- materialize_saved_results(
+                state_object$filelist_file_list,
+                session_dir
+            )
+            state_object$filelist_file_list <- filelist$file_list
+        }
+
+        if (!is.null(state_object$contrast_specs)) {
+            if (!exists("contrast_specs")) {
+                contrast_specs <<- reactiveValues()
+            }
+            contrast_specs$specs <<- state_object$contrast_specs
         }
         
         # Restore boxplot custom colors
@@ -1389,14 +1387,30 @@ server <- function(input, output, session) {
             tryCatch({
                 # Step 1: Reading state file
                 setProgress(value = 0.1, detail = "Reading state file...")
-                load(input$loadStateFile$datapath)
+                state_file <- input$loadStateFile$datapath
+                state_size <- file.info(state_file)$size
+                if (is.na(state_size) || state_size > 100 * 1024^2) {
+                    stop("State file exceeds the 100 MB safety limit.")
+                }
+                state_environment <- new.env(parent = emptyenv())
+                loaded_names <- load(state_file, envir = state_environment)
                 
                 # Step 2: Validating state object
                 setProgress(value = 0.2, detail = "Validating state file...")
-                if (!exists("state_object")) {
+                if (!identical(loaded_names, "state_object") ||
+                    !exists("state_object", envir = state_environment, inherits = FALSE)) {
                     showNotification("Invalid state file: 'state_object' not found", type = "error", duration = 5)
                     return()
                 }
+                state_object <- get(
+                    "state_object",
+                    envir = state_environment,
+                    inherits = FALSE
+                )
+                if (!is.list(state_object)) {
+                    stop("Invalid state file: state_object must be a list.")
+                }
+                state_object <- validate_state_object(state_object)
                 
                 # Step 3: Load all components using the comprehensive loadAppState function
                 setProgress(value = 0.4, detail = "Restoring application state...")
@@ -1449,7 +1463,7 @@ server <- function(input, output, session) {
         contentType = "application/zip",
         content = function(file) {
             timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-            temp_dir <- tempdir()
+            temp_dir <- session_dir
             export_dir <- file.path(temp_dir, paste0("all_plots_", timestamp))
             dir.create(export_dir, showWarnings = FALSE)
             
@@ -2304,32 +2318,17 @@ server <- function(input, output, session) {
                     pipeline_params$design_formula <- "~ 1"
                 }
                 
-                # Add ALL saved contrasts from filelist
-                # This ensures CONTRASTS parameter includes all "marked for further analysis" results
+                # Add all saved contrasts using their structured specifications.
                 pipeline_params$contrasts <- list()
                 
-                if (!is.null(main_factor) && exists("filelist") && !is.null(filelist$file_list) && length(filelist$file_list) > 0) {
-                    # Get all saved result filenames (e.g., "ConditionsHET_vs_KO.csv")
-                    saved_files <- names(filelist$file_list)
-                    cat("Found", length(saved_files), "saved contrasts from filelist\n")
-                    
-                    for (i in seq_along(saved_files)) {
-                        filename <- saved_files[i]
-                        cat("Processing saved result:", filename, "\n")
-                        
-                        # Remove .csv extension and parse
+                if (exists("contrast_specs") &&
+                    !is.null(contrast_specs$specs) &&
+                    length(contrast_specs$specs) > 0) {
+                    for (filename in names(contrast_specs$specs)) {
+                        specification <- contrast_specs$specs[[filename]]
                         contrast_name <- sub("\\.csv$", "", filename)
-                        
-                        # Try to parse contrast name (e.g., "ConditionsHET_vs_KO" -> c("Conditions", "HET", "KO"))
-                        parts <- strsplit(contrast_name, "_vs_")[[1]]
-                        if (length(parts) == 2) {
-                            cond1 <- parts[1]
-                            cond2 <- parts[2]
-                            # Remove factor name prefix if present (e.g., "ConditionsHET" -> "HET")
-                            cond1 <- sub(paste0("^", main_factor), "", cond1)
-                            pipeline_params$contrasts[[contrast_name]] <- c(main_factor, cond1, cond2)
-                            cat("  Added contrast:", paste(c(main_factor, cond1, cond2), collapse=", "), "\n")
-                        }
+                        pipeline_params$contrasts[[contrast_name]] <- specification$contrast
+                        cat("Added structured contrast:", contrast_name, "\n")
                     }
                 } else if (!is.null(myValues$vsResults) && !is.null(input$condition1) && !is.null(input$condition2) && !is.null(main_factor)) {
                     # Fallback: if no saved contrasts, use current contrast from UI
