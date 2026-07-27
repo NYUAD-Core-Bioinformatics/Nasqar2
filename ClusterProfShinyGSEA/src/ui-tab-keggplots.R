@@ -58,6 +58,27 @@ tabItem(
             )
         ),
         box(
+            title = "Tree Plot (hierarchical clustering of KEGG pathways)", solidHeader = T, status = "danger", width = 12, collapsible = T,
+            fluidRow(
+                column(3, wellPanel(
+                    numericInput("nCluster_tree_kegg", "Number of clusters", value = 5, min = 2, max = 20)
+                )),
+                column(9, wellPanel(
+                    withSpinner(plotOutput(outputId = "treePlot_kegg", height = "500px"), type = 8),
+                    plot_dl_buttons("treePlot_kegg")
+                ))
+            )
+        ),
+        box(
+            title = "Heat Plot (gene-pathway associations)", solidHeader = T, status = "danger", width = 12, collapsible = T,
+            fluidRow(
+                column(12, wellPanel(
+                    withSpinner(plotOutput(outputId = "heatPlot_kegg", height = "400px"), type = 8),
+                    plot_dl_buttons("heatPlot_kegg")
+                ))
+            )
+        ),
+        box(
             title = "Ridge Plot", solidHeader = T, status = "danger", width = 12, collapsible = T, id = "ridgeplot_kegg",
             fluidRow(
                 column(12, wellPanel(

@@ -16,5 +16,6 @@ dependencies:
   - r-markdown
   - r-biocmanager
   - r-ggupset
+  - r-plotly
   - bioconductor-clusterprofiler
   - bioconductor-pathview
