@@ -90,7 +90,14 @@ tabItem(
                         ),
                         column(
                             6,
-                            selectInput("ontology", "Ontology:", choices = c("MF", "BP", "CC"), selected = "BP")
+                            selectInput("ontology", "Ontology:", choices = c("MF", "BP", "CC", "ALL"), selected = "BP")
+                        ),
+                        conditionalPanel(
+                            condition = "input.ontology == 'ALL'",
+                            column(
+                                6,
+                                checkboxInput("poolGo", "Pool terms across ontologies", value = FALSE)
+                            )
                         ),
                         column(
                             4,

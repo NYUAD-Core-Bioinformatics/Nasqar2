@@ -20,6 +20,7 @@ enrichGoReactive <- eventReactive(input$initGo, {
                     maxGSSize = input$maxGSSize,
                     readable = T,
                     ont = input$ontology,
+                    pool = isTRUE(input$poolGo),
                     pvalueCutoff = input$pvalCuttoff,
                     qvalueCutoff = input$qvalCuttoff,
                     pAdjustMethod = input$pAdjustMethod
@@ -57,6 +58,7 @@ enrichGoReactive <- eventReactive(input$initGo, {
                 removeNotification("errorNotify2")
                 removeNotification("warnNotify")
                 removeNotification("warnNotify2")
+                removeNotification("keggEnrichError")
 
                 go_enrich <- NULL
                 kegg_enrich <- NULL
@@ -121,6 +123,7 @@ enrichGoReactive <- eventReactive(input$initGo, {
                                 maxGSSize = input$maxGSSize,
                                 readable = T,
                                 ont = input$ontology,
+                                pool = isTRUE(input$poolGo),
                                 pvalueCutoff = input$pvalCuttoff,
                                 qvalueCutoff = input$qvalCuttoff,
                                 pAdjustMethod = input$pAdjustMethod
@@ -142,10 +145,6 @@ enrichGoReactive <- eventReactive(input$initGo, {
                             nGo <- nrow(go_enrich@result)
                             updateNumericInput(session, "showCategory_go_global", max = nGo, value = min(5, nGo))
 
-                            nKegg <- if (!is.null(kegg_enrich)) nrow(kegg_enrich@result) else 0
-                            updateNumericInput(session, "showCategory_kegg_global", max = nKegg, value = min(5, nKegg))
-
-
                             ## KEGG enrich
 
                             # Convert gene IDs for enrichKEGG function
@@ -156,11 +155,14 @@ enrichGoReactive <- eventReactive(input$initGo, {
                             dedup_ids <- ids[!duplicated(ids[c(input$keytype)]), ]
                             myValues$dedup_ids <- dedup_ids  # store for ENTREZ → original ID reverse lookup
 
-                            # Create a new dataframe df2 which has only the genes which were successfully mapped using the bitr function above
-                            df2 <- df[df[[input$geneColumn]] %in% dedup_ids[, input$keytype], ]
-
-                            # Create a new column in df2 with the corresponding ENTREZ IDs
-                            df2$Y <- dedup_ids$ENTREZID
+                            # Match by the selected identifier. Filtering and assigning by
+                            # position can attach an ENTREZ ID to the wrong input row.
+                            mapped_entrez <- dedup_ids$ENTREZID[
+                                match(df[[input$geneColumn]], dedup_ids[[input$keytype]])
+                            ]
+                            mapped <- !is.na(mapped_entrez)
+                            df2 <- df[mapped, , drop = FALSE]
+                            df2$Y <- mapped_entrez[mapped]
 
                             # Create a vector of the gene unuiverse
                             kegg_gene_list <- df2[[input$log2fcColumn]]
@@ -215,26 +217,50 @@ enrichGoReactive <- eventReactive(input$initGo, {
                                 "org.EcSakai.eg.db" = "ecs"
                             )
 
-                            kegg_enrich <- enrichKEGG(
-                                gene = kegg_genes,
-                                universe = names(kegg_gene_list),
-                                organism = organismsDbKegg[input$organismDb],
-                                pvalueCutoff = input$pvalCuttoff,
-                                qvalueCutoff = input$qvalCuttoff,
-                                pAdjustMethod = input$pAdjustMethod,
-                                keyType = "ncbi-geneid",
-                                minGSSize = input$minGSSize,
-                                maxGSSize = input$maxGSSize
+                            kegg_enrich <- tryCatch(
+                                enrichKEGG(
+                                    gene = kegg_genes,
+                                    universe = names(kegg_gene_list),
+                                    organism = organismsDbKegg[input$organismDb],
+                                    pvalueCutoff = input$pvalCuttoff,
+                                    qvalueCutoff = input$qvalCuttoff,
+                                    pAdjustMethod = input$pAdjustMethod,
+                                    keyType = "ncbi-geneid",
+                                    minGSSize = input$minGSSize,
+                                    maxGSSize = input$maxGSSize
+                                ),
+                                error = function(e) {
+                                    showNotification(
+                                        id = "keggEnrichError",
+                                        paste("KEGG enrichment failed:", conditionMessage(e),
+                                              "GO results remain available."),
+                                        type = "warning", duration = NULL
+                                    )
+                                    NULL
+                                }
                             )
 
                             myValues$organismKegg <- organismsDbKegg[input$organismDb]
 
 
-                            pathway_choices <- setNames(
-                                kegg_enrich@result$ID,
-                                paste0(kegg_enrich@result$ID, " \u2014 ", kegg_enrich@result$Description)
-                            )
-                            updateSelectizeInput(session, "pathwayIds", choices = pathway_choices)
+                            if (!is.null(kegg_enrich) && nrow(kegg_enrich@result) > 0) {
+                                nKegg <- nrow(kegg_enrich@result)
+                                updateNumericInput(session, "showCategory_kegg_global",
+                                                   max = nKegg, value = min(5, nKegg))
+                                pathway_choices <- setNames(
+                                    kegg_enrich@result$ID,
+                                    paste0(kegg_enrich@result$ID, " \u2014 ",
+                                           kegg_enrich@result$Description)
+                                )
+                                updateSelectizeInput(session, "pathwayIds", choices = pathway_choices)
+                            } else {
+                                kegg_enrich <- NULL
+                                updateSelectizeInput(session, "pathwayIds", choices = character(0))
+                                showNotification(
+                                    "KEGG enrichment returned no pathways. GO results remain available.",
+                                    type = "warning", duration = 10
+                                )
+                            }
                         },
                         error = function(e) {
                             myValues$status <- paste("Error: ", e$message)
@@ -253,12 +279,27 @@ enrichGoReactive <- eventReactive(input$initGo, {
         # if()
 
 
-        shinyjs::show(selector = "a[data-value=\"wordcloudTab\"]")
-        shinyjs::show(selector = "a[data-value=\"pathviewTab\"]")
-        shinyjs::show(selector = "a[data-value=\"keggPlotsTab\"]")
-        shinyjs::show(selector = "a[data-value=\"goplotsTab\"]")
-        shinyjs::show(selector = "a[data-value=\"enrichKeggTab\"]")
-        shinyjs::show(selector = "a[data-value=\"enrichGoTab\"]")
+        if (!is.null(go_enrich)) {
+            shinyjs::show(selector = "a[data-value=\"goplotsTab\"]")
+            shinyjs::show(selector = "a[data-value=\"enrichGoTab\"]")
+        } else {
+            shinyjs::hide(selector = "a[data-value=\"goplotsTab\"]")
+            shinyjs::hide(selector = "a[data-value=\"enrichGoTab\"]")
+        }
+        if (!is.null(kegg_enrich)) {
+            shinyjs::show(selector = "a[data-value=\"pathviewTab\"]")
+            shinyjs::show(selector = "a[data-value=\"keggPlotsTab\"]")
+            shinyjs::show(selector = "a[data-value=\"enrichKeggTab\"]")
+        } else {
+            shinyjs::hide(selector = "a[data-value=\"pathviewTab\"]")
+            shinyjs::hide(selector = "a[data-value=\"keggPlotsTab\"]")
+            shinyjs::hide(selector = "a[data-value=\"enrichKeggTab\"]")
+        }
+        if (!is.null(go_enrich) || !is.null(kegg_enrich)) {
+            shinyjs::show(selector = "a[data-value=\"wordcloudTab\"]")
+        } else {
+            shinyjs::hide(selector = "a[data-value=\"wordcloudTab\"]")
+        }
 
         return(list("go_enrich" = go_enrich, "kegg_enrich" = kegg_enrich))
     })
