@@ -1,15 +1,3 @@
-encryptUrlParam <- function(paramStr) {
-    # pubkeyHex <- read_file("public.txt")
-    pubkeyHex <- "42b3781d6907cd426b9c05cac7155cce15bb9385a602716f619529485dab6c28"
-    pubkey <- hex2bin(pubkeyHex)
-
-    msg <- serialize(paramStr, NULL)
-    ciphertext <- simple_encrypt(msg, pubkey)
-
-    bin2hex(ciphertext)
-}
-
-
 expression_set_data <- reactive({
     input$evaluateExpression
 
@@ -22,9 +10,10 @@ expression_set_data <- reactive({
     return(genes)
 })
 output$select_venn_ui <- renderUI({
-    selectInput("select_avo_de_venn_files",
+    selectizeInput("select_avo_de_venn_files",
         label = h5("Select DE data"), selected = NULL, multiple = TRUE,
-        choices = names(filelist$file_list)
+        choices = names(filelist$file_list),
+        options = list(maxItems = 5)
     )
 })
 
@@ -478,7 +467,7 @@ observeEvent(input$evaluateExpression, {
           print(tagnames)
           df_list <- list()
           j <- 1
-          for (f in names(filelist$file_list)) {
+          for (f in isolate(input$select_avo_de_venn_files)) {
             print(f)
             print(filelist$file_list[[f]])
             df <- read.csv(filelist$file_list[[f]])
@@ -560,7 +549,7 @@ observeEvent(input$evaluateExpression, {
         j <- 1
         df_list <- list()
         plotlist <- list()
-        for (f in names(filelist$file_list)) {
+        for (f in isolate(input$select_avo_de_venn_files)) {
             print(f)
             print(filelist$file_list[[f]])
             df <- read.csv(filelist$file_list[[f]])
@@ -724,6 +713,10 @@ avo_venn_frames_data <- reactive({
     venn_significance_threshold <- isolate(input$venn_significance_threshold)
     venn_log_fold_change_threshold <- isolate(input$venn_log_fold_change_threshold)
     req(length(select_avo_de_venn_files) > 1)
+    validate(need(
+        length(select_avo_de_venn_files) <= 5,
+        "Venn diagrams support at most five comparisons."
+    ))
 
 
 
@@ -760,7 +753,9 @@ avo_venn_frames_data <- reactive({
 
 
         if (input$venn_sig_genes_selection == "3") {
-            df <- df[df$log2FoldChange < as.numeric(venn_log_fold_change_threshold), ]
+            df <- df[
+                df$log2FoldChange < -as.numeric(venn_log_fold_change_threshold),
+            ]
         }
 
         colnames(df)[1] <- "gene.id"
@@ -990,7 +985,7 @@ observeEvent(input$plotVenn, {
             })
             
             if (export_mode == "full") {
-                temp_dir <- tempdir()
+                temp_dir <- session_dir
                 export_dir <- file.path(temp_dir, paste0("venn_diagram_export_", timestamp))
                 dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
                 
@@ -1273,7 +1268,7 @@ output$download_code_venn_set_heatmap <- downloadHandler(
         if (export_mode == "full") {
             # Full reproducible export
             timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-            export_dir <- file.path(tempdir(), paste0("venn_set_heatmap_export_", timestamp))
+            export_dir <- file.path(session_dir, paste0("venn_set_heatmap_export_", timestamp))
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             
             # Save heatmap matrix data (already processed by Shiny - just log2FC values)
@@ -1386,7 +1381,7 @@ output$download_code_brushed_venn_heatmap <- downloadHandler(
         
         if (export_mode == "full") {
             # Full reproducible export
-            export_dir <- file.path(tempdir(), paste0("brushed_venn_heatmap_export_", timestamp))
+            export_dir <- file.path(session_dir, paste0("brushed_venn_heatmap_export_", timestamp))
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             
             # Save brushed heatmap matrix (log2FC values)

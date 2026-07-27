@@ -4,7 +4,7 @@ observe({
 
 compareReactive <- reactive({
     cat("DEBUG: compareReactive triggered, getDiffResVs value:", input$getDiffResVs, "\n")
-    if (input$getDiffResVs > 0) {
+    if (isTRUE(input$getDiffResVs > 0)) {
         cat("DEBUG: getDiffResVs > 0, proceeding with DE analysis\n")
         withProgress(message = "Getting DESeq results , please wait ...", {
             isolate({
@@ -112,20 +112,45 @@ output$download_ma_plot <- downloadHandler(
 
 filelist <- reactiveValues()
 filelist$file_list <- list()
+contrast_specs <- reactiveValues()
+contrast_specs$specs <- list()
 
 
 
 observeEvent(input$do, {
-    df <- as.data.frame(compareReactive()$results)
-    df[is.na(df)] <- 0
+    req(compareReactive()$results)
     if (input$resultNameOrFactor == "Result Names") {
-        filename <- paste(input$resultNamesInput, collapse = "_")
+        filename <- safe_file_name(
+            paste(input$resultNamesInput, collapse = "_"),
+            ".csv"
+        )
+        contrast_specs$specs[[filename]] <- list(
+            method = "result_names",
+            contrast = list(as.vector(input$resultNamesInput))
+        )
     } else {
-        filename <- paste0(input$factorNameInput, input$condition1, "_vs_", input$condition2, ".csv")
+        filename <- safe_file_name(
+            paste0(
+                input$factorNameInput,
+                "_",
+                input$condition1,
+                "_vs_",
+                input$condition2
+            ),
+            ".csv"
+        )
+        contrast_specs$specs[[filename]] <- list(
+            method = "factor",
+            contrast = c(
+                input$factorNameInput,
+                input$condition1,
+                input$condition2
+            )
+        )
     }
 
     csv <- myValues$vsResults
-    file <- paste0(tempdir(), "/", filename)
+    file <- file.path(session_dir, filename)
     filelist$file_list[[filename]] <- file
     write.csv(csv, file, row.names = T)
     # print( names(filelist$file_list))
@@ -153,7 +178,6 @@ output$comparisonData <- renderDataTable(
     {
         if (!is.null(compareReactive())) {
             df <- as.data.frame(compareReactive()$results)
-            df[is.na(df)] <- 0
             df
         }
     },
@@ -172,7 +196,7 @@ output$factorsStr <- renderText({
 
 output$analysisRes_enrichGo <- renderUI({
     fileUrl <- UUIDgenerate()
-    fileUrl <- paste0(tempdir(), "/", fileUrl, ".csv")
+    fileUrl <- file.path(session_dir, paste0(fileUrl, ".csv"))
     csv <- myValues$vsResults
 
     write.csv(csv, file = fileUrl)
@@ -234,7 +258,7 @@ output$download_code_ma <- downloadHandler(
             # FULL MODE: Export MA plots for multiple saved contrasts
             req(exists("filelist"), !is.null(filelist$file_list), length(filelist$file_list) > 0)
             
-            temp_dir <- tempdir()
+            temp_dir <- session_dir
             export_dir <- file.path(temp_dir, paste0("ma_plots_export_", timestamp))
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             

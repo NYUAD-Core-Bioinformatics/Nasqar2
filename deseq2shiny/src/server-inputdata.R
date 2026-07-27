@@ -61,7 +61,7 @@ inputFileReactive <- reactive({
     # print('valida')
 
     if (!is.null(query[["countsdata"]])) {
-        inFile <- decryptUrlParam(query[["countsdata"]])
+        inFile <- validate_exchange_path(decryptUrlParam(query[["countsdata"]]))
         # print('ask inputdata')
         shinyjs::show(selector = "a[data-value=\"inputdata\"]")
         shinyjs::disable("datafile")
@@ -75,11 +75,11 @@ inputFileReactive <- reactive({
         inFile <- inFile$datapath
     } else if (input$data_file_type == "examplecounts") {
         inFile <- "www/exampleData/wang_count_table.csv"
-        updateCheckboxInput(session, "no_replicates", value = "true")
+        updateCheckboxInput(session, "no_replicates", value = TRUE)
     } else if (input$data_file_type == "examplecountsfactors") {
         inFile <- "www/exampleData/chenCounts.csv"
         if (input$no_replicates) {
-            updateCheckboxInput(session, "no_replicates", value = "false")
+            updateCheckboxInput(session, "no_replicates", value = FALSE)
         }
     }
 
@@ -151,14 +151,11 @@ inputFileReactive <- reactive({
     }
 
     
-    dataCounts <- fileContent[, sampleN]
-    dataCounts <- data.frame(sapply(dataCounts, as.integer))
-
-
-
+    dataCounts <- fileContent[, sampleN, drop = FALSE]
     row.names(dataCounts) <- fileContent[, 1]
+    dataCounts <- validate_count_matrix(dataCounts)
     myValues$fileContent <- fileContent
-    myValues$dataCounts <- as.matrix(dataCounts)
+    myValues$dataCounts <- dataCounts
 
     if (is.null(query[["countsdata"]])) {
         js$collapse("uploadbox")
@@ -200,10 +197,6 @@ observeEvent(input$prefilterCounts, ignoreInit = TRUE, {
     print("prefilterCounts")
     print(paste("Applied prefilter with threshold:", input$minRowCount))
 })
-
-myValues <- reactiveValues()
-myValues$selected_genes <- 0
-
 
 output$deseqMenu <- renderMenu({
     if (!is.null(csvDataReactive())) {
@@ -282,7 +275,7 @@ outputOptions(output, "noreplicates", suspendWhenHidden = FALSE)
 
 
 observe({
-    if (input$data_file_type %in% c("examplecountsfactors", "countsFile")) {
+    if (isTRUE(input$data_file_type %in% c("examplecountsfactors", "countsFile"))) {
         updateCheckboxInput(session, "no_replicates", value = F)
         test <- inputFileReactive()
     }
