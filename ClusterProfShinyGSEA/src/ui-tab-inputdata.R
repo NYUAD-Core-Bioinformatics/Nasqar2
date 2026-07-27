@@ -80,8 +80,22 @@ tabItem(
                             selectInput("pAdjustMethod", "pAdjustMethod:", choices = c("holm", "hochberg", "hommel", "bonferroni", "BH", "BY", "fdr", "none"), selected = "none")
                         ),
                         column(
-                            4,
-                            selectInput("keggKeyType", "keggKeyType:", choices = c("kegg", "ncbi-geneid", "ncib-proteinid", "uniprot"), selected = "ncbi-geneid")
+                            12,
+                            tags$p(
+                                class = "text-muted",
+                                "KEGG analysis uses NCBI Gene IDs after converting the selected input key type."
+                            )
+                        ),
+                        column(
+                            12,
+                            checkboxInput("simplifyGo", "Simplify GO results (remove redundant terms)", value = FALSE)
+                        ),
+                        conditionalPanel(
+                            condition = "input.simplifyGo == true",
+                            column(
+                                6,
+                                sliderInput("simplifyCutoff", "Similarity cutoff:", min = 0.1, max = 1.0, value = 0.7, step = 0.05)
+                            )
                         ),
                         tags$div(class = "clearBoth")
                     ),

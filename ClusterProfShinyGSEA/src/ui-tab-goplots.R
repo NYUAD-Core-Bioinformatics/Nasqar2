@@ -55,6 +55,27 @@ tabItem(
             )
         ),
         box(
+            title = "Tree Plot (hierarchical clustering of GO terms)", solidHeader = T, status = "danger", width = 12, collapsible = T,
+            fluidRow(
+                column(3, wellPanel(
+                    numericInput("nCluster_tree", "Number of clusters", value = 5, min = 2, max = 20)
+                )),
+                column(9, wellPanel(
+                    withSpinner(plotOutput(outputId = "treePlot", height = "500px"), type = 8),
+                    plot_dl_buttons("treePlot")
+                ))
+            )
+        ),
+        box(
+            title = "Heat Plot (gene-term associations)", solidHeader = T, status = "danger", width = 12, collapsible = T,
+            fluidRow(
+                column(12, wellPanel(
+                    withSpinner(plotOutput(outputId = "heatPlot", height = "400px"), type = 8),
+                    plot_dl_buttons("heatPlot")
+                ))
+            )
+        ),
+        box(
             title = "Ridge Plot", solidHeader = T, status = "danger", width = 12, collapsible = T, id = "ridgeplot",
             fluidRow(
                 column(12, wellPanel(
