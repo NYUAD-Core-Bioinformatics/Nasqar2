@@ -49,7 +49,7 @@ observe({
 })
 
 tableEditReactive <- reactive({
-    if (input$addConditions > 0) {
+    if (isTRUE(input$addConditions > 0)) {
         isolate({
             print("input$table start")
             # print(input$table)

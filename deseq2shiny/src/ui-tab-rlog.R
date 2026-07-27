@@ -8,13 +8,13 @@ tabItem(
             hr(),
             wellPanel(
                 box(
-                    title = "Distance Heatmap", width = 6, solidHeader = T, status = "primary",
-                    withSpinner(plotlyOutput(outputId = "rlogPlot"))
+                    title = "Distance Heatmap", width = 12, solidHeader = T, status = "primary",
+                    withSpinner(plotlyOutput(outputId = "rlogPlot", height = "650px"))
                 ),
                 box(
-                    title = "PCA Plot", width = 6, solidHeader = T, status = "primary",
+                    title = "PCA Plot", width = 12, solidHeader = T, status = "primary",
                     selectInput("rlogIntGroupsInput", "Group of interest", choices = c()),
-                    withSpinner(plotlyOutput(outputId = "rlogPcaPlot"))
+                    withSpinner(plotlyOutput(outputId = "rlogPcaPlot", height = "650px"))
                 ),
                 h4(p(class = "text-right", downloadButton("downloadRlogCsv", "Download rlog.csv", class = "btn btn-primary btn-sm"))),
                 withSpinner(dataTableOutput("rlogData"))

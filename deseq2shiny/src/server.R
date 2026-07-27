@@ -288,7 +288,13 @@ isCategoricalFactor <- function(factor_data, sample_count) {
 }
 
 
-server <- function(input, output, session) {
+stateExportServer <- function(id, root_input, root_output, root_session) {
+  moduleServer(id, function(input, output, session) {
+    input <- root_input
+    output <- root_output
+    session <- root_session
+    myValues <- reactiveValues(selected_genes = 0)
+
     session_dir <- file.path(
         tempdir(),
         paste0("deseq2-session-", safe_file_name(session$token))
@@ -305,30 +311,55 @@ server <- function(input, output, session) {
     session$onSessionEnded(function() {
         unlink(session_dir, recursive = TRUE, force = TRUE)
     })
-    
-    source("server-inputdata.R", local = TRUE)
-
-    source("server-conditions.R", local = TRUE)
-
-    source("server-svaseq.R", local = TRUE)
-
-    source("server-runDeseq.R", local = TRUE)
-
-    source("server-analysisRes.R", local = TRUE)
-    source("server-venndiagram.R", local = TRUE)
-    source("server-volcanoplot.R", local = TRUE)
-
-    source("server-boxplot.R", local = TRUE)
-
-    source("server-heatmap.R", local = TRUE)
-    
-    source("server-export-code.R", local = TRUE)
 
     GotoTab <- function(name) {
         shinyjs::show(selector = paste0("a[data-value=\"", name, "\"]"))
 
         shinyjs::runjs("window.scrollTo(0, 0)")
     }
+    js_api <- js
+    factor_api <- list(
+        is_categorical = isCategoricalFactor,
+        get_valid = getValidCategoricalFactors
+    )
+
+    design_api <- designServer(
+        "design", input, output, session, myValues, factor_api, js_api
+    )
+    input_api <- inputDataServer(
+        "input_data", input, output, session, myValues, design_api, js_api
+    )
+    sva_api <- svaServer(
+        "sva", input, output, session, myValues, design_api, js_api, GotoTab
+    )
+    deseq_api <- deseqServer(
+        "deseq", input, output, session, myValues, session_dir, factor_api,
+        js_api, GotoTab
+    )
+    results_api <- resultsServer(
+        "results", input, output, session, myValues, session_dir, js_api
+    )
+    venn_api <- vennServer(
+        "venn", input, output, session, myValues, session_dir, results_api
+    )
+    volcano_api <- volcanoServer(
+        "volcano", input, output, session, myValues, session_dir, results_api
+    )
+    boxplot_api <- boxplotServer(
+        "boxplot", input, output, session, myValues, session_dir,
+        generate_random_colors
+    )
+    heatmap_api <- heatmapServer(
+        "heatmap", input, output, session, myValues, session_dir
+    )
+
+    # Explicit child-module outputs consumed by state/export orchestration.
+    filelist <- results_api$files
+    contrast_specs <- results_api$contrast_specs
+    custom_colors <- boxplot_api$colors
+    selected_matrix <- venn_api$selected_matrix
+    heatmapReactive <- heatmap_api$heatmap
+    updateDesignFormula <- design_api$update_formula
     
     # State saving/loading functionality
     saveAppState <- function() {
@@ -2705,4 +2736,25 @@ server <- function(input, output, session) {
             )
         ))
     })
+
+    list(
+        state = myValues,
+        session_dir = session_dir,
+        modules = list(
+            input = input_api,
+            design = design_api,
+            sva = sva_api,
+            deseq = deseq_api,
+            results = results_api,
+            venn = venn_api,
+            volcano = volcano_api,
+            boxplot = boxplot_api,
+            heatmap = heatmap_api
+        )
+    )
+  })
+}
+
+server <- function(input, output, session) {
+  stateExportServer("application", input, output, session)
 }

@@ -118,8 +118,10 @@ output$svaPlot <- renderPlotly({
         }
 
         ggplot(df, aes_string(xaxis, yaxis, col = colorBy)) +
-            geom_point() +
-            geom_text(aes(label = rownames(df)), hjust = 0, vjust = 0)
+            geom_point(size = 4, alpha = 0.9) +
+            geom_text(aes(label = rownames(df)), hjust = 0, vjust = 0,
+                      size = 4) +
+            theme_minimal(base_size = 15)
     }
 })
 
@@ -161,7 +163,17 @@ output$pcaSvaPlot <- renderPlotly({
     vsd <- myValues$vsdSva
 
     if (!is.null(vsd)) {
-        DESeq2::plotPCA(vsd, intgroup = input$factorNameInputSva)
+        p <- DESeq2::plotPCA(vsd, intgroup = input$factorNameInputSva)
+        if (length(p$layers) > 0) {
+            p$layers[[1]]$aes_params$size <- 4
+            p$layers[[1]]$aes_params$alpha <- 0.9
+        }
+        ggplotly(p + theme_minimal(base_size = 15)) %>%
+            layout(
+                font = list(size = 15),
+                margin = list(l = 90, r = 40, b = 80, t = 60)
+            ) %>%
+            config(responsive = TRUE, displaylogo = FALSE)
     }
 })
 
@@ -180,7 +192,7 @@ output$varsToIncludeInDeseq <- renderText({
 })
 
 observe({
-    if (input$runDeseqWithSVs > 0) {
+    if (isTRUE(input$runDeseqWithSVs > 0)) {
         #
         # myValues$DF = colData(myValues$ddsAddSV)
         myValues$dds <- myValues$ddsAddSV
@@ -190,7 +202,7 @@ observe({
 })
 
 observe({
-    if (input$runDeseqWithoutSVs > 0) {
+    if (isTRUE(input$runDeseqWithoutSVs > 0)) {
         myValues$dds <- ddsInitReactive()
         GotoTab("deseqTab")
     }

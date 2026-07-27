@@ -91,7 +91,7 @@ observe({
     cat("DEBUG: Current sel_gene:", if(is.null(current_sel_gene)) "NULL" else paste(current_sel_gene, collapse = ", "), "\n")
     cat("DEBUG: Current sel_groups:", if(is.null(current_sel_groups)) "NULL" else paste(current_sel_groups, collapse = ", "), "\n")
     
-    if (input$box_plot_sel_gene_type == "gene.name") {
+    if (identical(input$box_plot_sel_gene_type, "gene.name")) {
         genenames <- myValues$genenames[rownames(myValues$dataCounts), ]
         # CRITICAL: Strip all attributes to ensure it's a simple vector
         genenames <- as.vector(genenames)
@@ -219,7 +219,7 @@ geneExrReactive <- reactive({
     box_plot_sel_gene_type <- isolate(input$box_plot_sel_gene_type)
     sel_gene <- input$sel_gene
 
-    if (box_plot_sel_gene_type == "gene.name") {
+    if (identical(box_plot_sel_gene_type, "gene.name")) {
         sel_gene <- myValues$geneids[sel_gene, ]
     }
 
@@ -323,7 +323,7 @@ output$download_boxplot <- downloadHandler(
         plot_dpi <- input$boxplot_dpi
         
         # Create the ggplot
-        if (input$box_plot_sel_gene_type == "gene.name") {
+        if (identical(input$box_plot_sel_gene_type, "gene.name")) {
             p <- ggplot(filtered, aes_string(input$boxplotX, "expression", fill = input$boxplotFill)) +
                 geom_boxplot() +
                 facet_wrap(~gene.name, scales = "free_y") +
@@ -457,7 +457,7 @@ output$download_code_boxplot <- downloadHandler(
             
             # Get selected genes
             sel_gene <- input$sel_gene
-            if (input$box_plot_sel_gene_type == "gene.name") {
+            if (identical(input$box_plot_sel_gene_type, "gene.name")) {
                 sel_gene <- myValues$geneids[sel_gene, ]
             }
             
