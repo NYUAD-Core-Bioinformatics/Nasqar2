@@ -53,7 +53,7 @@ heatmapReactive <- reactive({
 
             # vst = vst[,input$heat_group]
 
-            myValues$heatmap_path <- paste0(tempdir(), "/", "heatmap-highres.pdf")
+            myValues$heatmap_path <- file.path(session_dir, "heatmap-highres.pdf")
 
             if (!input$subsetGenes) {
                 tmpsd <- apply(logNormCounts, 1, sd)
@@ -316,7 +316,7 @@ output$download_code_brushed_heatmap <- downloadHandler(
         # If full mode, prepare data export FIRST to get correct rownames
         if (get_export_mode(input) == "full") {
             timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-            temp_dir <- tempdir()
+            temp_dir <- session_dir
             export_dir <- file.path(temp_dir, paste0("brushed_heatmap_export_", timestamp))
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             
@@ -528,7 +528,7 @@ output$download_code_heatmap <- downloadHandler(
         # If full mode, prepare data export FIRST to get the actual displayed genes
         if (export_mode == "full") {
             timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-            temp_dir <- tempdir()
+            temp_dir <- session_dir
             export_dir <- file.path(temp_dir, paste0("heatmap_export_", timestamp))
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             

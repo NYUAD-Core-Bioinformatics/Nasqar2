@@ -276,7 +276,15 @@ ddsInitReactive <- eventReactive(input$init_deseq2, {
             validate(need(
                 tryCatch(
                     {
-                        dds <- DESeqDataSetFromMatrix(dataCounts, colData = samples, design = as.formula(input$designFormula))
+                        design_formula <- parse_design_formula(
+                            input$designFormula,
+                            colnames(samples)
+                        )
+                        dds <- DESeqDataSetFromMatrix(
+                            dataCounts,
+                            colData = samples,
+                            design = design_formula
+                        )
                     },
                     error = function(e) {
                         myValues$status <- paste("DESeq2 Error: ", e$message)

@@ -451,7 +451,7 @@ output$download_code_boxplot <- downloadHandler(
         # If full mode, export data and create ZIP
         if (export_mode == "full") {
             timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-            temp_dir <- tempdir()
+            temp_dir <- session_dir
             export_dir <- file.path(temp_dir, paste0("boxplot_export_", timestamp))
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             
