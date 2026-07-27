@@ -4,7 +4,7 @@ observe({
 
 compareReactive <- reactive({
     cat("DEBUG: compareReactive triggered, getDiffResVs value:", input$getDiffResVs, "\n")
-    if (input$getDiffResVs > 0) {
+    if (isTRUE(input$getDiffResVs > 0)) {
         cat("DEBUG: getDiffResVs > 0, proceeding with DE analysis\n")
         withProgress(message = "Getting DESeq results , please wait ...", {
             isolate({

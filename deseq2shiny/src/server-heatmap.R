@@ -30,7 +30,7 @@ observe({
 
 heatmapReactive <- reactive({
     cat("DEBUG: heatmapReactive triggered, genHeatmap value:", input$genHeatmap, "\n")
-    if (input$genHeatmap > 0) {
+    if (isTRUE(input$genHeatmap > 0)) {
         cat("DEBUG: genHeatmap > 0, proceeding with heatmap generation\n")
         isolate({
 

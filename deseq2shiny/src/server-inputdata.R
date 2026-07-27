@@ -198,10 +198,6 @@ observeEvent(input$prefilterCounts, ignoreInit = TRUE, {
     print(paste("Applied prefilter with threshold:", input$minRowCount))
 })
 
-myValues <- reactiveValues()
-myValues$selected_genes <- 0
-
-
 output$deseqMenu <- renderMenu({
     if (!is.null(csvDataReactive())) {
         menuItem("2. Run DESeq2",
@@ -279,7 +275,7 @@ outputOptions(output, "noreplicates", suspendWhenHidden = FALSE)
 
 
 observe({
-    if (input$data_file_type %in% c("examplecountsfactors", "countsFile")) {
+    if (isTRUE(input$data_file_type %in% c("examplecountsfactors", "countsFile"))) {
         updateCheckboxInput(session, "no_replicates", value = F)
         test <- inputFileReactive()
     }

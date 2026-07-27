@@ -244,7 +244,7 @@ observeEvent(input$factorNameInput,
 
 
 observe({
-    if (input$goto_svaTab > 0) {
+    if (isTRUE(input$goto_svaTab > 0)) {
         GotoTab("svaseqTab")
     }
 })
@@ -329,15 +329,39 @@ output$rlogPcaPlot <- renderPlotly({
             hoverinfo = "text",
             type = "scatter",
             mode = "markers",
-            marker = list(size = 8, opacity = 0.8)
+            marker = list(
+                size = 16,
+                opacity = 0.9,
+                line = list(width = 1.5, color = "white")
+            )
         ) %>%
         layout(
-            title = "PCA Plot",
-            xaxis = list(title = paste0("PC1: ", round(percentVar[1] * 100, 1), "% variance")),
-            yaxis = list(title = paste0("PC2: ", round(percentVar[2] * 100, 1), "% variance")),
+            title = list(text = "PCA Plot", font = list(size = 22)),
+            font = list(size = 16),
+            xaxis = list(
+                title = list(
+                    text = paste0("PC1: ", round(percentVar[1] * 100, 1), "% variance"),
+                    font = list(size = 18)
+                ),
+                tickfont = list(size = 14),
+                zeroline = FALSE
+            ),
+            yaxis = list(
+                title = list(
+                    text = paste0("PC2: ", round(percentVar[2] * 100, 1), "% variance"),
+                    font = list(size = 18)
+                ),
+                tickfont = list(size = 14),
+                zeroline = FALSE
+            ),
             showlegend = TRUE,
-            legend = list(title = list(text = "Group of Interest"))
-        )
+            legend = list(
+                title = list(text = "Group of Interest"),
+                font = list(size = 15)
+            ),
+            margin = list(l = 90, r = 40, b = 80, t = 70)
+        ) %>%
+        config(responsive = TRUE, displaylogo = FALSE)
         
         return(p)
     }
@@ -418,15 +442,39 @@ output$vsdPcaPlot <- renderPlotly({
             hoverinfo = "text",
             type = "scatter",
             mode = "markers",
-            marker = list(size = 8, opacity = 0.8)
+            marker = list(
+                size = 16,
+                opacity = 0.9,
+                line = list(width = 1.5, color = "white")
+            )
         ) %>%
         layout(
-            title = "PCA Plot",
-            xaxis = list(title = paste0("PC1: ", round(percentVar[1] * 100, 1), "% variance")),
-            yaxis = list(title = paste0("PC2: ", round(percentVar[2] * 100, 1), "% variance")),
+            title = list(text = "PCA Plot", font = list(size = 22)),
+            font = list(size = 16),
+            xaxis = list(
+                title = list(
+                    text = paste0("PC1: ", round(percentVar[1] * 100, 1), "% variance"),
+                    font = list(size = 18)
+                ),
+                tickfont = list(size = 14),
+                zeroline = FALSE
+            ),
+            yaxis = list(
+                title = list(
+                    text = paste0("PC2: ", round(percentVar[2] * 100, 1), "% variance"),
+                    font = list(size = 18)
+                ),
+                tickfont = list(size = 14),
+                zeroline = FALSE
+            ),
             showlegend = TRUE,
-            legend = list(title = list(text = "Group of Interest"))
-        )
+            legend = list(
+                title = list(text = "Group of Interest"),
+                font = list(size = 15)
+            ),
+            margin = list(l = 90, r = 40, b = 80, t = 70)
+        ) %>%
+        config(responsive = TRUE, displaylogo = FALSE)
         
         return(p)
     }

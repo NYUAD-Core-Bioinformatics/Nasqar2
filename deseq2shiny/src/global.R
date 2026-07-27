@@ -10,6 +10,8 @@ options(shiny.sanitize.errors = TRUE)
 
 # Load pure validation and persistence helpers.
 source("core-functions.R", local = FALSE)
+source("server-export-code.R", local = FALSE)
+source("server-modules.R", local = FALSE)
 
 # Export helpers to avoid NULL input issues in download handlers
 get_export_mode <- function(input) {

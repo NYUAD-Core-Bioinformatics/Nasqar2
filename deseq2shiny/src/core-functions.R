@@ -1,5 +1,15 @@
 # Pure helpers shared by the Shiny application and automated tests.
 
+encryptUrlParam <- function(paramStr) {
+  public_key_hex <- Sys.getenv(
+    "NASQAR_PUBLIC_KEY_HEX",
+    unset = "42b3781d6907cd426b9c05cac7155cce15bb9385a602716f619529485dab6c28"
+  )
+  public_key <- sodium::hex2bin(public_key_hex)
+  message <- serialize(paramStr, NULL)
+  sodium::bin2hex(sodium::simple_encrypt(message, public_key))
+}
+
 parse_design_formula <- function(formula_text, metadata_names) {
   if (is.null(formula_text) || length(formula_text) != 1L ||
       !nzchar(trimws(formula_text))) {

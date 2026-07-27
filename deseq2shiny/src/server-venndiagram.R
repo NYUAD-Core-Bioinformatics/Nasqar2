@@ -1,15 +1,3 @@
-encryptUrlParam <- function(paramStr) {
-    # pubkeyHex <- read_file("public.txt")
-    pubkeyHex <- "42b3781d6907cd426b9c05cac7155cce15bb9385a602716f619529485dab6c28"
-    pubkey <- hex2bin(pubkeyHex)
-
-    msg <- serialize(paramStr, NULL)
-    ciphertext <- simple_encrypt(msg, pubkey)
-
-    bin2hex(ciphertext)
-}
-
-
 expression_set_data <- reactive({
     input$evaluateExpression
 
