@@ -1,153 +1,112 @@
-# Test Script for State Management Functionality
-# This script tests the save/load state functionality
+# Executable regression tests for validation and portable state helpers.
 
-# Load required libraries
-library(shiny)
+source("core-functions.R")
 
-# Source the server functions to test them independently
-source("server.R", local = TRUE)
+expect_error <- function(expression) {
+  error_raised <- FALSE
+  tryCatch(
+    force(expression),
+    error = function(e) {
+      error_raised <<- TRUE
+    }
+  )
+  if (!error_raised) {
+    stop("Expected an error, but the expression succeeded.", call. = FALSE)
+  }
+}
 
-# Create a mock reactiveValues object for testing
-test_myValues <- reactiveValues(
-    dataCounts = matrix(1:100, nrow = 10, ncol = 10),
-    fileContent = data.frame(gene = paste0("gene", 1:10), sample1 = 1:10, sample2 = 11:20),
-    DF = data.frame(Samples = paste0("sample", 1:10), Condition = rep(c("A", "B"), 5)),
-    selected_genes = 5
+cat("Running DESeq2Shiny core regression tests\n")
+
+metadata_names <- c("condition", "batch")
+design <- parse_design_formula("~ condition * batch", metadata_names)
+stopifnot(
+  inherits(design, "formula"),
+  identical(attr(terms(design), "term.labels"),
+            c("condition", "batch", "condition:batch"))
 )
 
-# Test saving state function
-test_save_state <- function() {
-    cat("Testing save state functionality...\n")
-    
-    # Mock the myValues object
-    myValues <<- test_myValues
-    
-    # Test the saveAppState function
-    tryCatch({
-        state_obj <- saveAppState()
-        
-        # Check if all expected components are present
-        expected_components <- c("dataCounts", "fileContent", "DF", "selected_genes", 
-                               "save_timestamp", "app_version")
-        
-        missing_components <- setdiff(expected_components, names(state_obj))
-        if (length(missing_components) == 0) {
-            cat("✓ All expected components are present in saved state\n")
-        } else {
-            cat("✗ Missing components:", paste(missing_components, collapse = ", "), "\n")
-        }
-        
-        # Check data integrity
-        if (identical(state_obj$dataCounts, test_myValues$dataCounts)) {
-            cat("✓ Data counts saved correctly\n")
-        } else {
-            cat("✗ Data counts not saved correctly\n")
-        }
-        
-        if (identical(state_obj$selected_genes, test_myValues$selected_genes)) {
-            cat("✓ Selected genes saved correctly\n")
-        } else {
-            cat("✗ Selected genes not saved correctly\n")
-        }
-        
-        # Test file saving
-        temp_file <- tempfile(fileext = ".RData")
-        save(state_obj, file = temp_file)
-        
-        if (file.exists(temp_file)) {
-            cat("✓ State file created successfully\n")
-            file.remove(temp_file)
-        } else {
-            cat("✗ Failed to create state file\n")
-        }
-        
-        return(state_obj)
-        
-    }, error = function(e) {
-        cat("✗ Error in save state function:", e$message, "\n")
-        return(NULL)
-    })
-}
+expect_error(
+  parse_design_formula(
+    "~ I({ system('id'); condition })",
+    metadata_names
+  )
+)
+expect_error(parse_design_formula("~ missing_column", metadata_names))
 
-# Test loading state function
-test_load_state <- function(state_obj) {
-    cat("\nTesting load state functionality...\n")
-    
-    if (is.null(state_obj)) {
-        cat("✗ Cannot test load - save function failed\n")
-        return(FALSE)
-    }
-    
-    # Clear myValues
-    myValues <<- reactiveValues()
-    
-    # Mock the session object for updateDesignFormula (if it exists)
-    if (exists("updateDesignFormula")) {
-        # Create a minimal mock session
-        session <<- list()
-    }
-    
-    tryCatch({
-        # Test the loadAppState function
-        success <- loadAppState(state_obj)
-        
-        if (success) {
-            cat("✓ Load state function returned success\n")
-        } else {
-            cat("✗ Load state function returned failure\n")
-            return(FALSE)
-        }
-        
-        # Check if data was loaded correctly
-        if (identical(myValues$dataCounts, test_myValues$dataCounts)) {
-            cat("✓ Data counts loaded correctly\n")
-        } else {
-            cat("✗ Data counts not loaded correctly\n")
-        }
-        
-        if (identical(myValues$selected_genes, test_myValues$selected_genes)) {
-            cat("✓ Selected genes loaded correctly\n")
-        } else {
-            cat("✗ Selected genes not loaded correctly\n")
-        }
-        
-        return(TRUE)
-        
-    }, error = function(e) {
-        cat("✗ Error in load state function:", e$message, "\n")
-        return(FALSE)
-    })
-}
+valid_counts <- data.frame(
+  sample_a = c("0", "4", "12"),
+  sample_b = c(2, 8, 20),
+  row.names = c("gene1", "gene2", "gene3"),
+  check.names = FALSE
+)
+count_matrix <- validate_count_matrix(valid_counts)
+stopifnot(
+  is.matrix(count_matrix),
+  typeof(count_matrix) == "integer",
+  identical(dim(count_matrix), c(3L, 2L)),
+  identical(rownames(count_matrix), rownames(valid_counts))
+)
+expect_error(validate_count_matrix(data.frame(sample = c(1, 2.5))))
+expect_error(validate_count_matrix(data.frame(sample = c(1, -2))))
+expect_error(validate_count_matrix(data.frame(sample = c(1, "invalid"))))
 
-# Test round-trip save/load
-test_round_trip <- function() {
-    cat("\nTesting complete save/load round trip...\n")
-    
-    # Save state
-    state_obj <- test_save_state()
-    
-    # Load state
-    load_success <- test_load_state(state_obj)
-    
-    if (load_success) {
-        cat("✓ Complete round-trip test successful\n")
-    } else {
-        cat("✗ Round-trip test failed\n")
-    }
-    
-    return(load_success)
-}
+three_level_factor <- factor(c("A", "A", "B", "C", "C"))
+stopifnot(is_categorical_factor(three_level_factor, 5L))
+stopifnot(!is_categorical_factor(seq_len(5), 5L))
 
-# Run tests if script is executed directly
-if (!interactive()) {
-    cat("Running State Management Tests\n")
-    cat("==============================\n")
-    
-    result <- test_round_trip()
-    
-    if (result) {
-        cat("\n✓ All tests passed! State management functionality is working correctly.\n")
-    } else {
-        cat("\n✗ Some tests failed. Please check the implementation.\n")
-    }
-}
+stopifnot(
+  identical(safe_file_name("../../A vs B", ".csv"), "A_vs_B.csv")
+)
+
+exchange_filename <- "550e8400-e29b-41d4-a716-446655440000.csv"
+exchange_path <- file.path(tempdir(), exchange_filename)
+write.csv(data.frame(gene = "g1", count = 1L), exchange_path,
+          row.names = FALSE)
+stopifnot(identical(validate_exchange_path(exchange_path),
+                    normalizePath(exchange_path)))
+expect_error(validate_exchange_path("/etc/passwd"))
+
+source_result <- file.path(tempdir(), "source-result.csv")
+write.csv(
+  data.frame(
+    gene = c("g1", "g2"),
+    log2FoldChange = c(1.5, -2),
+    padj = c(0.01, NA)
+  ),
+  source_result,
+  row.names = FALSE
+)
+snapshot <- snapshot_saved_results(list(comparison = source_result))
+validated_state <- validate_state_object(list(
+  dataCounts = count_matrix,
+  fileContent = data.frame(gene = rownames(count_matrix)),
+  DF = data.frame(condition = factor(c("A", "B"))),
+  saved_inputs = list(alpha = 0.1),
+  filelist_file_list = snapshot,
+  contrast_specs = list()
+))
+stopifnot(is.list(validated_state))
+expect_error(validate_state_object(list(dataCounts = "not a matrix")))
+
+state_file <- tempfile(fileext = ".RData")
+state_object <- validated_state
+save(state_object, file = state_file)
+isolated_state_environment <- new.env(parent = emptyenv())
+loaded_names <- load(state_file, envir = isolated_state_environment)
+stopifnot(identical(loaded_names, "state_object"))
+invisible(validate_state_object(get(
+  "state_object",
+  envir = isolated_state_environment,
+  inherits = FALSE
+)))
+
+restored_dir <- tempfile("restored-state-")
+restored_paths <- materialize_saved_results(snapshot, restored_dir)
+restored_result <- read.csv(restored_paths$comparison)
+stopifnot(
+  identical(names(restored_paths), "comparison"),
+  identical(restored_result$gene, c("g1", "g2")),
+  is.na(restored_result$padj[[2L]])
+)
+
+cat("All DESeq2Shiny core regression tests passed\n")

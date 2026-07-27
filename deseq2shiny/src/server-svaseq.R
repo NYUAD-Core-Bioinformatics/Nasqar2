@@ -4,7 +4,14 @@ observe({
 
 svaReactive <- eventReactive(input$runSVA, {
     # print(input$designFormulaSva)
-    validate(need(as.formula(input$designFormulaSva) != as.formula("~1"), "Need biological factors to estimate SVs!"))
+    sva_design <- parse_design_formula(
+        input$designFormulaSva,
+        colnames(colData(myValues$dds))
+    )
+    validate(need(
+        length(attr(terms(sva_design), "term.labels")) > 0,
+        "Need biological factors to estimate SVs!"
+    ))
     isolate({
         dds <- ddsInitReactive()
     })
@@ -24,7 +31,13 @@ svaReactive <- eventReactive(input$runSVA, {
 
                     ### SVA
                     isolate({
-                        mm <- model.matrix(as.formula(input$designFormulaSva), colData(dds))
+                        mm <- model.matrix(
+                            parse_design_formula(
+                                input$designFormulaSva,
+                                colnames(colData(dds))
+                            ),
+                            colData(dds)
+                        )
                         mm0 <- model.matrix(~1, colData(dds))
                         norm.cts <- norm.cts[rowSums(norm.cts) > 0, ]
                         svafit <- svaseq(norm.cts, mod = mm, mod0 = mm0, n.sv = input$numSVA)
@@ -76,7 +89,14 @@ svaReactive <- eventReactive(input$runSVA, {
 
 output$svaText <- renderText({
     # print(input$designFormulaSva)
-    validate(need(as.formula(input$designFormulaSva) != as.formula("~1"), "Cannot use ~ 1 to estimate SVs. Biological factors are required!"))
+    sva_design <- parse_design_formula(
+        input$designFormulaSva,
+        colnames(colData(myValues$dds))
+    )
+    validate(need(
+        length(attr(terms(sva_design), "term.labels")) > 0,
+        "Cannot use ~ 1 to estimate SVs. Biological factors are required!"
+    ))
 
     return(paste("Using biological factors:", input$designFormulaSva, "to estimate Surrogate Variables (SVs)"))
 })
@@ -98,8 +118,10 @@ output$svaPlot <- renderPlotly({
         }
 
         ggplot(df, aes_string(xaxis, yaxis, col = colorBy)) +
-            geom_point() +
-            geom_text(aes(label = rownames(df)), hjust = 0, vjust = 0)
+            geom_point(size = 4, alpha = 0.9) +
+            geom_text(aes(label = rownames(df)), hjust = 0, vjust = 0,
+                      size = 4) +
+            theme_minimal(base_size = 15)
     }
 })
 
@@ -108,14 +130,19 @@ observeEvent(input$regressVarsBatch, ignoreInit = TRUE, {
     withProgress(message = "Removing batch effect, this may take a long time.", {
         dds <- myValues$ddsSva
 
-        svaFormula <- as.formula(input$newFormulaSva)
+        svaFormula <- parse_design_formula(
+            input$newFormulaSva,
+            colnames(colData(dds))
+        )
 
         design(dds) <- svaFormula
 
-        BiocParallel::register(MulticoreParam(3))
-
         shiny::setProgress(value = 0.3, detail = "Running DESeq ...")
-        dds <- DESeq(dds, parallel = T)
+        dds <- DESeq(
+            dds,
+            parallel = TRUE,
+            BPPARAM = MulticoreParam(3)
+        )
 
         shiny::setProgress(value = 0.6, detail = "Computing VST matrix ...")
         vsd <- varianceStabilizingTransformation(dds)
@@ -136,7 +163,17 @@ output$pcaSvaPlot <- renderPlotly({
     vsd <- myValues$vsdSva
 
     if (!is.null(vsd)) {
-        DESeq2::plotPCA(vsd, intgroup = input$factorNameInputSva)
+        p <- DESeq2::plotPCA(vsd, intgroup = input$factorNameInputSva)
+        if (length(p$layers) > 0) {
+            p$layers[[1]]$aes_params$size <- 4
+            p$layers[[1]]$aes_params$alpha <- 0.9
+        }
+        ggplotly(p + theme_minimal(base_size = 15)) %>%
+            layout(
+                font = list(size = 15),
+                margin = list(l = 90, r = 40, b = 80, t = 60)
+            ) %>%
+            config(responsive = TRUE, displaylogo = FALSE)
     }
 })
 
@@ -155,7 +192,7 @@ output$varsToIncludeInDeseq <- renderText({
 })
 
 observe({
-    if (input$runDeseqWithSVs > 0) {
+    if (isTRUE(input$runDeseqWithSVs > 0)) {
         #
         # myValues$DF = colData(myValues$ddsAddSV)
         myValues$dds <- myValues$ddsAddSV
@@ -165,7 +202,7 @@ observe({
 })
 
 observe({
-    if (input$runDeseqWithoutSVs > 0) {
+    if (isTRUE(input$runDeseqWithoutSVs > 0)) {
         myValues$dds <- ddsInitReactive()
         GotoTab("deseqTab")
     }

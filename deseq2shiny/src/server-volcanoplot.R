@@ -97,7 +97,7 @@ sig_genes <- reactive({
 output$sig_gene_table <- renderDataTable(
     {
         fileUrl <- UUIDgenerate()
-        fileUrl <- paste0(tempdir(), "/", fileUrl, ".csv")
+        fileUrl <- file.path(session_dir, paste0(fileUrl, ".csv"))
         genes_df <- sig_genes()
 
         if (input$gene_alias == "included") {
@@ -428,7 +428,7 @@ output$download_code_volcano <- downloadHandler(
             # FULL MODE: Export volcano plots for multiple saved contrasts
             req(exists("filelist"), !is.null(filelist$file_list), length(filelist$file_list) > 0)
             
-            temp_dir <- tempdir()
+            temp_dir <- session_dir
             export_dir <- file.path(temp_dir, paste0("volcano_plots_export_", timestamp))
             dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
             

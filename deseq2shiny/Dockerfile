@@ -3,7 +3,7 @@ FROM rocker/shiny:4.3.3
 # --- System dependencies ---
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
-     vim libjpeg9 libtiff5-dev cmake libmagick++-dev wget curl \
+     vim libjpeg9 libtiff5-dev cmake libmagick++-dev wget curl unzip \
   && apt-get autoremove -yqq --purge \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
@@ -50,7 +50,7 @@ RUN echo "conda activate v_deseq2" >> /home/shiny/.bashrc
 RUN conda clean --all -y
 
 # Install R package smplot2 inside v_deseq2 environment
-RUN conda run -n v_deseq2 R -e "devtools::install_github('smin95/smplot2')"
+RUN conda run -n v_deseq2 R -e "devtools::install_github('smin95/smplot2@fe4ed339501422354505dbe46afa9c5f4524d08d')"
 
 # Switch to root for final steps
 USER root
@@ -61,6 +61,8 @@ WORKDIR /opt/nasqar_build
 COPY src /opt/nasqar_build/app
 COPY shiny-server.conf /etc/shiny-server/shiny-server.conf
 COPY shiny-server.sh /opt/nasqar_build/shiny-server.sh
+RUN cd /opt/nasqar_build/app/www \
+    && unzip -q exampleData.zip
 RUN chown -R shiny:shiny /opt/nasqar_build/
 
 USER shiny
