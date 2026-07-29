@@ -67,6 +67,7 @@ shiny::testServer(server, {
         nucleosome_trigger <- elapsed(
             session$setInputs(run_nucleosome_plots = 1)
         )
+        stopifnot(nucleosome_done())
         nucleosome <- nucleosomeDataReactive()
         stopifnot(
             nucleosome_done(),
@@ -81,6 +82,7 @@ shiny::testServer(server, {
         footprint_trigger <- elapsed(
             session$setInputs(run_footprint_plots = 1)
         )
+        stopifnot(footprint_done())
         footprint <- footprintDataReactive()
         stopifnot(
             footprint_done(),

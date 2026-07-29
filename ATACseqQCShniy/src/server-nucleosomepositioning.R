@@ -440,6 +440,32 @@ footprintDataReactive <- eventReactive(input$run_footprint_plots, {
     )
 }, ignoreInit = TRUE)
 
+observeEvent(input$run_nucleosome_plots, {
+    tryCatch(
+        nucleosomeDataReactive(),
+        error = function(error) {
+            showNotification(
+                paste("Nucleosome analysis failed:", conditionMessage(error)),
+                type = "error",
+                duration = NULL
+            )
+        }
+    )
+}, ignoreInit = TRUE)
+
+observeEvent(input$run_footprint_plots, {
+    tryCatch(
+        footprintDataReactive(),
+        error = function(error) {
+            showNotification(
+                paste("Footprint analysis failed:", conditionMessage(error)),
+                type = "error",
+                duration = NULL
+            )
+        }
+    )
+}, ignoreInit = TRUE)
+
 output$empty_txt_output <- renderText({
     inputDataReactive()
     ""
