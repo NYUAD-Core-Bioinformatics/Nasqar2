@@ -36,7 +36,7 @@ findClusterMarkersReactive <- eventReactive(input$findClusterMarkers, {
      
     #jay
     #plan("multiprocess", workers = 3)
-    plan("multisession", workers =3)
+    plan("multisession", workers = nasqar_seurat_workers)
     cluster.markers <- FindMarkers(object = pbmc, ident.1 = input$clusterNum, min.pct = input$minPct, test.use = input$testuse, only.pos = input$onlypos)
     
     myValues$scriptCommands$findMarkers = paste0("cluster.markers <- FindMarkers(object = pbmc, ident.1 = ",input$clusterNum,", min.pct = ",input$minPct,", test.use = ",input$testuse,", only.pos = ",input$onlypos,")")
@@ -97,7 +97,7 @@ findClusterMarkersVSReactive <- eventReactive(input$findClusterMarkersVS, {
     shiny::setProgress(value = 0.4, detail = "Finding cluster markers ...")
     #jay
     #plan("multiprocess", workers = 3)
-    plan("multisession", workers =3)
+    plan("multisession", workers = nasqar_seurat_workers)
     cluster.markers <- FindMarkers(object = pbmc, ident.1 = input$clusterNumVS1, ident.2 = input$clusterNumVS2, min.pct = input$minPctvs, test.use = input$testuseVS, only.pos = input$onlyposVS)
     
     myValues$scriptCommands$findMarkers = paste0("cluster.markersVS <- FindMarkers(object = pbmc, ident.1 = ",input$clusterNumVS1,", ident.2 = ",input$clusterNumVS2,", min.pct = ",input$minPctvs,", test.use = ",input$testuseVS,", only.pos = ",input$onlyposVS,")")
@@ -159,7 +159,7 @@ findClusterMarkersAllReactive <- eventReactive(input$findClusterMarkersAll, {
     shiny::setProgress(value = 0.4, detail = "Finding cluster markers ...")
     #jay
     #plan("multiprocess", workers = 3)
-      plan("multisession", workers =3)
+      plan("multisession", workers = nasqar_seurat_workers)
     cluster.markers <- FindAllMarkers(object = pbmc, min.pct = input$minPctAll, test.use = input$testuseAll, only.pos = input$onlyposAll, logfc.threshold = input$threshAll)
     
     myValues$scriptCommands$findAllMarkers = paste0("cluster.markers <- FindAllMarkers(object = pbmc, min.pct = ",input$minPctAll,", test.use = '",input$testuseAll,"', only.pos = ",input$onlyposAll,", logfc.threshold = ",input$threshAll,")")

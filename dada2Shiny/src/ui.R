@@ -11,6 +11,15 @@ library(ggplot2)
 library(httr)
 library(rmarkdown)
 
+publication_downloads <- function(id) {
+    tags$div(
+        class = "publication-downloads",
+        tags$span(class = "publication-downloads__label", "Download figure"),
+        downloadButton(paste0(id, "_png"), "PNG (300 DPI)", class = "btn btn-default btn-sm"),
+        downloadButton(paste0(id, "_pdf"), "PDF", class = "btn btn-default btn-sm"),
+        downloadButton(paste0(id, "_svg"), "SVG", class = "btn btn-default btn-sm")
+    )
+}
 
 # library(future)
 # library(promises)
@@ -54,6 +63,19 @@ ui <- dashboardPage(
             max-width: 100%; /* Adjust the width of selectize input */
             overflow: hidden; 
             text-overflow: ellipsis; /* This will truncate long text */
+        }
+        .publication-downloads {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 10px 0 4px;
+            border-top: 1px solid #d9dee3;
+        }
+        .publication-downloads__label {
+            color: #4f5b66;
+            font-weight: 600;
+            margin-right: 4px;
         }
         ")),
 

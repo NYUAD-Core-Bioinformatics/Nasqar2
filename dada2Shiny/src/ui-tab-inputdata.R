@@ -7,13 +7,24 @@ tabItem(
                 title = "Upload fastq file", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "uploadbox",
                 # h4("Upload Gene Counts"),
     
-                radioButtons("data_file_type", "Use example file or upload your own data (zipped or unzipped FASTQ files)",
+                radioButtons("data_file_type", "Select FASTQ data source",
                     c(
                         "Upload fastq File" = "upload_fastq_file",
                         "Example fastq file" = "example_fastq_file",
-                        "Download from remote server" = "download_remote_server"
+                        "Download from remote server" = "download_remote_server",
+                        "Use HPC scratch directory" = "hpc_scratch_directory"
                     ),
                     selected = "example_fastq_file"
+                ),
+                conditionalPanel(
+                    condition = "input.data_file_type=='hpc_scratch_directory'",
+                    textInput(
+                        "hpc_fastq_directory",
+                        "FASTQ directory inside HPC scratch",
+                        value = ""
+                    ),
+                    textInput("hpc_project_name", "Persistent project name", value = "dada2-project"),
+                    helpText("Input FASTQ files are read in place. Filtered reads and results are written to the private DADA2 project directory.")
                 ),
                 conditionalPanel(
                     condition = "input.data_file_type=='download_remote_server'",
@@ -40,6 +51,7 @@ tabItem(
                     )
                 ),
                  textOutput("status"),
+                    textOutput("hpc_dada2_path"),
                     tags$style("#status { color: red; }")
             ),
             box(

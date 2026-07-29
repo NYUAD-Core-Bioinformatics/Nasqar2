@@ -389,3 +389,61 @@ a[bubbletooltip]:hover:after {
     background-color: white;
     box-shadow: inset 0px 0px 0px 1px lightgray;
 }
+
+.analysis-plot-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+}
+
+.analysis-plot-panel {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: calc(100% - 20px);
+    margin: 0 0 20px;
+    border: 1px solid #cfd6dc;
+    border-radius: 6px;
+    background: #fff;
+    overflow: hidden;
+}
+
+.analysis-plot-panel__header {
+    padding: 14px 18px;
+    border-bottom: 1px solid #dfe4e8;
+    background: #f5f7f8;
+}
+
+.analysis-plot-panel__header h3 {
+    margin: 0;
+    font-size: 20px;
+    line-height: 1.25;
+}
+
+.analysis-plot-panel__body {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 16px 18px;
+    overflow: hidden;
+}
+
+.analysis-plot-panel__body img,
+.analysis-plot-panel__body svg,
+.analysis-plot-panel__body .shiny-plot-output {
+    display: block;
+    max-width: 100%;
+}
+
+.analysis-plot-panel__caption {
+    padding: 11px 18px 14px;
+    border-top: 1px solid #e5e8eb;
+    color: #5d6873;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+@media (max-width: 991px) {
+    .analysis-plot-row {
+        display: block;
+    }
+}

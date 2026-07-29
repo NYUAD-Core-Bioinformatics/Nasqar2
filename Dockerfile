@@ -70,6 +70,10 @@ COPY SeuratV5Shiny /srv/shiny-server/SeuratV5Shiny
 COPY mergeFPKMs /srv/shiny-server/mergeFPKMs
 COPY tsar_nasqar /srv/shiny-server/tsar_nasqar
 
+# Gene Count Merger uses this at startup; install it into the immutable image.
+RUN conda run -n merged_env R -e \
+    "install.packages('shinythemes', repos='https://cloud.r-project.org/')"
+
 # Download and install BSgenome package
 RUN wget -q https://bioconductor.org/packages/release/data/annotation/src/contrib/BSgenome.Hsapiens.UCSC.hg19_1.4.3.tar.gz -O /BSgenome.Hsapiens.UCSC.hg19_1.4.3.tar.gz && \
     conda run -n merged_env R CMD INSTALL /BSgenome.Hsapiens.UCSC.hg19_1.4.3.tar.gz && \
@@ -82,6 +86,9 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Update supervisor configuration with correct path
 RUN sed -i 's|/opt/conda/envs/v_[^/]*|/opt/conda/envs/merged_env|g' /etc/supervisor/conf.d/supervisord.conf
+
+# Docker normally starts as root, but HPC containers run as the invoking user.
+RUN chmod -R a+rX /srv/shiny-server /usr/share/nginx/html /etc/nginx
 
 # Expose the port for the Nginx server
 EXPOSE 80

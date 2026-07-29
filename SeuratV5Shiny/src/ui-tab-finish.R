@@ -24,8 +24,19 @@ tabItem(tabName = "finishTab",
                        "output.seuratFileExists",
                        downloadButton('downloadRObj', 'Download Seurat Obj', class = "button button-3d button-block button-pill button-action button-large")
                      )
-                   )
+                   ),
+                   textOutput("hpcSeuratPath")
              ),
+            column(
+              12,
+              conditionalPanel(
+                "output.seuratFileExists",
+                hr(),
+                h4(strong("Continue trajectory analysis")),
+                p("In the all-in-one deployment, open this Seurat object directly in Monocle3."),
+                uiOutput("monocleTransferUI")
+              )
+            ),
             column(12,
                    hr(),
                    p("Generate and Download the R script to reproduce these steps in R/RStudio"),

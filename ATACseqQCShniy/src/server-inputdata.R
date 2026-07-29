@@ -1,6 +1,8 @@
 observe({
     shinyjs::hide(selector = "a[data-value=\"fragmentsize_tab\"]")
     shinyjs::hide(selector = "a[data-value=\"nucleosomepositioning_tab\"]")
+    shinyjs::hide(selector = "a[data-value=\"nucleosomeprofiles_tab\"]")
+    shinyjs::hide(selector = "a[data-value=\"footprinting_tab\"]")
     shinyjs::hide(selector = "a[data-value=\"heatmap_tab\"]")
     shinyjs::hide(selector = "a[data-value=\"librarycomplexity_tab\"]")
 })
@@ -52,41 +54,71 @@ observe({
 
 
 my_values <- reactiveValues()
-my_values$mounted_dir <- FALSE
+my_values$scratch_dir <- NULL
 
-observeEvent(input$connect_remote_server, {
-    print(input$username)
-    print(input$hostname)
-    print(input$mountpoint)
-    print(input$id_rsa$datapath)
-    my_values$mounted_dir <- FALSE
+scratch_root <- normalizePath(
+    Sys.getenv("NASQAR_DATA_ROOT", unset = "/scratch/nr83"),
+    winslash = "/",
+    mustWork = FALSE
+)
 
+observeEvent(input$scratch_directory, {
+    my_values$scratch_dir <- NULL
+}, ignoreInit = TRUE)
 
-    system(paste(
-        "sh generate_ssh_config.sh ", input$username, " ",
-        input$hostname, " ", input$mountpoint, " ",
-        input$id_rsa$datapath
-    ))
+observeEvent(input$load_scratch_directory, {
+    requested_dir <- tryCatch(
+        normalizePath(input$scratch_directory, winslash = "/", mustWork = TRUE),
+        error = function(error) NULL
+    )
 
+    if (is.null(requested_dir) || !dir.exists(requested_dir)) {
+        showNotification("Directory does not exist or is not readable.", type = "error")
+        return()
+    }
 
-    # Get the list of files in the directory
-    # files <- list.files(base_dir, full.names = FALSE)
-    my_values$mounted_dir <- TRUE
+    inside_scratch <- identical(requested_dir, scratch_root) ||
+        startsWith(requested_dir, paste0(scratch_root, "/"))
+    if (!inside_scratch) {
+        showNotification(
+            paste("Directory must be inside", scratch_root),
+            type = "error"
+        )
+        return()
+    }
+
+    files <- list.files(requested_dir, full.names = FALSE)
+    if (!any(grepl("\\.bam$", files, ignore.case = TRUE))) {
+        showNotification("No BAM files were found in this directory.", type = "error")
+        return()
+    }
+
+    my_values$scratch_dir <- requested_dir
+    showNotification("BAM directory loaded.", type = "message")
 })
 
 
 
 
 observeEvent(input$bs_genome_input, {
-    print(input$bs_genome_input)
-    if (input$bs_genome_input != "" & input$bs_genome_input != " ") {
-        print("input$bs_genome_input")
-        print(input$bs_genome_input)
-        check_and_load_bioc_package(input$bs_genome_input)
-        # library(input$bs_genome_input, character.only = T)
-        tx_db <- list("BSgenome.Hsapiens.UCSC.hg19" = c("TxDb.Hsapiens.UCSC.hg19.knownGene"))
+    if (!is.null(input$bs_genome_input) && nzchar(trimws(input$bs_genome_input))) {
+        genome_ready <- requireNamespace(
+            input$bs_genome_input,
+            quietly = TRUE
+        )
+        tx_package <- tx_db_list[[input$bs_genome_input]]
+        tx_ready <- length(tx_package) == 1L &&
+            requireNamespace(tx_package, quietly = TRUE)
+        if (!genome_ready || !tx_ready) {
+            shinyjs::disable("initQC")
+            showNotification(
+                "The selected genome is not installed in this ATACseqQC image.",
+                type = "error",
+                duration = NULL
+            )
+            return()
+        }
         shinyjs::enable("initQC")
-        # updateSelectInput(session, "tx_db_input", choices = tx_db[[input$bs_genome_input]])
     }
 })
 
@@ -108,7 +140,7 @@ input_files_reactive <- reactive({
     # )
 
     shiny::validate(
-        need(identical(input$data_file_type, "example_bam_file") | identical(input$data_file_type, "mount_remote_server") | (identical(input$data_file_type, "upload_bam_file") & !is.null(input$bam_files) & length(input$bam_files$name) > 1),
+        need(identical(input$data_file_type, "example_bam_file") | identical(input$data_file_type, "hpc_scratch_directory") | (identical(input$data_file_type, "upload_bam_file") & !is.null(input$bam_files) & length(input$bam_files$name) > 1),
             message = "Please upload both .bam and .bai files "
         )
     )
@@ -118,8 +150,8 @@ input_files_reactive <- reactive({
 
 
     shiny::validate(
-        need(identical(input$data_file_type, "example_bam_file") | identical(input$data_file_type, "upload_bam_file") | identical(input$data_file_type, "mount_remote_server") & my_values$mounted_dir,
-            message = "Please connect to the server "
+        need(identical(input$data_file_type, "example_bam_file") | identical(input$data_file_type, "upload_bam_file") | (identical(input$data_file_type, "hpc_scratch_directory") & !is.null(my_values$scratch_dir)),
+            message = "Enter a scratch directory and select Load directory."
         )
     )
 
@@ -160,20 +192,35 @@ input_files_reactive <- reactive({
         # Filter BAM and BMI files
         bam_files <- files[grepl(".bam$", files)]
         bai_files <- files[grepl(".bai$", files)]
-    } else {
-        base_dir <- "./mnt"
+    } else if (identical(input$data_file_type, "hpc_scratch_directory")) {
+        base_dir <- my_values$scratch_dir
         # Get the list of files in the directory
         files <- list.files(base_dir, full.names = FALSE)
 
         # Filter BAM and BMI files
-        bam_files <- files[grepl(".bam$", files)]
-        bai_files <- files[grepl(".bai$", files)]
-        matching_files <- sapply(bam_files, function(bam_file) {
-            bmi_file <- gsub(".bam$", ".bai", bam_file)
-            bmi_file %in% bai_files
-        })
-        bam_files <- names(matching_files[matching_files == TRUE])
-        bai_files <- stringr::str_replace_all(bam_files, ".bam", ".bai")
+        bam_candidates <- files[grepl("\\.bam$", files, ignore.case = TRUE)]
+        bai_candidates <- files[grepl("\\.bai$", files, ignore.case = TRUE)]
+        index_files <- vapply(bam_candidates, function(bam_file) {
+            candidates <- c(
+                paste0(bam_file, ".bai"),
+                sub("\\.bam$", ".bai", bam_file, ignore.case = TRUE)
+            )
+            match_index <- match(tolower(candidates), tolower(bai_candidates))
+            if (all(is.na(match_index))) {
+                return(NA_character_)
+            }
+            bai_candidates[match_index[which(!is.na(match_index))[1]]]
+        }, character(1))
+
+        has_index <- !is.na(index_files)
+        bam_files <- unname(bam_candidates[has_index])
+        bai_files <- unname(index_files[has_index])
+        shiny::validate(
+            need(
+                length(bam_files) > 0,
+                message = "No BAM files with matching .bai indexes were found."
+            )
+        )
     }
 
 
@@ -185,7 +232,27 @@ input_files_reactive <- reactive({
 
     print(dir(base_dir))
 
-    bs_genome_db <- c(" " = " ", "Human(BSgenome.Hsapiens.UCSC.hg19)" = "BSgenome.Hsapiens.UCSC.hg19", "Mouse(BSgenome.Mmusculus.UCSC.mm10)" = "BSgenome.Mmusculus.UCSC.mm10", "ZebraFish(BSgenome.Drerio.UCSC.danRer11)" = "BSgenome.Drerio.UCSC.danRer11", "Worm(BSgenome.Celegans.UCSC.ce6)" = "BSgenome.Celegans.UCSC.ce6")
+    genome_labels <- c(
+        "Human (hg19)" = "BSgenome.Hsapiens.UCSC.hg19",
+        "Mouse (mm10)" = "BSgenome.Mmusculus.UCSC.mm10",
+        "Zebrafish (danRer11)" = "BSgenome.Drerio.UCSC.danRer11",
+        "C. elegans (ce11)" = "BSgenome.Celegans.UCSC.ce11"
+    )
+    installed <- vapply(
+        unname(genome_labels),
+        function(genome_package) {
+            tx_package <- tx_db_list[[genome_package]]
+            requireNamespace(genome_package, quietly = TRUE) &&
+                length(tx_package) == 1L &&
+                requireNamespace(tx_package, quietly = TRUE)
+        },
+        logical(1)
+    )
+    bs_genome_db <- c("Select a reference genome" = "", genome_labels[installed])
+    shiny::validate(need(
+        any(installed),
+        "No supported reference genome packages are installed in this image."
+    ))
     if (identical(input$data_file_type, "example_bam_file")) {
       updateSelectInput(session, "bs_genome_input", choices = bs_genome_db, selected = "BSgenome.Hsapiens.UCSC.hg19")
     } else {

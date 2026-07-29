@@ -30,7 +30,7 @@ inputDataReactive <- reactive({
 
   # Check if example selected, or if not then ask to upload a file.
   shiny:: validate(
-    need( identical(input$data_file_type,"examplecounts")|(!is.null(input$datafile))|(!is.null(query[['countsdata']])),
+    need( identical(input$data_file_type,"examplecounts")|identical(input$data_file_type,"hpcScratch")|(!is.null(input$datafile))|(!is.null(query[['countsdata']])),
          message = "Please select a file")
   )
 
@@ -59,6 +59,39 @@ inputDataReactive <- reactive({
   validate(need(
     tryCatch({
       scriptCommands = c()
+
+      if (identical(input$data_file_type, "hpcScratch")) {
+        req(input$load_hpc_data > 0)
+        validate(need(nzchar(trimws(input$hpc_data_path)), "Enter an HPC data path."))
+        hpc_path <- resolve_hpc_path(input$hpc_data_path)
+        js$addStatusIcon("datainput", "loading")
+        if (dir.exists(hpc_path)) {
+          seqdata <- Read10X(data.dir = hpc_path)
+          scriptCommands$readCounts <- sprintf(
+            "counts.data <- Read10X(data.dir = %s)",
+            dQuote(hpc_path)
+          )
+        } else {
+          separator <- if (grepl("\\.(tsv|txt)(\\.gz)?$", hpc_path, ignore.case = TRUE)) "\t" else ","
+          seqdata <- read.csv(
+            hpc_path,
+            header = TRUE,
+            sep = separator,
+            row.names = 1,
+            check.names = FALSE
+          )
+          validate(need(ncol(seqdata) > 1L, "The HPC count matrix must contain at least two cell columns."))
+          scriptCommands$readCounts <- sprintf(
+            "counts.data <- read.csv(%s, header=TRUE, sep=%s, row.names=1)",
+            dQuote(hpc_path),
+            dQuote(separator)
+          )
+        }
+        isolate(myValues$scriptCommands <- scriptCommands)
+        js$addStatusIcon("datainput", "done")
+        js$collapse("uploadbox")
+        return(list(data = seqdata))
+      }
       
       if (!is.null(inFile) && !is.null(query[['countsdata']])) {
         #js$addStatusIcon("datainput","loading")

@@ -1,6 +1,7 @@
 # Define reactive values to hold the selected databases and selected taxonomy rows
 reactiveTaxonomyData <- reactiveValues()
 selectedTaxonomyRows <- reactiveVal(NULL)
+animalculesExchangeToken <- reactiveVal(NULL)
 
 # Event to assign taxonomy
 observeEvent(input$assignTaxonomy, {
@@ -30,7 +31,7 @@ observeEvent(input$assignTaxonomy, {
     # Assign taxonomy using the selected reference database
     withProgress(message = "Assigning Taxonomy, please wait...", {
         shiny::setProgress(value = 0.1, detail = "...assigning taxonomy")
-        taxa <- assignTaxonomy(seqtab.nochim, reference_db, multithread = TRUE)
+        taxa <- assignTaxonomy(seqtab.nochim, reference_db, multithread = hpc_workers)
         
         # Assign species if a species-level database is selected
         if (!is.null(species_db)) {
@@ -44,6 +45,14 @@ observeEvent(input$assignTaxonomy, {
     # Store taxonomy and species assignment results
     taxa[is.na(taxa)] <- 'unknown'
     reactiveTaxonomyData$taxa <- taxa
+    if (!is.null(my_values$work_dir)) {
+        taxonomy_output <- cbind(Sequence = rownames(taxa), taxa)
+        write.csv(
+            taxonomy_output,
+            file.path(my_values$work_dir, "taxonomy-table.csv"),
+            row.names = FALSE
+        )
+    }
 
     # Update icons and tabs
     shinyjs::show(selector = "a[data-value=\"alphaDiversityTab\"]")
@@ -70,123 +79,167 @@ output$taxonomyTable <- DT::renderDataTable({
               selection = 'multiple')  # Specify multiple row selection
 })
 
-# Create a DataTable proxy
-proxy <- dataTableProxy('taxonomyTable')
-
-# Reactive to handle row selection in the taxonomy table and plot generation
-observe({
+output$animalculesTransferUI <- renderUI({
     req(reactiveTaxonomyData$taxa)
-    req(input$filter_values)
-    selected_rows <- input$taxonomyTable_rows_selected
+    dada_result <- reactiveInputData()
+    req(dada_result$seqtab.nochim)
 
-    # If no rows are selected, select all rows by default
-    if (is.null(selected_rows) || length(selected_rows) == 0) {
-        selected_rows <- 1:nrow(reactiveTaxonomyData$taxa)  # Select all rows by default
-    }
+    token <- animalculesExchangeToken()
+    if (is.null(token)) {
+        sequences <- colnames(dada_result$seqtab.nochim)
+        asv_ids <- sprintf("ASV%04d", seq_along(sequences))
 
-    # Ensure seqtab.nochim is available
-    seqtab.nochim <- reactiveInputData()$seqtab.nochim
-    req(seqtab.nochim)
+        counts <- t(dada_result$seqtab.nochim)
+        rownames(counts) <- asv_ids
 
-    # Get the sequences corresponding to the selected rows
-    selected_sequences <- rownames(reactiveTaxonomyData$taxa)[selected_rows]
+        taxonomy <- reactiveTaxonomyData$taxa[sequences, , drop = FALSE]
+        rownames(taxonomy) <- asv_ids
+        taxonomy <- data.frame(
+            Sequence = sequences,
+            taxonomy,
+            check.names = FALSE,
+            stringsAsFactors = FALSE
+        )
 
-    # If no sequences are found in seqtab.nochim, show a message and return
-    if (length(selected_sequences) == 0) {
-        showNotification("No selected sequences found in the dataset.", type = "error")
-        return()
-    }
-
-    # Reactive for the selected grouping column
-    grouping_column <- reactive(input$grouping_column)
-
-    if (is.null(grouping_column())) {
-        showNotification("Group not selected.", type = "error")
-        return()
-    }
-
-    # Update the bar plot for the selected sequences
-    output$sequenceDistributionBarChart <- renderPlot({
-        req(input$filter_values)
-        taxonomy <- reactiveTaxonomyData$taxa
-        taxonomy_column_name <- grouping_column()
-
-        # Extract abundance of the selected sequences across samples
-        seq_abundance <- (seqtab.nochim[, selected_sequences, drop = FALSE] > 0) * 1  # Presence/Absence matrix
-
-        # Initialize vectors for each column
-        samples_vec <- c()
-        abundance_vec <- c()
-        filter_data <- list()
-        for (name in input$filter_values) {
-            filter_data[[name]] <- c()
-        }
-
-        # Loop through each row of seq_abundance and add frequency information
-        for (i in 1:nrow(seq_abundance)) {
-            if (sum(seq_abundance[i, ]) > 0){
-                cols_with_one <- which(seq_abundance[i, selected_sequences] == 1)  # Find columns with 1 in the current row
-
-                seq_with_one <- colnames(seq_abundance)[cols_with_one]  # Get column names (sequences) with 1
-
-                selected_column_values <- taxonomy[seq_with_one, input$grouping_column, drop = TRUE]
-                frequency_table <- table(selected_column_values)
-
-                # Add sample and abundance
-                samples_vec <- c(samples_vec, rownames(seq_abundance)[i])
-                abundance_vec <- c(abundance_vec, sum(seq_abundance[i, ]))
-
-                # Add frequency values for each filter
-                for (name in input$filter_values) {
-                    count_value <- if (name %in% names(frequency_table)) {
-                        as.numeric(frequency_table[name])
-                    } else {
-                        0
-                    }
-                    filter_data[[name]] <- c(filter_data[[name]], count_value)
-                }
+        sample_names <- rownames(dada_result$seqtab.nochim)
+        metadata <- data.frame(
+            sample = sample_names,
+            source = "DADA2Shiny",
+            row.names = sample_names,
+            stringsAsFactors = FALSE
+        )
+        if (!is.null(input$sampleData)) {
+            uploaded_metadata <- tryCatch(
+                as.data.frame(qiimeData(), check.names = FALSE),
+                error = function(error) NULL
+            )
+            if (!is.null(uploaded_metadata) &&
+                all(sample_names %in% rownames(uploaded_metadata))) {
+                metadata <- uploaded_metadata[sample_names, , drop = FALSE]
+                metadata$source <- "DADA2Shiny"
             }
         }
 
-        # Check if we have any data
-        if (length(samples_vec) == 0) {
-            # Return an empty plot with a message
-            return(ggplot() + 
-                   annotate("text", x = 0.5, y = 0.5, label = "No data to display", size = 6) +
-                   theme_void())
-        }
-
-        # Build data frame from vectors
-        plot_data <- data.frame(
-            Sample = samples_vec,
-            Abundance = abundance_vec,
-            stringsAsFactors = FALSE
+        exchange_dir <- nasqar_exchange_dir(create = TRUE)
+        token <- uuid::UUIDgenerate()
+        exchange_path <- file.path(exchange_dir, paste0(token, ".rds"))
+        pending_path <- tempfile(
+            pattern = paste0(token, "-"),
+            tmpdir = exchange_dir,
+            fileext = ".pending"
         )
-        
-        # Add filter columns
-        for (name in input$filter_values) {
-            plot_data[[name]] <- filter_data[[name]]
-        }
-
-        # Convert the data into a long format for plotting
-        plot_data_long <- tidyr::pivot_longer(
-            plot_data,
-            cols = input$filter_values,
-            names_to = grouping_column(),  # New column to represent grouping
-            values_to = "Value"  # 1 or 0 based on the values
+        saveRDS(
+            list(counts = counts, taxonomy = taxonomy, metadata = metadata),
+            pending_path
         )
+        if (!file.rename(pending_path, exchange_path)) {
+            unlink(pending_path)
+            stop("Could not publish the animalcules exchange file.",
+                 call. = FALSE)
+        }
+        animalculesExchangeToken(token)
+    }
 
-        # Create the bar plot with grouping
-        ggplot(plot_data_long, aes(x = Sample, y = Value, fill = .data[[grouping_column()]])) +
-            geom_bar(stat = "identity") +
-            labs(title = paste("Distribution of Selected Sequences Across Samples (Grouped by", grouping_column(), ")"),
-                 x = "Sample",
-                 y = "Abundance") +
-            theme_minimal() +
-            theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-            scale_fill_discrete(name = grouping_column())
-    })
+    handoffPath <- paste0(
+        "/animalcules/?exchange=",
+        URLencode(token, reserved = TRUE)
+    )
+
+    tags$a(
+        icon("external-link-alt"),
+        "Open directly in animalcules",
+        href = handoffPath,
+        `data-handoff-path` = handoffPath,
+        onclick = paste(
+            "this.href = window.location.origin +",
+            "this.getAttribute('data-handoff-path');"
+        ),
+        target = "_blank",
+        class = "btn btn-success",
+        style = "width: 100%; margin-top: 10px;"
+    )
 })
+
+# Create a DataTable proxy
+proxy <- dataTableProxy('taxonomyTable')
+
+# Build the selected-sequence distribution once for both display and export.
+sequence_distribution_plot <- reactive({
+    req(reactiveTaxonomyData$taxa)
+    req(input$filter_values)
+    req(input$grouping_column)
+    selected_rows <- input$taxonomyTable_rows_selected
+    if (is.null(selected_rows) || length(selected_rows) == 0) {
+        selected_rows <- seq_len(nrow(reactiveTaxonomyData$taxa))
+    }
+    seqtab.nochim <- reactiveInputData()$seqtab.nochim
+    req(seqtab.nochim)
+    selected_sequences <- rownames(reactiveTaxonomyData$taxa)[selected_rows]
+    validate(need(length(selected_sequences) > 0, "Select at least one sequence."))
+    validate(need(
+        all(selected_sequences %in% colnames(seqtab.nochim)),
+        "Selected taxonomy rows are not present in the sequence table."
+    ))
+
+    taxonomy <- reactiveTaxonomyData$taxa
+    seq_abundance <- (seqtab.nochim[, selected_sequences, drop = FALSE] > 0) * 1
+    samples_vec <- character()
+    filter_data <- stats::setNames(
+        replicate(length(input$filter_values), numeric(), simplify = FALSE),
+        input$filter_values
+    )
+
+    for (i in seq_len(nrow(seq_abundance))) {
+        if (sum(seq_abundance[i, ]) > 0) {
+            seq_with_one <- colnames(seq_abundance)[which(seq_abundance[i, ] == 1)]
+            frequency_table <- table(
+                taxonomy[seq_with_one, input$grouping_column, drop = TRUE]
+            )
+            samples_vec <- c(samples_vec, rownames(seq_abundance)[i])
+            for (name in input$filter_values) {
+                filter_data[[name]] <- c(
+                    filter_data[[name]],
+                    if (name %in% names(frequency_table)) {
+                        as.numeric(frequency_table[[name]])
+                    } else {
+                        0
+                    }
+                )
+            }
+        }
+    }
+    validate(need(length(samples_vec) > 0, "No selected sequences occur in any sample."))
+
+    plot_data <- data.frame(Sample = samples_vec, check.names = FALSE)
+    for (name in input$filter_values) plot_data[[name]] <- filter_data[[name]]
+    plot_data_long <- tidyr::pivot_longer(
+        plot_data,
+        cols = tidyselect::all_of(input$filter_values),
+        names_to = input$grouping_column,
+        values_to = "Value"
+    )
+
+    ggplot(plot_data_long, aes(
+        x = Sample,
+        y = Value,
+        fill = .data[[input$grouping_column]]
+    )) +
+        geom_col() +
+        labs(
+            x = "Sample",
+            y = "Sequence occurrence",
+            fill = input$grouping_column
+        ) +
+        theme_minimal(base_size = 12) +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1))
+})
+
+output$sequenceDistributionBarChart <- renderPlot(sequence_distribution_plot())
+register_publication_downloads(
+    output, "download_sequence_distribution",
+    function() "dada2-selected-sequence-distribution",
+    sequence_distribution_plot, width = 10, height = 6
+)
 
 # Function to update the grouping column values and filter
 updateGroupingAndFilter <- function(selected_rows, grouping_column) {

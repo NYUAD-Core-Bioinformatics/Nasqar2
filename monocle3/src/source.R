@@ -1,4 +1,4 @@
-mon.run <- function(data, gene, id) {
+mon.run <- function(data, gene, id, cores = 1L) {
   
 
   print(gene)
@@ -44,9 +44,10 @@ mon.run <- function(data, gene, id) {
   cds <- suppressWarnings(as.cell_data_set(data))
   
  
-  # Cluster cells with Leiden clustering
-  #cds <- cluster_cells(cds)
-  cds <- cluster_cells(cds, cluster_methods = 'leiden', reduction_method = 'UMAP')
+  # as.cell_data_set() carries the selected Seurat clusters into the UMAP
+  # cluster slot. Reuse them here; reclustering currently fails with recent
+  # igraph releases that require a strictly symmetric adjacency matrix.
+  names(cds@clusters$UMAP$partitions) <- colnames(cds)
 
   print('done...')
   #Inc process
@@ -118,65 +119,78 @@ mon.run <- function(data, gene, id) {
   #Inc process
   incProgress(amount = 0.1)
   
-  # Find differentially expressed genes
-  cds <-  estimate_size_factors(cds)
-  
-  # Set gene names
-  #cds@rowRanges@elementMetadata@listData[['gene_short_name']] <- rownames(data[['integrated']])
-  
-  #Inc process
-  incProgress(amount = 0.1)
-  
-  # Create table of DE genes
-  cds_dif_test <- graph_test(cds, neighbor_graph = 'principal_graph', cores = 4)
-  
-  #Set table for output
-  t1 <- cds_dif_test
-  
-  #Select significant genes
-  cds_dif_test <-  cds_dif_test[cds_dif_test$q_value < 0.05,]
-  
-  #Inc process
-  incProgress(amount = 0.1)
-  
-  # Get top genes
-  gene.list <-  cds_dif_test %>% arrange(desc(morans_test_statistic), desc(-q_value)) %>% rownames()
-  top.genes <- gene.list[1:40]
-  
-  # Select top genes
-  top <- cds_dif_test[rownames(cds_dif_test) %in% top.genes,]
-  
-  
-  str(AggregateExpression(data, assays = "RNA", features = top.genes))
-  print('top')
-  print(top)
-  # Count mean expression of top genes
-  summ <- AggregateExpression(data, assays = "RNA", features = top.genes) %>% as.data.frame()
-  summ$all <- rowMeans(summ)
-  
-  # Edit top genes to remove those with 0 expression
-  top.genes <- row.names(summ)[summ$all > 0]
-  
-  # Cluster cells (based on pseudotime) for heatmap
-  data$monocle3_pseudotime[data$monocle3_pseudotime == "Inf"] <- 0 
-  kk <- Mclust(-data$monocle3_pseudotime, 5, modelNames = 'E')
+  # The trajectory result is the core analysis and should not depend on the
+  # optional genesorteR marker-heatmap package.
+  t1 <- data.frame(
+    cell = colnames(cds),
+    pseudotime = pseudotime(cds),
+    row.names = NULL
+  )
 
-  #Inc process
-  incProgress(amount = 0.1)
-  
-  # Cluster genes with k-means clustering
-  #p5 <- plotMarkerHeat(data@assays$RNA@data[,order(data$monocle3_pseudotime, decreasing = FALSE)], 
-  #	kk$classification[order(data$monocle3_pseudotime, decreasing = TRUE)], 
-  #	top.genes, averageCells = 10^1, clusterGenesK = 5, clusterGenes = TRUE, 
-  #	gap = FALSE, outs = TRUE, plotheat = TRUE) # fontsize = 20)
-  
-  p5 <- plotMarkerHeat(data@assays$RNA$data[,order(data$monocle3_pseudotime, decreasing = FALSE)], 
-                       kk$classification[order(data$monocle3_pseudotime, decreasing = TRUE)], 
-                       top.genes, averageCells = 10^1, clusterGenesK = 5, clusterGenes = TRUE, 
-                       gap = FALSE, outs = TRUE, plotheat = TRUE) # fontsize = 20)
+  if (requireNamespace("genesorteR", quietly = TRUE)) {
+    cds <- estimate_size_factors(cds)
+    cds_dif_test <- graph_test(
+      cds,
+      neighbor_graph = "principal_graph",
+      cores = cores
+    )
+    t1 <- cds_dif_test
+    cds_dif_test <- cds_dif_test[cds_dif_test$q_value < 0.05, ]
+    gene.list <- cds_dif_test %>%
+      arrange(desc(morans_test_statistic), desc(-q_value)) %>%
+      rownames()
+    top.genes <- head(gene.list, 40)
+    summ <- AggregateExpression(
+      data,
+      assays = "RNA",
+      features = top.genes
+    ) %>%
+      as.data.frame()
+    summ$all <- rowMeans(summ)
+    top.genes <- row.names(summ)[summ$all > 0]
+
+    data$monocle3_pseudotime[is.infinite(data$monocle3_pseudotime)] <- 0
+    kk <- Mclust(-data$monocle3_pseudotime, 5, modelNames = "E")
+    expression_matrix <- LayerData(data, assay = "RNA", layer = "data")
+    p5 <- genesorteR::plotMarkerHeat(
+      expression_matrix[
+        ,
+        order(data$monocle3_pseudotime, decreasing = FALSE)
+      ],
+      kk$classification[
+        order(data$monocle3_pseudotime, decreasing = TRUE)
+      ],
+      top.genes,
+      averageCells = 10,
+      clusterGenesK = 5,
+      clusterGenes = TRUE,
+      gap = FALSE,
+      outs = TRUE,
+      plotheat = TRUE
+    )
+  } else {
+    p5 <- ggplot() +
+      annotate(
+        "text",
+        x = 0,
+        y = 0,
+        label = "Optional genesorteR heatmap is unavailable"
+      ) +
+      theme_void()
+  }
 
   # Create output list
-  out <- list(dim=dim, p1=p1, p2=p2, p3=p3, p4=p4, p5=p5, t1=t1)
+  out <- list(
+    dim=dim,
+    p1=p1,
+    p2=p2,
+    p3=p3,
+    p4=p4,
+    p5=p5,
+    t1=t1,
+    seurat=data,
+    cds=cds
+  )
   
 return(out)
   

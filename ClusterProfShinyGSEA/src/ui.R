@@ -31,6 +31,22 @@ plot_dl_buttons <- function(plot_id) {
     )
 }
 
+analysis_plot_panel <- function(title, caption, ..., width = 12L,
+                                class = NULL) {
+    column(
+        width,
+        tags$section(
+            class = paste("analysis-plot-panel", class),
+            tags$header(
+                class = "analysis-plot-panel__header",
+                tags$h3(title)
+            ),
+            tags$div(class = "analysis-plot-panel__body", ...),
+            tags$footer(class = "analysis-plot-panel__caption", caption)
+        )
+    )
+}
+
 ui <- tagList(
     dashboardPage(
         #skin = "purple",
