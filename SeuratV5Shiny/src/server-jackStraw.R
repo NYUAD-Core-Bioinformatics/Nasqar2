@@ -21,7 +21,7 @@ jackStrawReactive <-
       #v3
       #jay
       #plan("multiprocess", workers = 3)
-      plan("multisession", workers =3)
+      plan("multisession", workers = nasqar_seurat_workers)
       pbmc <- JackStraw(object = pbmc, num.replicate = input$numReplicates)
       pbmc <- ScoreJackStraw(object = pbmc, dims = input$jsPcsToPlot1:input$jsPcsToPlot2)
       

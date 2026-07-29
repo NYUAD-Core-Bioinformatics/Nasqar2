@@ -1,6 +1,7 @@
 # Define reactive values to hold the selected databases and selected taxonomy rows
 reactiveTaxonomyData <- reactiveValues()
 selectedTaxonomyRows <- reactiveVal(NULL)
+animalculesExchangeToken <- reactiveVal(NULL)
 
 # Event to assign taxonomy
 observeEvent(input$assignTaxonomy, {
@@ -30,7 +31,7 @@ observeEvent(input$assignTaxonomy, {
     # Assign taxonomy using the selected reference database
     withProgress(message = "Assigning Taxonomy, please wait...", {
         shiny::setProgress(value = 0.1, detail = "...assigning taxonomy")
-        taxa <- assignTaxonomy(seqtab.nochim, reference_db, multithread = TRUE)
+        taxa <- assignTaxonomy(seqtab.nochim, reference_db, multithread = hpc_workers)
         
         # Assign species if a species-level database is selected
         if (!is.null(species_db)) {
@@ -44,6 +45,14 @@ observeEvent(input$assignTaxonomy, {
     # Store taxonomy and species assignment results
     taxa[is.na(taxa)] <- 'unknown'
     reactiveTaxonomyData$taxa <- taxa
+    if (!is.null(my_values$work_dir)) {
+        taxonomy_output <- cbind(Sequence = rownames(taxa), taxa)
+        write.csv(
+            taxonomy_output,
+            file.path(my_values$work_dir, "taxonomy-table.csv"),
+            row.names = FALSE
+        )
+    }
 
     # Update icons and tabs
     shinyjs::show(selector = "a[data-value=\"alphaDiversityTab\"]")
@@ -68,6 +77,66 @@ output$taxonomyTable <- DT::renderDataTable({
               rownames = FALSE, 
               options = list(scrollX = TRUE, pageLength = 10), 
               selection = 'multiple')  # Specify multiple row selection
+})
+
+output$animalculesTransferUI <- renderUI({
+    req(reactiveTaxonomyData$taxa)
+    dada_result <- reactiveInputData()
+    req(dada_result$seqtab.nochim)
+
+    token <- animalculesExchangeToken()
+    if (is.null(token)) {
+        sequences <- colnames(dada_result$seqtab.nochim)
+        asv_ids <- sprintf("ASV%04d", seq_along(sequences))
+
+        counts <- t(dada_result$seqtab.nochim)
+        rownames(counts) <- asv_ids
+
+        taxonomy <- reactiveTaxonomyData$taxa[sequences, , drop = FALSE]
+        rownames(taxonomy) <- asv_ids
+        taxonomy <- data.frame(
+            Sequence = sequences,
+            taxonomy,
+            check.names = FALSE,
+            stringsAsFactors = FALSE
+        )
+
+        metadata <- data.frame(
+            sample = rownames(dada_result$seqtab.nochim),
+            source = "DADA2Shiny",
+            stringsAsFactors = FALSE
+        )
+        rownames(metadata) <- metadata$sample
+
+        exchange_dir <- file.path(tempdir(check = TRUE), "..", "nasqar_exchange")
+        exchange_dir <- normalizePath(exchange_dir, mustWork = FALSE)
+        dir.create(exchange_dir, recursive = TRUE, showWarnings = FALSE, mode = "0700")
+        token <- uuid::UUIDgenerate()
+        saveRDS(
+            list(counts = counts, taxonomy = taxonomy, metadata = metadata),
+            file.path(exchange_dir, paste0(token, ".rds"))
+        )
+        animalculesExchangeToken(token)
+    }
+
+    handoffPath <- paste0(
+        "/animalcules/?exchange=",
+        URLencode(token, reserved = TRUE)
+    )
+
+    tags$a(
+        icon("external-link-alt"),
+        "Open directly in animalcules",
+        href = handoffPath,
+        `data-handoff-path` = handoffPath,
+        onclick = paste(
+            "this.href = window.location.origin +",
+            "this.getAttribute('data-handoff-path');"
+        ),
+        target = "_blank",
+        class = "btn btn-success",
+        style = "width: 100%; margin-top: 10px;"
+    )
 })
 
 # Create a DataTable proxy

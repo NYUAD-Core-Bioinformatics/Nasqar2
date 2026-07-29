@@ -1,0 +1,227 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: nasqar2-hpc [--port PORT] [--runtime DIR] [--allow-login-node]
+
+Starts the NASQAR2 portal and all Shiny services without requiring root.
+Run it inside a Slurm allocation on Jubail.
+EOF
+}
+
+port="${NASQAR_PORT:-}"
+runtime_dir="${NASQAR_RUNTIME_DIR:-/runtime}"
+allow_login="${NASQAR_ALLOW_LOGIN_NODE:-0}"
+
+while (($#)); do
+    case "$1" in
+        --port)
+            port="${2:?--port requires a value}"
+            shift 2
+            ;;
+        --runtime)
+            runtime_dir="${2:?--runtime requires a value}"
+            shift 2
+            ;;
+        --allow-login-node)
+            allow_login=1
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
+if [[ -z "${SLURM_JOB_ID:-}" && "$allow_login" != "1" ]]; then
+    echo "NASQAR2 must run inside a Slurm compute job on Jubail." >&2
+    echo "Use --allow-login-node only for a short local smoke test." >&2
+    exit 1
+fi
+
+if [[ -z "$port" ]]; then
+    if [[ -n "${SLURM_JOB_ID:-}" ]]; then
+        port=$((20000 + SLURM_JOB_ID % 20000))
+    else
+        port=8787
+    fi
+fi
+
+if ! [[ "$port" =~ ^[0-9]+$ ]] || ((port < 1024 || port > 65535)); then
+    echo "Port must be an integer between 1024 and 65535." >&2
+    exit 2
+fi
+
+umask 077
+mkdir -p \
+    "$runtime_dir"/cache \
+    "$runtime_dir"/home \
+    "$runtime_dir"/logs \
+    "$runtime_dir"/nginx/client_body \
+    "$runtime_dir"/nginx/fastcgi \
+    "$runtime_dir"/nginx/proxy \
+    "$runtime_dir"/nginx/scgi \
+    "$runtime_dir"/nginx/uwsgi \
+    "$runtime_dir"/R/library \
+    "$runtime_dir"/projects/DADA2 \
+    "$runtime_dir"/projects/SeuratV5 \
+    "$runtime_dir"/projects/Monocle3 \
+    "$runtime_dir"/results \
+    "$runtime_dir"/states/DESeq2Shiny \
+    "$runtime_dir"/tmp
+
+export HOME="$runtime_dir/home"
+export TMPDIR="$runtime_dir/tmp"
+export TMP="$TMPDIR"
+export TEMP="$TMPDIR"
+export XDG_CACHE_HOME="$runtime_dir/cache"
+export R_USER_CACHE_DIR="$runtime_dir/cache/R"
+export R_LIBS_USER="${R_LIBS_USER:-$runtime_dir/R/library}"
+export NASQAR_ATAC_CACHE_DIR="${NASQAR_ATAC_CACHE_DIR:-$runtime_dir/cache/ATACseqQC}"
+export NASQAR_DESEQ2_STATE_DIR="${NASQAR_DESEQ2_STATE_DIR:-$runtime_dir/states/DESeq2Shiny}"
+export NASQAR_DADA2_PROJECT_DIR="${NASQAR_DADA2_PROJECT_DIR:-$runtime_dir/projects/DADA2}"
+export NASQAR_DADA2_WORK_DIR="${NASQAR_DADA2_WORK_DIR:-$runtime_dir/node-tmp/DADA2}"
+export NASQAR_SEURAT_PROJECT_DIR="${NASQAR_SEURAT_PROJECT_DIR:-$runtime_dir/projects/SeuratV5}"
+export NASQAR_MONOCLE3_PROJECT_DIR="${NASQAR_MONOCLE3_PROJECT_DIR:-$runtime_dir/projects/Monocle3}"
+export OMP_NUM_THREADS="${OMP_NUM_THREADS:-${SLURM_CPUS_PER_TASK:-1}}"
+export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-${SLURM_CPUS_PER_TASK:-1}}"
+export MKL_NUM_THREADS="${MKL_NUM_THREADS:-${SLURM_CPUS_PER_TASK:-1}}"
+export RCPP_PARALLEL_NUM_THREADS="${RCPP_PARALLEL_NUM_THREADS:-${SLURM_CPUS_PER_TASK:-1}}"
+export PATH="/opt/conda/envs/merged_env/bin:$PATH"
+
+nginx_conf="$runtime_dir/nginx/nginx.conf"
+{
+    printf 'pid %s;\n' "$runtime_dir/nginx/nginx.pid"
+    printf 'error_log %s;\n' "$runtime_dir/logs/nginx-error.log"
+    sed \
+        -e '/^[[:space:]]*user[[:space:]].*;[[:space:]]*$/d' \
+        -e 's|include[[:space:]]\+mime\.types;|include /etc/nginx/mime.types;|' \
+        -e "s/listen[[:space:]]\\+80;/listen 0.0.0.0:$port;/" \
+        -e "/^[[:space:]]*http[[:space:]]*{/a\\
+        access_log $runtime_dir/logs/nginx-access.log;\\
+        client_body_temp_path $runtime_dir/nginx/client_body;\\
+        fastcgi_temp_path $runtime_dir/nginx/fastcgi;\\
+        proxy_temp_path $runtime_dir/nginx/proxy;\\
+        scgi_temp_path $runtime_dir/nginx/scgi;\\
+        uwsgi_temp_path $runtime_dir/nginx/uwsgi;" \
+        /etc/nginx/nginx.conf
+} > "$nginx_conf"
+
+r_bin="/opt/conda/envs/merged_env/bin/R"
+if [[ ! -x "$r_bin" ]]; then
+    echo "R executable not found: $r_bin" >&2
+    exit 1
+fi
+
+declare -a child_pids=()
+declare -a service_names=()
+declare -a service_ports=()
+
+cleanup() {
+    local status=$?
+    trap - EXIT INT TERM
+    for pid in "${child_pids[@]:-}"; do
+        kill "$pid" 2>/dev/null || true
+    done
+    wait 2>/dev/null || true
+    exit "$status"
+}
+trap cleanup EXIT INT TERM
+
+start_shiny() {
+    local name="$1"
+    local service_port="$2"
+    local app_path="$3"
+
+    "$r_bin" --vanilla --slave -e \
+        "shiny::runApp('$app_path', port=$service_port, host='127.0.0.1', launch.browser=FALSE)" \
+        >"$runtime_dir/logs/$name.log" 2>&1 &
+
+    child_pids+=("$!")
+    service_names+=("$name")
+    service_ports+=("$service_port")
+}
+
+start_shiny deseq2shiny 4001 /srv/shiny-server/deseq2shiny/src
+start_shiny ATACseqQCShniy 4002 /srv/shiny-server/ATACseqQCShniy/src
+start_shiny ClusterProfShinyGSEA 4003 /srv/shiny-server/ClusterProfShinyGSEA/src
+start_shiny ClusterProfShinyORA 4004 /srv/shiny-server/ClusterProfShinyORA/src
+start_shiny GeneCountMerger 4005 /srv/shiny-server/GeneCountMerger/src
+start_shiny SeuratV5Shiny 4006 /srv/shiny-server/SeuratV5Shiny/src
+start_shiny animalcules 4007 /srv/shiny-server/animalcules/src
+start_shiny dada2Shiny 4008 /srv/shiny-server/dada2Shiny/src
+start_shiny monocle3 4009 /srv/shiny-server/monocle3/src
+start_shiny DEBrowser 4010 /srv/shiny-server/DEBrowser/src/R
+start_shiny mergeFPKMs 4011 /srv/shiny-server/mergeFPKMs/src
+start_shiny tsar_nasqar 4012 /srv/shiny-server/tsar_nasqar/src
+
+wait_for_port() {
+    local name="$1"
+    local service_port="$2"
+    local service_pid="$3"
+    local deadline=$((SECONDS + 300))
+
+    while ((SECONDS < deadline)); do
+        if ! kill -0 "$service_pid" 2>/dev/null; then
+            echo "$name exited during startup." >&2
+            echo "See $runtime_dir/logs/$name.log" >&2
+            return 1
+        fi
+        if (exec 3<>"/dev/tcp/127.0.0.1/$service_port") 2>/dev/null; then
+            exec 3>&-
+            return 0
+        fi
+        sleep 1
+    done
+
+    echo "Timed out waiting for $name on port $service_port." >&2
+    echo "See $runtime_dir/logs/$name.log" >&2
+    return 1
+}
+
+for index in "${!service_names[@]}"; do
+    wait_for_port \
+        "${service_names[$index]}" \
+        "${service_ports[$index]}" \
+        "${child_pids[$index]}"
+done
+
+/usr/sbin/nginx -t -c "$nginx_conf"
+/usr/sbin/nginx -c "$nginx_conf" -g "daemon off;" \
+    >"$runtime_dir/logs/nginx-stdout.log" 2>&1 &
+nginx_pid=$!
+child_pids+=("$nginx_pid")
+
+node_name="$(hostname -f 2>/dev/null || hostname)"
+cat >"$runtime_dir/connection.txt" <<EOF
+NASQAR2 node: $node_name
+NASQAR2 port: $port
+Tunnel from your workstation:
+ssh -N -L ${port}:${node_name}:${port} nr83@jubail.abudhabi.nyu.edu
+Then open: http://localhost:${port}
+EOF
+
+cat "$runtime_dir/connection.txt"
+echo "Runtime directory: $runtime_dir"
+
+while kill -0 "$nginx_pid" 2>/dev/null; do
+    for index in "${!service_names[@]}"; do
+        if ! kill -0 "${child_pids[$index]}" 2>/dev/null; then
+            echo "${service_names[$index]} stopped unexpectedly." >&2
+            echo "See $runtime_dir/logs/${service_names[$index]}.log" >&2
+            exit 1
+        fi
+    done
+    sleep 5
+done
+
+echo "Nginx stopped unexpectedly. See $runtime_dir/logs/nginx-error.log" >&2
+exit 1
