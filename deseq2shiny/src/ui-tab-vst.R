@@ -10,12 +10,14 @@ tabItem(
             wellPanel(
                 box(
                     title = "Distance Heatmap", width = 12, solidHeader = T, status = "primary", height = "100%",
-                    withSpinner(plotlyOutput(outputId = "vsdPlot", height = "800px"))
+                    withSpinner(plotlyOutput(outputId = "vsdPlot", height = "800px")),
+                    publication_downloads("download_vst_distance")
                 ),
                 box(
                     title = "PCA Plot", width = 12, solidHeader = T, status = "primary",
                     selectInput("vsdIntGroupsInput", "Group of interest", choices = c()),
-                    withSpinner(plotlyOutput(outputId = "vsdPcaPlot", height = "800px"))
+                    withSpinner(plotlyOutput(outputId = "vsdPcaPlot", height = "800px")),
+                    publication_downloads("download_vst_pca")
                 ),
                 h4(p(class = "text-right", downloadButton("downloadVsdCsv", "Download vsd.csv", class = "btn btn-primary btn-sm"))),
                 withSpinner(dataTableOutput("vsdData"))

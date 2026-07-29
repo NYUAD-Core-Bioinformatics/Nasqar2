@@ -15,7 +15,9 @@ tabItem(
             ),
             column(
                 6,
-                withSpinner(plotOutput("plotErrors_errF"))
+                h4("Forward-read error model"),
+                withSpinner(plotOutput("plotErrors_errF", height = "520px")),
+                publication_downloads("download_error_forward")
 
             
             ),
@@ -23,7 +25,9 @@ tabItem(
                 6,
                 conditionalPanel(
                     "input.seq_type == 'paired'",
-                    withSpinner(plotOutput("plotErrors_errR"))
+                    h4("Reverse-read error model"),
+                    withSpinner(plotOutput("plotErrors_errR", height = "520px")),
+                    publication_downloads("download_error_reverse")
                 )
 
             )

@@ -16,7 +16,7 @@ tabItem(
           12,
           p("Assigning taxonomy is an important step, especially in 16S/18S/ITS amplicon sequencing, to classify sequence variants.
           The DADA2 package uses a robust classifier method for this purpose."),
-          p("It takes as input a set of sequences and a training set of reference sequences with known taxonomy. You can choose from pre-formatted training sets such as RDP, GreenGenes, Silva, or upload your own custom database.")
+          p("It takes a set of sequences and a training set with known taxonomy. This deployment provides SILVA v138.1 and also accepts a custom DADA2-formatted reference database.")
         ),
 
         # Section 1: Reference Database Selection
@@ -33,7 +33,7 @@ tabItem(
             6,
             radioButtons("database_choice", "Select Reference Database:",
               choices = list(
-                "SILVA v132 (Default)" = "silva",
+                "SILVA v138.1 (Default)" = "silva",
                 "Upload Custom" = "custom"
               ),
               selected = "silva"
@@ -154,7 +154,12 @@ tabItem(
           width = 12,
           collapsible = TRUE,
           collapsed = FALSE,
-          withSpinner(plotOutput("sequenceDistributionBarChart"))
+          withSpinner(plotOutput("sequenceDistributionBarChart", height = "520px")),
+          tags$p(
+            class = "text-muted",
+            "Occurrence of the selected sequence variants across samples, grouped by the chosen taxonomy rank."
+          ),
+          publication_downloads("download_sequence_distribution")
         )
       )
     )

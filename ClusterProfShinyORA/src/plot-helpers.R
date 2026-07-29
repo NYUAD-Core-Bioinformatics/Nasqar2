@@ -18,18 +18,40 @@ make_downloader <- function(output, plot_id, plot_fn, width = 10, height = 7) {
                 content  = function(file) {
                     switch(f,
                         png = grDevices::png(file,
-                                width  = round(width  * 150),
-                                height = round(height * 150),
-                                res    = 150),
-                        pdf = grDevices::pdf(file, width = width, height = height),
+                                width  = round(width  * 300),
+                                height = round(height * 300),
+                                res    = 300),
+                        pdf = grDevices::pdf(
+                                file, width = width, height = height,
+                                useDingbats = FALSE),
                         svg = grDevices::svg(file, width = width, height = height)
                     )
-                    tryCatch(print(plot_fn()), error = function(e) NULL)
-                    grDevices::dev.off()
+                    on.exit(grDevices::dev.off(), add = TRUE)
+                    print(plot_fn())
                 }
             )
         })
     }
+}
+
+publication_plotly_config <- function(
+    plot,
+    filename,
+    width = 2400,
+    height = 1600
+) {
+    plotly::config(
+        plot,
+        responsive = TRUE,
+        displaylogo = FALSE,
+        toImageButtonOptions = list(
+            format = "png",
+            filename = filename,
+            width = width,
+            height = height,
+            scale = 2
+        )
+    )
 }
 
 # ── KEGG KO ID converter ──────────────────────────────────────────────────────
@@ -138,7 +160,7 @@ build_ko_map <- function(entrez_ids, org) {
 plot_dl_buttons <- function(plot_id) {
     tags$div(
         style = "margin-top:6px;",
-        downloadButton(paste0("dl_", plot_id, "_png"), "PNG",
+        downloadButton(paste0("dl_", plot_id, "_png"), "PNG (300 DPI)",
                        class = "btn btn-xs btn-default"),
         tags$span("\u00a0"),
         downloadButton(paste0("dl_", plot_id, "_pdf"), "PDF",

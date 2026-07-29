@@ -12,6 +12,7 @@ dependencies:
 - r-base==4.3.3
 - r-biocmanager
 - r-car
+- r-cairo
 - r-clustree
 - r-colourpicker
 - r-devtools
@@ -81,6 +82,9 @@ dependencies:
 - bioconductor-limmagui
 - bioconductor-motifdb
 - bioconductor-multiassayexperiment
+- bioconductor-org.dm.eg.db
+- bioconductor-org.hs.eg.db
+- bioconductor-org.mm.eg.db
 - bioconductor-pathview
 - bioconductor-phyloseq
 - bioconductor-rhdf5
@@ -90,6 +94,7 @@ dependencies:
 - bioconductor-summarizedexperiment
 - bioconductor-sva
 - bioconductor-tximport
+- bioconductor-txdb.hsapiens.ucsc.hg19.knowngene
 - binutils
 - biom-format
 - bpp-core

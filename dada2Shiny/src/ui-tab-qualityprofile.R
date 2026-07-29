@@ -9,7 +9,7 @@ tabItem(
 
                     column(6,
                        
-                        selectInput("sel_sample_qualityprofile_tab", "Salect Sample", choices = NULL, selected = NULL)
+                        selectInput("sel_sample_qualityprofile_tab", "Select Sample", choices = NULL, selected = NULL)
                       
                     ),
                     column(12,
@@ -19,11 +19,15 @@ tabItem(
                     ),
                     column(12,
                         column(6,
-                            withSpinner(plotOutput("plot_qualityprofile_fs"))
+                            h4("Forward-read quality profile"),
+                            withSpinner(plotOutput("plot_qualityprofile_fs", height = "440px")),
+                            publication_downloads("download_quality_forward")
                         ),
                         column(6,
                             conditionalPanel("input.seq_type == 'paired'",
-                                withSpinner(plotOutput("plot_qualityprofile_rs"))
+                                h4("Reverse-read quality profile"),
+                                withSpinner(plotOutput("plot_qualityprofile_rs", height = "440px")),
+                                publication_downloads("download_quality_reverse")
                         ))
                     )
                 )

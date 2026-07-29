@@ -512,7 +512,7 @@ output$genesInKeggPathway <- plotly::renderPlotly({
             margin = list(l = 220),
             autosize = TRUE
         ) %>%
-        plotly::config(responsive = TRUE) %>%
+        publication_plotly_config("ora-kegg-gene-membership") %>%
         htmlwidgets::onRender("function(el) { setTimeout(function() { Plotly.Plots.resize(el); }, 300); }")
 })
 

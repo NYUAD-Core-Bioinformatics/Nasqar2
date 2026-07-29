@@ -163,7 +163,7 @@ output$genesInGoTerm <- plotly::renderPlotly({
                     shareX = TRUE, titleY = TRUE) %>%
         plotly::layout(plot_bgcolor = "#ffffff", paper_bgcolor = "#ffffff",
                        margin = list(l = 220), autosize = TRUE) %>%
-        plotly::config(responsive = TRUE) %>%
+        publication_plotly_config("ora-go-gene-membership") %>%
         htmlwidgets::onRender("function(el) { setTimeout(function() { Plotly.Plots.resize(el); }, 300); }")
 })
 

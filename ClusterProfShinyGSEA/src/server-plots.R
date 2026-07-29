@@ -161,7 +161,7 @@ output$genesInGoTerm <- plotly::renderPlotly({
                     shareX = TRUE, titleY = TRUE) %>%
         plotly::layout(plot_bgcolor = "#ffffff", paper_bgcolor = "#ffffff",
                        margin = list(l = 220), autosize = TRUE) %>%
-        plotly::config(responsive = TRUE) %>%
+        publication_plotly_config("gsea-go-gene-membership") %>%
         htmlwidgets::onRender("function(el) { setTimeout(function() { Plotly.Plots.resize(el); }, 300); }")
 })
 
@@ -726,7 +726,14 @@ output$pmcPlot <- renderPlotly({
                 if (is.null(terms)) {
                     return(NULL)
                 }
-                pmcplot(terms, seq(input$year_from, input$year_to), proportion = FALSE)
+                publication_plotly_config(
+                    pmcplot(
+                        terms,
+                        seq(input$year_from, input$year_to),
+                        proportion = FALSE
+                    ),
+                    "gsea-pubmed-trends"
+                )
             })
         }
     })

@@ -257,17 +257,40 @@ output$dada2object_ready <- reactive({
 })
 outputOptions(output, "dada2object_ready", suspendWhenHidden = FALSE)
 
+fragments_summary_table <- reactive({
+    data <- reactiveInputData()
+    req(data)
+    output_table <- data.frame(
+        Sample = data$sample.names,
+        data$out,
+        check.names = FALSE,
+        stringsAsFactors = FALSE
+    )
+    colnames(output_table) <- c(
+        "Sample",
+        "Fragments before quality trimming",
+        "Fragments after quality trimming"
+    )
+    output_table
+})
+
 output$filterAndTrim_output_table <- DT::renderDataTable(
-    {
-        data <- reactiveInputData()
-        output_table <- cbind(Sample = data$sample.names, data$out)
-        colnames(output_table) <- c(
-            "Sample",
-            "Fragments before Quality trimming",
-            "Fragments after Quality trimming"
-        )
-        output_table
-    },
+    fragments_summary_table(),
     rownames = FALSE,
     options = list(scrollX = TRUE, pageLength = 10)
+)
+
+output$download_fragments_summary <- downloadHandler(
+    filename = function() {
+        paste0("dada2-fragments-summary-", Sys.Date(), ".csv")
+    },
+    contentType = "text/csv",
+    content = function(file) {
+        utils::write.csv(
+            fragments_summary_table(),
+            file,
+            row.names = FALSE,
+            na = ""
+        )
+    }
 )

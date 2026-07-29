@@ -45,8 +45,13 @@ read_nasqar_exchange <- function(token) {
         length(token) == 1L && grepl("^[0-9a-fA-F-]{36}$", token),
         "Invalid NASQAR2 transfer token."
     ))
-    exchange_dir <- file.path(tempdir(check = TRUE), "..", "nasqar_exchange")
-    exchange_dir <- normalizePath(exchange_dir, mustWork = FALSE)
+    configured_exchange <- Sys.getenv("NASQAR_EXCHANGE_DIR", unset = "")
+    exchange_dir <- if (nzchar(configured_exchange)) {
+        configured_exchange
+    } else {
+        file.path(dirname(tempdir(check = TRUE)), "nasqar_exchange")
+    }
+    exchange_dir <- normalizePath(exchange_dir, mustWork = TRUE)
     path <- file.path(exchange_dir, paste0(token, ".rds"))
     validate(need(file.exists(path), "The transferred DADA2 result has expired."))
     validate(need(
