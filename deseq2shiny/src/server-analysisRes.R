@@ -195,8 +195,7 @@ output$factorsStr <- renderText({
 
 
 output$analysisRes_enrichGo <- renderUI({
-    fileUrl <- UUIDgenerate()
-    fileUrl <- file.path(session_dir, paste0(fileUrl, ".csv"))
+    fileUrl <- new_exchange_file(".csv")
     csv <- myValues$vsResults
 
     write.csv(csv, file = fileUrl)
@@ -204,13 +203,13 @@ output$analysisRes_enrichGo <- renderUI({
         class = "BoxArea3", 
         style = "text-align: center; padding: 10px;",
         p(strong("Enrichment Analysis")),
-        a("ClusterProfShinyORA (goEnrich)", 
-          href = paste0("/ClusterProfShinyORA?countsdata=", encryptUrlParam(fileUrl)), 
+        a("ClusterProfShinyORA (ORA)",
+          href = paste0("/ClusterProfShinyORA/?countsdata=", encryptUrlParam(fileUrl)),
           class = "btn btn-success btn-block", 
           target = "_blank", 
           style = "margin-bottom: 10px;"),
-        a("ClusterProfShinyGSEA (GSEA)", 
-          href = paste0("/ClusterProfShinyGSEA?countsdata=", encryptUrlParam(fileUrl)), 
+        a("ClusterProfShinyGSEA (GSEA)",
+          href = paste0("/ClusterProfShinyGSEA/?countsdata=", encryptUrlParam(fileUrl)),
           class = "btn btn-success btn-block", 
           target = "_blank")
     ))

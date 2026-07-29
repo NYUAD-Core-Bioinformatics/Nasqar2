@@ -12,6 +12,7 @@ vals <- reactiveValues(
     MAE = readRDS(data_dir),
     MAE_backup = MAE
 )
+nasqar_transfer_status <- reactiveVal(NULL)
 
 observeEvent(input$upload_example,{
   withBusyIndicatorServer("upload_example", {
@@ -39,9 +40,170 @@ update_inputs <- function(session) {
     updateOrganisms(session)
 }
 
+read_nasqar_exchange <- function(token) {
+    validate(need(
+        length(token) == 1L && grepl("^[0-9a-fA-F-]{36}$", token),
+        "Invalid NASQAR2 transfer token."
+    ))
+    configured_exchange <- Sys.getenv("NASQAR_EXCHANGE_DIR", unset = "")
+    exchange_dir <- if (nzchar(configured_exchange)) {
+        configured_exchange
+    } else {
+        file.path(dirname(tempdir(check = TRUE)), "nasqar_exchange")
+    }
+    exchange_dir <- normalizePath(exchange_dir, mustWork = TRUE)
+    path <- file.path(exchange_dir, paste0(token, ".rds"))
+    validate(need(file.exists(path), "The transferred DADA2 result has expired."))
+    validate(need(
+        as.numeric(difftime(Sys.time(), file.info(path)$mtime, units = "secs")) <= 3600,
+        "The transferred DADA2 result has expired."
+    ))
+    exchange <- readRDS(path)
+    attr(exchange, "nasqar_exchange_path") <- path
+    exchange
+}
+
+mae_from_dada2_exchange <- function(exchange) {
+    validate(need(
+        is.list(exchange) &&
+            all(c("counts", "taxonomy", "metadata") %in% names(exchange)),
+        "The DADA2 transfer is incomplete."
+    ))
+
+    counts <- as.data.frame(exchange$counts, check.names = FALSE)
+    taxonomy <- as.data.frame(exchange$taxonomy, check.names = FALSE)
+    metadata <- as.data.frame(exchange$metadata, check.names = FALSE)
+    validate(need(
+        identical(colnames(counts), rownames(metadata)),
+        "DADA2 sample names do not match the transferred metadata."
+    ))
+    validate(need(
+        identical(rownames(counts), rownames(taxonomy)),
+        "DADA2 ASV names do not match the transferred taxonomy."
+    ))
+
+    se_mgx <- counts %>%
+        base::data.matrix() %>%
+        S4Vectors::SimpleList() %>%
+        magrittr::set_names("MGX")
+    se_colData <- metadata %>% S4Vectors::DataFrame()
+    se_rowData <- taxonomy %>%
+        dplyr::mutate_all(as.character) %>%
+        S4Vectors::DataFrame()
+    microbe_se <- SummarizedExperiment::SummarizedExperiment(
+        assays = se_mgx,
+        colData = se_colData,
+        rowData = se_rowData
+    )
+    MultiAssayExperiment::MultiAssayExperiment(
+        experiments = S4Vectors::SimpleList(MicrobeGenetics = microbe_se),
+        colData = se_colData
+    )
+}
+
+observeEvent(TRUE, {
+    query <- parseQueryString(session$clientData$url_search)
+    if (!is.null(query[["exchange"]])) {
+        tryCatch({
+            exchange <- read_nasqar_exchange(query[["exchange"]])
+            exchange_path <- attr(exchange, "nasqar_exchange_path")
+            transferred_mae <- mae_from_dada2_exchange(exchange)
+            microbe <- transferred_mae[["MicrobeGenetics"]]
+
+            vals$MAE <- transferred_mae
+            vals$MAE_backup <- transferred_mae
+            update_inputs(session)
+            updateTabsetPanel(
+                session,
+                "Animalcules",
+                selected = "Summary and Filter"
+            )
+            nasqar_transfer_status(list(
+                type = "success",
+                samples = ncol(microbe),
+                features = nrow(microbe),
+                has_groups = any(vapply(
+                    as.data.frame(SummarizedExperiment::colData(microbe)),
+                    function(column) {
+                        level_count <- length(unique(column[!is.na(column)]))
+                        level_count > 1 && level_count < ncol(microbe)
+                    },
+                    logical(1)
+                ))
+            ))
+            unlink(exchange_path)
+            showNotification(
+                sprintf(
+                    "Loaded %d ASVs across %d samples from DADA2Shiny.",
+                    nrow(microbe),
+                    ncol(microbe)
+                ),
+                type = "message",
+                duration = NULL
+            )
+        }, error = function(e) {
+            message_text <- conditionMessage(e)
+            if (!nzchar(message_text)) {
+                message_text <- "Animalcules could not import the DADA2 dataset."
+            }
+            nasqar_transfer_status(list(
+                type = "error",
+                message = message_text
+            ))
+            showNotification(
+                paste(
+                    message_text,
+                    "The transfer was retained so it can be retried."
+                ),
+                type = "error",
+                duration = NULL
+            )
+        })
+    }
+}, once = TRUE)
+
+output$nasqar_transfer_status <- renderUI({
+    status <- nasqar_transfer_status()
+    req(status)
+    if (identical(status$type, "success")) {
+        tags$div(
+            class = "alert alert-success",
+            tags$strong("DADA2 dataset loaded"),
+            tags$br(),
+            sprintf(
+                "%d ASVs across %d samples are active in animalcules.",
+                status$features,
+                status$samples
+            ),
+            if (!isTRUE(status$has_groups)) {
+                tagList(
+                    tags$br(),
+                    "No biological grouping metadata was transferred. ",
+                    "Taxonomy and per-sample analyses are available; ",
+                    "group comparisons require sample metadata."
+                )
+            }
+        )
+    } else {
+        tags$div(
+            class = "alert alert-danger",
+            tags$strong("DADA2 import failed"),
+            tags$br(),
+            status$message
+        )
+    }
+})
+
 updateCovariate <- function(session){
     MAE <- vals$MAE
     covariates <- colnames(colData(MAE))
+    sample_count <- nrow(colData(MAE))
+    informative <- vapply(covariates, function(covariate) {
+        values <- colData(MAE)[[covariate]]
+        num.levels <- length(unique(values[!is.na(values)]))
+        num.levels > 1 && num.levels < sample_count
+    }, logical(1))
+    covariates <- covariates[informative]
     # use experience to choose categorical variables
     covariates.colorbar <- c()
     covariates_remove_index <- NULL

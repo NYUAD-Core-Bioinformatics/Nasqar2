@@ -9,6 +9,7 @@ decryptUrlParam <- function(cipher) {
     unserialize(orig)
 }
 
+organismsDbChoices <- installed_organism_choices()
 
 observe({
     shinyjs::hide(selector = "a[data-value=\"gseGoTab\"]")
@@ -34,8 +35,10 @@ inputDataReactive <- reactive({
     )
 
     if (!is.null(query[["countsdata"]])) {
-        inFile <- decryptUrlParam(query[["countsdata"]])
-        data <- read.csv(inFile)
+        inFile <- validate_exchange_path(
+            decryptUrlParam(query[["countsdata"]])
+        )
+        data <- read.csv(inFile, check.names = FALSE)
         shinyjs::show(selector = "a[data-value=\"datainput\"]")
         shinyjs::disable("data_file_type")
         shinyjs::disable("datafile")
@@ -113,16 +116,6 @@ outputOptions(output, "fileUploaded", suspendWhenHidden = FALSE)
 observeEvent(input$nextInitParams, {
     js$collapse("iParamsbox")
 
-    organismsDbChoices <- c(
-        "Human (org.Hs.eg.db)" = "org.Hs.eg.db", "Mouse (org.Mm.eg.db)" = "org.Mm.eg.db", "Rat (org.Rn.eg.db)" = "org.Rn.eg.db",
-        "Yeast (org.Sc.sgd.db)" = "org.Sc.sgd.db", "Fly (org.Dm.eg.db)" = "org.Dm.eg.db", "Arabidopsis (org.At.tair.db)" = "org.At.tair.db",
-        "Zebrafish (org.Dr.eg.db)" = "org.Dr.eg.db", "Bovine (org.Bt.eg.db)" = "org.Bt.eg.db", "Worm (org.Ce.eg.db)" = "org.Ce.eg.db",
-        "Chicken (org.Gg.eg.db)" = "org.Gg.eg.db", "Canine (org.Cf.eg.db)" = "org.Cf.eg.db", "Pig (org.Ss.eg.db)" = "org.Ss.eg.db",
-        "Rhesus (org.Mmu.eg.db)" = "org.Mmu.eg.db", "E coli strain K12 (org.EcK12.eg.db)" = "org.EcK12.eg.db", "Xenopus (org.Xl.eg.db)" = "org.Xl.eg.db",
-        "Chimp (org.Pt.eg.db)" = "org.Pt.eg.db", "Anopheles (org.Ag.eg.db)" = "org.Ag.eg.db", "Malaria (org.Pf.plasmo.db)" = "org.Pf.plasmo.db",
-        "E coli strain Sakai (org.EcSakai.eg.db)" = "org.EcSakai.eg.db"
-    )
-
     updateSelectInput(session, "organismDb", choices = organismsDbChoices)
 
     if (input$data_file_type == "examplecounts") {
@@ -139,30 +132,17 @@ observeEvent(input$nextInitParams, {
 
 
 observeEvent(input$organismDb, {
-		req(input$organismDb)
-    #if (input$organismDb == "") {
-    #    return(NULL)
-    #}
-
-        if (!require(input$organismDb, character.only = TRUE)) {
-		print('not installed')
-		print(input$organismDb)
-	       withProgress(
-	                message = paste0("Installing package ",input$organismDb),
-	            detail = "This may take a while...",
-	            value = 0, {
-			 incProgress(0.4)
-		    	BiocManager::install(input$organismDb)
-					 incProgress(0.4) })
-
-
-	          
-
-	        }
-
-    library(input$organismDb, character.only = T)
-
-    annDb <- eval(parse(text = input$organismDb))
-    keytypes <- keytypes(annDb)
+    req(input$organismDb)
+    if (!requireNamespace(input$organismDb, quietly = TRUE)) {
+        showNotification(
+            paste("The selected annotation database is not installed:",
+                  input$organismDb),
+            type = "error",
+            duration = NULL
+        )
+        return()
+    }
+    annDb <- get(input$organismDb, envir = asNamespace(input$organismDb))
+    keytypes <- AnnotationDbi::keytypes(annDb)
     updateSelectInput(session, "keytype", choices = keytypes, selected = "ENSEMBL")
 })

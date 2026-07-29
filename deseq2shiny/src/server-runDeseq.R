@@ -258,6 +258,47 @@ output$rlogData <- renderDataTable(
     options = list(scrollX = TRUE, pageLength = 5)
 )
 
+transformed_distance_plot <- function(matrix) {
+    validate(need(!is.null(matrix), "Run DESeq2 before exporting this figure."))
+    sample_distances <- stats::dist(t(matrix))
+    sample_matrix <- as.matrix(sample_distances)
+    colors <- grDevices::colorRampPalette(
+        rev(RColorBrewer::brewer.pal(9, "Blues"))
+    )(255)
+    pheatmap::pheatmap(
+        sample_matrix,
+        clustering_distance_rows = sample_distances,
+        clustering_distance_cols = sample_distances,
+        color = colors,
+        border_color = NA,
+        main = "Sample distance heatmap"
+    )
+}
+
+transformed_pca_plot <- function(transformed, intgroup) {
+    validate(need(!is.null(transformed), "Run DESeq2 before exporting this figure."))
+    if (is.null(intgroup) || !nzchar(intgroup)) {
+        intgroup <- names(SummarizedExperiment::colData(transformed))[1]
+    }
+    pca_data <- DESeq2::plotPCA(
+        transformed,
+        intgroup = intgroup,
+        returnData = TRUE
+    )
+    percent_var <- attr(pca_data, "percentVar")
+    ggplot2::ggplot(
+        pca_data,
+        ggplot2::aes(x = PC1, y = PC2, color = group, label = name)
+    ) +
+        ggplot2::geom_point(size = 3.5, alpha = 0.9) +
+        ggplot2::labs(
+            x = sprintf("PC1: %.1f%% variance", percent_var[1] * 100),
+            y = sprintf("PC2: %.1f%% variance", percent_var[2] * 100),
+            color = intgroup
+        ) +
+        ggplot2::theme_classic(base_size = 12)
+}
+
 output$rlogPlot <- renderPlotly({
     if (!is.null(myValues$rlogMat)) {
         sampleDists <- dist(t(myValues$rlogMat))
@@ -479,6 +520,31 @@ output$vsdPcaPlot <- renderPlotly({
         return(p)
     }
 })
+
+register_publication_downloads(
+    output, "download_vst_distance",
+    function() "deseq2-vst-sample-distance",
+    function() transformed_distance_plot(myValues$vstMat),
+    width = 8, height = 7
+)
+register_publication_downloads(
+    output, "download_vst_pca",
+    function() "deseq2-vst-pca",
+    function() transformed_pca_plot(myValues$vsd, input$vsdIntGroupsInput),
+    width = 8, height = 6
+)
+register_publication_downloads(
+    output, "download_rlog_distance",
+    function() "deseq2-rlog-sample-distance",
+    function() transformed_distance_plot(myValues$rlogMat),
+    width = 8, height = 7
+)
+register_publication_downloads(
+    output, "download_rlog_pca",
+    function() "deseq2-rlog-pca",
+    function() transformed_pca_plot(myValues$rld, input$rlogIntGroupsInput),
+    width = 8, height = 6
+)
 
 output$vsdData <- renderDataTable(
     {

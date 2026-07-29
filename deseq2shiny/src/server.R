@@ -301,6 +301,61 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     )
     dir.create(session_dir, recursive = TRUE, showWarnings = FALSE)
 
+    hpc_state_dir <- Sys.getenv("NASQAR_DESEQ2_STATE_DIR", unset = "")
+    hpc_state_enabled <- nzchar(hpc_state_dir) &&
+        dir.exists(hpc_state_dir) &&
+        file.access(hpc_state_dir, 2) == 0
+
+    list_hpc_states <- function() {
+        if (!hpc_state_enabled) {
+            return(character())
+        }
+        files <- list.files(
+            hpc_state_dir,
+            pattern = "\\.[Rr][Dd]ata$",
+            full.names = FALSE
+        )
+        files[order(
+            file.info(file.path(hpc_state_dir, files))$mtime,
+            decreasing = TRUE
+        )]
+    }
+
+    refresh_hpc_states <- function(selected = NULL) {
+        states <- list_hpc_states()
+        choices <- if (length(states) > 0) {
+            stats::setNames(states, states)
+        } else {
+            c("No saved states" = "")
+        }
+        updateSelectInput(
+            session,
+            "hpcStateFile",
+            choices = choices,
+            selected = if (is.null(selected)) choices[[1]] else selected
+        )
+    }
+
+    hpc_state_path <- function(filename) {
+        if (is.null(filename)) {
+            filename <- ""
+        }
+        filename <- trimws(filename)
+        if (!nzchar(filename)) {
+            stop("Enter a state filename.")
+        }
+        if (!grepl("\\.[Rr][Dd]ata$", filename)) {
+            filename <- paste0(filename, ".RData")
+        }
+        if (
+            !identical(filename, basename(filename)) ||
+            !grepl("^[A-Za-z0-9][A-Za-z0-9._-]*\\.[Rr][Dd]ata$", filename)
+        ) {
+            stop("Use only letters, numbers, periods, underscores, and hyphens.")
+        }
+        file.path(hpc_state_dir, filename)
+    }
+
     # Add error handling for client-side communication issues
     session$onFlushed(function() {
         # This runs after the session is flushed to the client
@@ -1375,113 +1430,137 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
         )
     }
     
+    save_state_file <- function(file) {
+        withProgress(message = "Saving application state...", value = 0, {
+            setProgress(value = 0.1, detail = "Collecting core data...")
+            setProgress(value = 0.3, detail = "Collecting DESeq2 objects...")
+            setProgress(value = 0.5, detail = "Collecting analysis results...")
+            setProgress(value = 0.7, detail = "Collecting UI inputs...")
+            setProgress(value = 0.8, detail = "Creating state object...")
+            state_object <- saveAppState()
+            setProgress(value = 0.9, detail = "Writing state file...")
+            save(state_object, file = file)
+            setProgress(value = 1.0, detail = "State saved successfully!")
+        })
+    }
+
+    load_state_file <- function(state_file) {
+        withProgress(message = "Loading application state...", value = 0, {
+            setProgress(value = 0.1, detail = "Reading state file...")
+            state_size <- file.info(state_file)$size
+            if (is.na(state_size) || state_size > 100 * 1024^2) {
+                stop("State file exceeds the 100 MB safety limit.")
+            }
+            state_environment <- new.env(parent = emptyenv())
+            loaded_names <- load(state_file, envir = state_environment)
+
+            setProgress(value = 0.2, detail = "Validating state file...")
+            if (
+                !identical(loaded_names, "state_object") ||
+                !exists(
+                    "state_object",
+                    envir = state_environment,
+                    inherits = FALSE
+                )
+            ) {
+                stop("Invalid state file: 'state_object' not found.")
+            }
+            state_object <- get(
+                "state_object",
+                envir = state_environment,
+                inherits = FALSE
+            )
+            if (!is.list(state_object)) {
+                stop("Invalid state file: state_object must be a list.")
+            }
+            state_object <- validate_state_object(state_object)
+
+            setProgress(value = 0.4, detail = "Restoring application state...")
+            success <- loadAppState(state_object)
+            if (!isTRUE(success)) {
+                stop("State loaded with errors. Please check the saved data.")
+            }
+
+            setProgress(value = 0.7, detail = "Restoring UI inputs...")
+            setProgress(value = 0.85, detail = "Preparing interface...")
+            setProgress(value = 0.95, detail = "Finalizing restoration...")
+            if (!is.null(myValues$vsResults)) {
+                updateTabItems(session, "tabs", "resultsTab")
+            } else if (!is.null(myValues$dds)) {
+                updateTabItems(session, "tabs", "deseqTab")
+            } else if (!is.null(myValues$DF)) {
+                updateTabItems(session, "tabs", "conditionsTab")
+            } else {
+                updateTabItems(session, "tabs", "inputdata")
+            }
+            setProgress(value = 1.0, detail = "State loaded successfully!")
+        })
+        showNotification(
+            "Application state loaded successfully!",
+            type = "message",
+            duration = 3
+        )
+        removeModal()
+    }
+
     # Save state handler
     output$downloadState <- downloadHandler(
         filename = function() {
             paste0("deseq2shiny_state_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".RData")
         },
         content = function(file) {
-            withProgress(message = "Saving application state...", value = 0, {
-                # Step 1: Collecting core data
-                setProgress(value = 0.1, detail = "Collecting core data...")
-                
-                # Step 2: Collecting DESeq2 objects
-                setProgress(value = 0.3, detail = "Collecting DESeq2 objects...")
-                
-                # Step 3: Collecting analysis results
-                setProgress(value = 0.5, detail = "Collecting analysis results...")
-                
-                # Step 4: Collecting UI inputs
-                setProgress(value = 0.7, detail = "Collecting UI inputs...")
-                
-                # Step 5: Creating state object
-                setProgress(value = 0.8, detail = "Creating state object...")
-                state_object <- saveAppState()
-                
-                # Step 6: Writing to file
-                setProgress(value = 0.9, detail = "Writing state file...")
-                save(state_object, file = file)
-                
-                # Step 7: Complete
-                setProgress(value = 1.0, detail = "State saved successfully!")
-            })
-            
+            save_state_file(file)
             showNotification("Application state saved successfully!", type = "default", duration = 3)
         }
     )
+
+    observeEvent(input$saveStateToHpc, {
+        req(hpc_state_enabled)
+        tryCatch({
+            state_file <- hpc_state_path(input$hpcStateName)
+            if (file.exists(state_file)) {
+                stop("A state with this filename already exists.")
+            }
+            save_state_file(state_file)
+            refresh_hpc_states(basename(state_file))
+            showNotification(
+                paste("State saved to HPC scratch as", basename(state_file)),
+                type = "message",
+                duration = 5
+            )
+        }, error = function(error) {
+            showNotification(error$message, type = "error", duration = 6)
+        })
+    })
     
     # Load state handler
     observeEvent(input$loadStateFile, {
         req(input$loadStateFile)
-        
-        withProgress(message = "Loading application state...", value = 0, {
-            tryCatch({
-                # Step 1: Reading state file
-                setProgress(value = 0.1, detail = "Reading state file...")
-                state_file <- input$loadStateFile$datapath
-                state_size <- file.info(state_file)$size
-                if (is.na(state_size) || state_size > 100 * 1024^2) {
-                    stop("State file exceeds the 100 MB safety limit.")
-                }
-                state_environment <- new.env(parent = emptyenv())
-                loaded_names <- load(state_file, envir = state_environment)
-                
-                # Step 2: Validating state object
-                setProgress(value = 0.2, detail = "Validating state file...")
-                if (!identical(loaded_names, "state_object") ||
-                    !exists("state_object", envir = state_environment, inherits = FALSE)) {
-                    showNotification("Invalid state file: 'state_object' not found", type = "error", duration = 5)
-                    return()
-                }
-                state_object <- get(
-                    "state_object",
-                    envir = state_environment,
-                    inherits = FALSE
-                )
-                if (!is.list(state_object)) {
-                    stop("Invalid state file: state_object must be a list.")
-                }
-                state_object <- validate_state_object(state_object)
-                
-                # Step 3: Load all components using the comprehensive loadAppState function
-                setProgress(value = 0.4, detail = "Restoring application state...")
-                success <- loadAppState(state_object)
-                
-                if (success) {
-                    # Step 4: Restoring UI inputs
-                    setProgress(value = 0.7, detail = "Restoring UI inputs...")
-                    
-                    # Step 5: Determining navigation
-                    setProgress(value = 0.85, detail = "Preparing interface...")
-                    
-                    # Step 6: Navigate to appropriate tab
-                    setProgress(value = 0.95, detail = "Finalizing restoration...")
-                    if (!is.null(myValues$vsResults)) {
-                        updateTabItems(session, "tabs", "resultsTab")
-                    } else if (!is.null(myValues$dds)) {
-                        updateTabItems(session, "tabs", "deseqTab")
-                    } else if (!is.null(myValues$DF)) {
-                        updateTabItems(session, "tabs", "conditionsTab")
-                    } else {
-                        updateTabItems(session, "tabs", "inputdata")
-                    }
-                    
-                    # Step 7: Complete
-                    setProgress(value = 1.0, detail = "State loaded successfully!")
-                    showNotification("Application state loaded successfully!", type = "message", duration = 3)
-                    
-                    # Close the modal
-                    removeModal()
-                } else {
-                    showNotification("State loaded with some errors. Please check your data.", type = "warning", duration = 5)
-                }
-                
-            }, error = function(e) {
-                showNotification(
-                    paste("Error loading state file:", e$message),
-                    type = "error", duration = 5
-                )
-            })
+        tryCatch({
+            load_state_file(input$loadStateFile$datapath)
+        }, error = function(error) {
+            showNotification(
+                paste("Error loading state file:", error$message),
+                type = "error",
+                duration = 5
+            )
+        })
+    })
+
+    observeEvent(input$loadStateFromHpc, {
+        req(hpc_state_enabled, input$hpcStateFile)
+        tryCatch({
+            state_file <- hpc_state_path(input$hpcStateFile)
+            if (!file.exists(state_file)) {
+                stop("The selected HPC state file no longer exists.")
+            }
+            load_state_file(state_file)
+        }, error = function(error) {
+            showNotification(
+                paste("Error loading HPC state:", error$message),
+                type = "error",
+                duration = 6
+            )
         })
     })
     
@@ -2505,6 +2584,9 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     # Observer for showing state modal using Shiny's native modal (better nginx support)
     observeEvent(input$showStateModal, {
         canSave <- !is.null(myValues$dataCounts) || !is.null(myValues$dds)
+        if (hpc_state_enabled) {
+            refresh_hpc_states()
+        }
         
         # Check which plots are available (only show buttons when plots are actually configured/visible)
         hasVolcano <- !is.null(input$select_avo_de_file) && 
@@ -2553,7 +2635,30 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                             downloadButton("downloadState", 
                                          "💾 Download State File (.RData)", 
                                          class = "btn btn-success", 
-                                         style = "width: 100%; font-weight: bold; font-size: 14px; padding: 10px; border-radius: 6px; box-shadow: 0 2px 6px rgba(40,167,69,0.3);")
+                                         style = "width: 100%; font-weight: bold; font-size: 14px; padding: 10px; border-radius: 6px; box-shadow: 0 2px 6px rgba(40,167,69,0.3);"),
+                            if (hpc_state_enabled) {
+                                tagList(
+                                    hr(),
+                                    h5(icon("server"), " HPC Scratch"),
+                                    textInput(
+                                        "hpcStateName",
+                                        "State filename",
+                                        value = paste0(
+                                            "deseq2shiny_state_",
+                                            format(Sys.time(), "%Y%m%d_%H%M%S"),
+                                            ".RData"
+                                        ),
+                                        width = "100%"
+                                    ),
+                                    actionButton(
+                                        "saveStateToHpc",
+                                        "Save State to HPC Scratch",
+                                        icon = icon("save"),
+                                        class = "btn-primary",
+                                        style = "width: 100%;"
+                                    )
+                                )
+                            }
                         )
                     } else {
                         div(style = "background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 15px; margin-bottom: 20px;",
@@ -2583,7 +2688,33 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                         ),
                         div(style = "margin-top: 10px; padding: 10px; background-color: #e7f3ff; border-left: 3px solid #0066cc; border-radius: 4px; font-size: 11px; color: #004085;",
                             icon("info-circle"), " Loads all data, results, and plot settings from saved session"
-                        )
+                        ),
+                        if (hpc_state_enabled) {
+                            tagList(
+                                hr(),
+                                h5(icon("server"), " HPC Scratch"),
+                                selectInput(
+                                    "hpcStateFile",
+                                    "Saved state",
+                                    choices = {
+                                        states <- list_hpc_states()
+                                        if (length(states) > 0) {
+                                            stats::setNames(states, states)
+                                        } else {
+                                            c("No saved states" = "")
+                                        }
+                                    },
+                                    width = "100%"
+                                ),
+                                actionButton(
+                                    "loadStateFromHpc",
+                                    "Load State from HPC Scratch",
+                                    icon = icon("folder-open"),
+                                    class = "btn-primary",
+                                    style = "width: 100%;"
+                                )
+                            )
+                        }
                     )
                 ),
                 column(6,

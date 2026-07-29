@@ -11,7 +11,8 @@ observe({
       pbmc <- myValues$finalData$pbmc
       filename = paste0(input$projectname,"_seuratObj_",session$token,"_", format(Sys.time(), "%y-%m-%d_%H-%M-%S"), '.rds')
 
-      filepath = file.path(tempdir(), filename)
+      output_dir <- seurat_project_directory(input$projectname)
+      filepath = file.path(output_dir, filename)
       cat(filepath)
       shiny::setProgress(value = 0.3, detail = "might take some time for large datasets ...")
 
@@ -20,6 +21,11 @@ observe({
       #v3
       saveRDS(pbmc, file = filepath)
       myValues$filepath <- filepath
+      myValues$hpcOutputPath <- if (nzchar(Sys.getenv("NASQAR_SEURAT_PROJECT_DIR", ""))) {
+        filepath
+      } else {
+        NULL
+      }
 
       js$addStatusIcon("finishTab","done")
     })
@@ -37,6 +43,11 @@ output$seuratFileExists <-
   })
 outputOptions(output, 'seuratFileExists', suspendWhenHidden=FALSE)
 
+output$hpcSeuratPath <- renderText({
+  req(myValues$hpcOutputPath)
+  paste("Saved persistently on HPC:", myValues$hpcOutputPath)
+})
+
 
 
 output$downloadRObj <- downloadHandler(
@@ -51,6 +62,43 @@ output$downloadRObj <- downloadHandler(
     js$addStatusIcon("finishTab","done")
   }
 )
+
+monocle_exchange_token <- reactiveVal(NULL)
+
+output$monocleTransferUI <- renderUI({
+  req(myValues$finalData$pbmc)
+
+  token <- monocle_exchange_token()
+  if (is.null(token)) {
+    exchange_dir <- file.path(tempdir(check = TRUE), "..", "nasqar_exchange")
+    exchange_dir <- normalizePath(exchange_dir, mustWork = FALSE)
+    dir.create(exchange_dir, recursive = TRUE, showWarnings = FALSE, mode = "0700")
+    token <- uuid::UUIDgenerate()
+    saveRDS(
+      myValues$finalData$pbmc,
+      file.path(exchange_dir, paste0(token, ".rds"))
+    )
+    monocle_exchange_token(token)
+  }
+
+  handoffPath <- paste0(
+    "/monocle3/?exchange=",
+    URLencode(token, reserved = TRUE)
+  )
+
+  tags$a(
+    icon("project-diagram"),
+    "Open directly in Monocle3",
+    href = handoffPath,
+    `data-handoff-path` = handoffPath,
+    onclick = paste(
+      "this.href = window.location.origin +",
+      "this.getAttribute('data-handoff-path');"
+    ),
+    target = "_blank",
+    class = "button button-3d button-block button-pill button-primary button-large"
+  )
+})
 
 
 generateSeuratScript <- function(filepath)

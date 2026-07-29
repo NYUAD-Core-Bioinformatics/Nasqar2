@@ -1,504 +1,756 @@
 tx_db_list <- list(
-    "BSgenome.Hsapiens.UCSC.hg19" = c("TxDb.Hsapiens.UCSC.hg19.knownGene"),
-    "BSgenome.Mmusculus.UCSC.mm10" = c("TxDb.Mmusculus.UCSC.mm10.knownGene"),
-    "BSgenome.Drerio.UCSC.danRer11" = c("TxDb.Drerio.UCSC.danRer11.refGene"),
-    "BSgenome.Celegans.UCSC.ce11" = c("TxDb.Celegans.UCSC.ce11.refGene")
+    "BSgenome.Hsapiens.UCSC.hg19" = "TxDb.Hsapiens.UCSC.hg19.knownGene",
+    "BSgenome.Mmusculus.UCSC.mm10" = "TxDb.Mmusculus.UCSC.mm10.knownGene",
+    "BSgenome.Drerio.UCSC.danRer11" = "TxDb.Drerio.UCSC.danRer11.refGene",
+    "BSgenome.Celegans.UCSC.ce11" = "TxDb.Celegans.UCSC.ce11.refGene"
 )
-phast_cons_list <- list("BSgenome.Hsapiens.UCSC.hg19" = c("phastCons100way.UCSC.hg19"))
 
+atac_cache_root <- Sys.getenv(
+    "NASQAR_ATAC_CACHE_DIR",
+    unset = file.path(tempdir(check = TRUE), "ATACseqQC-cache")
+)
+dir.create(atac_cache_root, recursive = TRUE, showWarnings = FALSE)
 
+core_done <- reactiveVal(FALSE)
+nucleosome_done <- reactiveVal(FALSE)
+footprint_done <- reactiveVal(FALSE)
+nucleosome_result <- reactiveVal(NULL)
+footprint_result <- reactiveVal(NULL)
 
-bamfile_path <- reactive({
-    if (input$data_file_type == "example_bam_file") {
-        bamfile <- file.path(my_values$base_dir, my_values$samples_df[input$sel_sample_for_npositioning, "BamFile"])
-    } else {
-        bafiles <- input$bam_files
-    }
-})
-
-observeEvent(input$sel_sample_for_npositioning, {
-    # output$plot_vp
-    # output$plot_distanceDyad
-    # output$plot_featureAlignedHeatmap
-    # output$plot_nfr_score
-    # output$plot_Footprints
-    # output$plot_vp
-    # output$p
-})
-
-my_values$done <- FALSE
-output$task_done <- reactive({
-    if (my_values$done) {
-        return(TRUE)
-    } else {
-        return(FALSE)
-    }
-})
-
+output$task_done <- reactive(core_done())
+output$nucleosome_task_done <- reactive(nucleosome_done())
+output$footprint_task_done <- reactive(footprint_done())
 outputOptions(output, "task_done", suspendWhenHidden = FALSE)
+outputOptions(output, "nucleosome_task_done", suspendWhenHidden = FALSE)
+outputOptions(output, "footprint_task_done", suspendWhenHidden = FALSE)
 
+observe({
+    if (isTRUE(core_done())) {
+        shinyjs::show(selector = "a[data-value=\"nucleosomeprofiles_tab\"]")
+        shinyjs::show(selector = "a[data-value=\"footprinting_tab\"]")
+        js$addStatusIcon("nucleosomeprofiles_tab", "next")
+    } else {
+        shinyjs::hide(selector = "a[data-value=\"nucleosomeprofiles_tab\"]")
+        shinyjs::hide(selector = "a[data-value=\"footprinting_tab\"]")
+    }
+})
+
+observeEvent(
+    list(
+        input$sel_sample_for_npositioning,
+        input$sel_chromosome,
+        input$bs_genome_input
+    ),
+    {
+        core_done(FALSE)
+        nucleosome_done(FALSE)
+        footprint_done(FALSE)
+        nucleosome_result(NULL)
+        footprint_result(NULL)
+    },
+    ignoreInit = TRUE
+)
+
+observeEvent(input$motif_value, {
+    footprint_done(FALSE)
+    footprint_result(NULL)
+}, ignoreInit = TRUE)
+
+available_workers <- function(limit) {
+    requested <- suppressWarnings(as.integer(
+        Sys.getenv("SLURM_CPUS_PER_TASK", unset = "1")
+    ))
+    if (is.na(requested) || requested < 1L) {
+        requested <- 1L
+    }
+    max(1L, min(as.integer(limit), requested))
+}
+
+parallel_map <- function(values, callback, workers) {
+    if (workers > 1L && .Platform$OS.type == "unix") {
+        results <- parallel::mclapply(
+            values,
+            callback,
+            mc.cores = workers,
+            mc.preschedule = TRUE,
+            mc.set.seed = FALSE
+        )
+        failed <- vapply(results, inherits, logical(1), what = "try-error")
+        if (any(failed)) {
+            stop(as.character(results[[which(failed)[1]]]))
+        }
+        return(results)
+    }
+    lapply(values, callback)
+}
+
+with_null_device <- function(expression) {
+    grDevices::pdf(file = NULL)
+    on.exit(grDevices::dev.off(), add = TRUE)
+    force(expression)
+}
+
+write_cache <- function(value, path) {
+    temporary <- tempfile(pattern = "cache-", tmpdir = dirname(path))
+    saveRDS(value, temporary, compress = FALSE)
+    if (!file.rename(temporary, path)) {
+        unlink(temporary)
+        stop("Unable to save the ATACseqQC cache.")
+    }
+    value
+}
+
+cache_key_for <- function(stage, ...) {
+    digest::digest(
+        list(stage = stage, version = 2L, ...),
+        algo = "xxhash64"
+    )
+}
 
 inputDataReactive <- eventReactive(input$run_qc, {
-    print("inputDataReactive")
-    isolate({
-        my_values$done <- FALSE
-    })
+    req(
+        input$sel_sample_for_npositioning,
+        input$sel_chromosome,
+        input$bs_genome_input
+    )
 
-
+    shinyjs::disable("run_qc")
+    on.exit(shinyjs::enable("run_qc"), add = TRUE)
+    core_done(FALSE)
+    nucleosome_done(FALSE)
+    footprint_done(FALSE)
     js$addStatusIcon("nucleosomepositioning_tab", "loading")
 
-    
-    # library(tx_db_list[[input$bs_genome_input]], character.only = T)
-    check_and_load_bioc_package(tx_db_list[[input$bs_genome_input]])
+    withProgress(
+        message = "Calculating core ATAC-seq QC scores",
+        value = 0,
+        {
+            bamfile <- file.path(
+                my_values$base_dir,
+                my_values$samples_df[
+                    input$sel_sample_for_npositioning,
+                    "BamFile"
+                ]
+            )
+            bam_info <- file.info(bamfile)
+            validate(need(!is.na(bam_info$size), "The selected BAM file is unavailable."))
 
+            key <- cache_key_for(
+                "core",
+                normalizePath(bamfile, winslash = "/", mustWork = TRUE),
+                unname(bam_info$size),
+                as.numeric(bam_info$mtime),
+                input$bs_genome_input,
+                input$sel_chromosome
+            )
+            cache_dir <- file.path(atac_cache_root, key)
+            cache_file <- file.path(cache_dir, "core.rds")
+            shifted_bam <- file.path(cache_dir, "shifted.bam")
+            shifted_bai <- paste0(shifted_bam, ".bai")
+            dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
 
-    tags_integer_types <- input$sel_tag_integer_type
-    tags_char_types <- input$sel_tag_char_type
-    bamfile <- file.path(my_values$base_dir, my_values$samples_df[input$sel_sample_for_npositioning, "BamFile"])
+            tx_db_package <- tx_db_list[[input$bs_genome_input]]
+            validate(need(
+                !is.null(tx_db_package),
+                "No transcript annotation is configured for this genome."
+            ))
+            check_and_load_bioc_package(input$bs_genome_input)
+            check_and_load_bioc_package(tx_db_package)
 
-    # possibleTag <- list(
-    #     "integer" = c(
-    #         "AM", "AS", "CM", "CP", "FI", "H0", "H1", "H2",
-    #         "HI", "IH", "MQ", "NH", "NM", "OP", "PQ", "SM",
-    #         "TC", "UQ"
-    #     ),
-    #     "character" = c(
-    #         "BC", "BQ", "BZ", "CB", "CC", "CO", "CQ", "CR",
-    #         "CS", "CT", "CY", "E2", "FS", "LB", "MC", "MD",
-    #         "MI", "OA", "OC", "OQ", "OX", "PG", "PT", "PU",
-    #         "Q2", "QT", "QX", "R2", "RG", "RX", "SA", "TS",
-    #         "U2"
-    #     )
-    # )
-    # possibleTag <- list(
-    #      "integer" = tags_integer_types,
-    #      "character" = tags_char_types
+            if (
+                file.exists(cache_file) &&
+                file.exists(shifted_bam) &&
+                file.exists(shifted_bai)
+            ) {
+                incProgress(1, detail = "Loaded cached result")
+                cached <- readRDS(cache_file)
+                core_done(TRUE)
+                js$addStatusIcon("nucleosomepositioning_tab", "done")
+                return(cached)
+            }
 
-    # )
+            incProgress(0.1, detail = "Reading selected chromosome")
+            possible_tags <- combn(LETTERS, 2)
+            possible_tags <- c(
+                paste0(possible_tags[1, ], possible_tags[2, ]),
+                paste0(possible_tags[2, ], possible_tags[1, ])
+            )
+            bam_top_100 <- scanBam(
+                BamFile(bamfile, yieldSize = 100),
+                param = ScanBamParam(tag = possible_tags)
+            )[[1]]$tag
+            tags <- names(bam_top_100)[lengths(bam_top_100) > 0]
 
+            tx_db <- get(tx_db_package)
+            seqinformation <- seqinfo(tx_db)
+            chromosome <- input$sel_chromosome
+            validate(need(
+                chromosome %in% seqlevels(seqinformation),
+                "The chromosome is absent from the selected transcript database."
+            ))
+            chromosome_range <- as(seqinformation[chromosome], "GRanges")
+            alignments <- readBamFile(
+                bamfile,
+                tag = tags,
+                which = chromosome_range,
+                asMates = TRUE,
+                bigFile = TRUE
+            )
 
-    # print(bamfile)
-    # bam <- scanBam(BamFile(bamfile, yieldSize = 100),
-    #     param = ScanBamParam(tag = unlist(possibleTag))
-    # )
+            incProgress(0.2, detail = "Shifting alignments")
+            unlink(c(shifted_bam, shifted_bai))
+            shifted_alignments <- shiftGAlignmentsList(
+                alignments,
+                outbam = shifted_bam
+            )
 
+            transcripts_for_chromosome <- transcripts(tx_db)
+            transcripts_for_chromosome <- transcripts_for_chromosome[
+                as.character(seqnames(transcripts_for_chromosome)) == chromosome
+            ]
+            validate(need(
+                length(transcripts_for_chromosome) > 0,
+                "No transcripts were found for the selected chromosome."
+            ))
 
-    # Create a BamFile object
-    # bam <- BamFile(bamfile,yieldSize = 100)
+            incProgress(0.25, detail = "Calculating PT, NFR, and TSSE scores")
+            score_names <- c("pt", "nfr", "tsse")
+            score_workers <- available_workers(length(score_names))
+            score_results <- parallel_map(
+                score_names,
+                function(score_name) {
+                    with_null_device(
+                        switch(
+                            score_name,
+                            pt = PTscore(
+                                shifted_alignments,
+                                transcripts_for_chromosome
+                            ),
+                            nfr = NFRscore(
+                                shifted_alignments,
+                                transcripts_for_chromosome
+                            ),
+                            tsse = TSSEscore(
+                                shifted_alignments,
+                                transcripts_for_chromosome
+                            )
+                        )
+                    )
+                },
+                workers = score_workers
+            )
+            names(score_results) <- score_names
 
-    # Get the number of records in the BAM file
-    # record_count <-countBam(bam)$records
-
-    # Print the number of records
-    # print(record_count)
-    # print(record_count)
-    # updateNumericInput(session,"record_count_value", label=paste0('Records(max ',record_count, ')'), max = record_count )
-
-    ## bamfile tags to be read in
-    possibleTag <- combn(LETTERS, 2)
-    possibleTag <- c(
-        paste0(possibleTag[1, ], possibleTag[2, ]),
-        paste0(possibleTag[2, ], possibleTag[1, ])
+            result <- list(
+                key = key,
+                cache_dir = cache_dir,
+                bamfile = bamfile,
+                shifted_bam = shifted_bam,
+                chromosome_range = chromosome_range,
+                chromosome = chromosome,
+                genome_package = input$bs_genome_input,
+                transcript_package = tx_db_package,
+                alignments = shifted_alignments,
+                transcripts = transcripts_for_chromosome,
+                pt = score_results$pt,
+                nfr = score_results$nfr,
+                tsse = score_results$tsse,
+                score_workers = score_workers
+            )
+            incProgress(0.2, detail = "Saving reusable result")
+            write_cache(result, cache_file)
+            core_done(TRUE)
+            js$addStatusIcon("nucleosomepositioning_tab", "done")
+            result
+        }
     )
-    bamTop100 <- scanBam(BamFile(bamfile, yieldSize = 100),
-        param = ScanBamParam(tag = possibleTag)
-    )[[1]]$tag
-    ntags <- names(bamTop100)[lengths(bamTop100) > 0]
+}, ignoreInit = TRUE)
 
-    print(ntags)
+calculateNucleosomeData <- function() {
+    core <- inputDataReactive()
+    req(core)
 
-    # library(TxDb.Hsapiens.UCSC.hg19.knownGene)
-    ## if you don't have an available TxDb, please refer
-    ## GenomicFeatures::makeTxDbFromGFF to create one from gff3 or gtf file.
-    seqlev <- input$sel_chromosome ## subsample data for quick run
-    txb <- tx_db_list[[input$bs_genome_input]]
-    
-    seqinformation <- seqinfo(get(txb))
-    as(seqinformation[input$sel_chromosome], "GRanges")
-    # seqinformation <- seqinfo(TxDb.Hsapiens.UCSC.hg19.knownGene)
-    print(seqinformation)
+    shinyjs::disable("run_nucleosome_plots")
+    on.exit(shinyjs::enable("run_nucleosome_plots"), add = TRUE)
+    nucleosome_done(FALSE)
+    js$addStatusIcon("nucleosomeprofiles_tab", "loading")
 
-    which <- as(seqinformation[seqlev], "GRanges")
-    my_values$GRanges <- which
-    gal <- readBamFile(bamfile, tag = ntags, which = which, asMates = TRUE, bigFile = TRUE)
+    withProgress(
+        message = "Calculating nucleosome distributions",
+        value = 0,
+        {
+            cache_file <- file.path(core$cache_dir, "nucleosome.rds")
+            required_bams <- file.path(
+                core$cache_dir,
+                c(
+                    "NucleosomeFree.bam",
+                    "mononucleosome.bam",
+                    "dinucleosome.bam",
+                    "trinucleosome.bam"
+                )
+            )
+            if (
+                file.exists(cache_file) &&
+                all(file.exists(required_bams))
+            ) {
+                incProgress(1, detail = "Loaded cached result")
+                cached <- readRDS(cache_file)
+                nucleosome_done(TRUE)
+                js$addStatusIcon("nucleosomeprofiles_tab", "done")
+                return(cached)
+            }
 
-    outPath <- tempdir()
-    outPath <- paste0(file.path(outPath, input$sel_sample_for_npositioning))
-    dir.create(outPath)
+            genome_name <- strsplit(core$genome_package, ".", fixed = TRUE)[[1]][2]
+            genome <- get(genome_name)
+            incProgress(0.25, detail = "Splitting alignments by fragment size")
+            split_alignments <- splitGAlignmentsByCut(
+                core$alignments,
+                txs = core$transcripts,
+                genome = genome,
+                outPath = core$cache_dir
+            )
 
-    files <- list.files(outPath, full.names = T, recursive = TRUE)
-    file.remove(files)
+            tss <- unique(promoters(core$transcripts, upstream = 0, downstream = 1))
+            library_size <- estLibSize(required_bams)
+            n_tile <- 101L
+            upstream <- 1010L
+            downstream <- 1010L
 
-    shiftedBamfile <- file.path(outPath, "shifted.bam")
-    gal1 <- shiftGAlignmentsList(gal, outbam = shiftedBamfile)
+            incProgress(0.35, detail = "Calculating TSS-aligned signals")
+            tss_signals <- enrichedFragments(
+                gal = split_alignments[c(
+                    "NucleosomeFree",
+                    "mononucleosome",
+                    "dinucleosome",
+                    "trinucleosome"
+                )],
+                TSS = tss,
+                librarySize = library_size,
+                seqlev = core$chromosome,
+                TSS.filter = 0.5,
+                n.tile = n_tile,
+                upstream = upstream,
+                downstream = downstream
+            )
+            log2_signals <- lapply(tss_signals, function(signal) log2(signal + 1))
+            centered_tss <- reCenterPeaks(tss, width = upstream + downstream)
 
-    print(dir(outPath))
+            incProgress(0.25, detail = "Normalizing distributions")
+            distribution <- with_null_device(
+                featureAlignedDistribution(
+                    tss_signals,
+                    centered_tss,
+                    zeroAt = 0.5,
+                    n.tile = n_tile,
+                    type = "l",
+                    ylab = "Averaged coverage"
+                )
+            )
+            range_01 <- function(values) {
+                value_range <- range(values, na.rm = TRUE)
+                if (!all(is.finite(value_range)) || diff(value_range) == 0) {
+                    return(rep(0, length(values)))
+                }
+                (values - value_range[1]) / diff(value_range)
+            }
+            distribution <- apply(distribution, 2, range_01)
 
-
-    # Promoter/Transcript body (PT) score
-    # PT score is calculated as the coverage of promoter divided by the coverage of its transcript body.
-    # PT score will show if the signal is enriched in promoters.
-
-    tx_db <- tx_db_list[[input$bs_genome_input]]
-    #library(tx_db, character.only = T)
-    check_and_load_bioc_package(tx_db)
-    txs <- transcripts(get(tx_db))
-    my_values$pt <- PTscore(gal1, txs)
-    # plot will be called under renderPlot
-    # plot(pt$log2meanCoverage, pt$PT_score,
-    #  xlab="log2 mean coverage",
-    #  ylab="Promoter vs Transcript")
-
-
-    # Nucleosome Free Regions (NFR) score
-    my_values$nfr <- NFRscore(gal1, txs)
-    # plot will be called under renderPlot
-    # plot(nfr$log2meanCoverage, nfr$NFR_score,
-    #  xlab="log2 mean coverage",
-    #  ylab="Nucleosome Free Regions score",
-    #  main="NFRscore for 200bp flanking TSSs",
-    #  xlim=c(-10, 0), ylim=c(-5, 5))
-
-    ####################################################################################################
-    # Transcription Start Site (TSS) Enrichment Score
-    # TSS enrichment score is a raio between aggregate distribution of reads centered on TSSs and that
-    # flanking the corresponding TSSs. TSS score = the depth of
-    # TSS (each 100bp window within 1000 bp each side) / the depth of end flanks (100bp each end).
-    # TSSE score = max(mean(TSS score in each window)). TSS enrichment score is calculated according
-    # to the definition at https://www.encodeproject.org/data-standards/terms/#enrichment.
-    # Transcription start site (TSS) enrichment values are dependent on the reference files used;
-    # cutoff values for high quality data are listed in the following table from https://www.encodeproject.org/atac-seq/.
-    ####################################################################################################
-
-    my_values$tsse <- TSSEscore(gal1, txs)
-    # plot will be called under renderPlot
-    # plot(100*(-9:10-.5), tsse$values, type="b",
-    #  xlab="distance to TSS",
-    #  ylab="aggregate TSS score")
-
-    # =======================================================
-    # Split reads
-    # =======================================================
-
-    txs1 <- txs[seqnames(txs) %in% input$sel_chromosome]
-    genome <- get(unlist(strsplit(input$bs_genome_input, "\\."))[[2]])
-    ## split the reads into NucleosomeFree, mononucleosome,
-    ## dinucleosome and trinucleosome.
-    ## and save the binned alignments into bam files.
-    objs <- splitGAlignmentsByCut(gal1,
-        txs = txs1, genome = genome, outPath = outPath
-        # conservation = phastCons100way.UCSC.hg19
+            result <- list(
+                split_alignments = split_alignments,
+                bamfiles = required_bams,
+                tss = tss,
+                tss_signals = tss_signals,
+                log2_signals = log2_signals,
+                centered_tss = centered_tss,
+                distribution = distribution,
+                n_tile = n_tile,
+                upstream = upstream,
+                downstream = downstream
+            )
+            incProgress(0.15, detail = "Saving reusable result")
+            write_cache(result, cache_file)
+            nucleosome_done(TRUE)
+            js$addStatusIcon("nucleosomeprofiles_tab", "done")
+            result
+        }
     )
+}
 
+calculateFootprintData <- function() {
+    core <- inputDataReactive()
+    req(core, input$motif_value)
 
-    ####################################################################################################
-    # Heatmap and coverage curve for nucleosome positions
-    # By averaging the signal across all active TSSs, we should observe that nucleosome-free
-    # fragments are enriched at the TSSs, whereas the nucleosome-bound fragments should be
-    # enriched both upstream and downstream of the active TSSs and display characteristic phasing
-    # of upstream and downstream nucleosomes. Because ATAC-seq reads are concentrated at regions
-    # of open chromatin, users should see a strong nucleosome signal at the +1 nucleosome, but
-    # the signal decreases at the +2, +3 and +4 nucleosomes.
-    ####################################################################################################
+    shinyjs::disable("run_footprint_plots")
+    on.exit(shinyjs::enable("run_footprint_plots"), add = TRUE)
+    footprint_done(FALSE)
+    js$addStatusIcon("footprinting_tab", "loading")
 
-    my_values$outPath <- outPath
-    bamfile <- my_values$bamfile
-    outPath <- my_values$outPath
+    withProgress(
+        message = "Calculating motif footprinting",
+        value = 0,
+        {
+            motif_key <- cache_key_for(
+                "footprint",
+                core$key,
+                trimws(input$motif_value)
+            )
+            footprint_dir <- file.path(core$cache_dir, motif_key)
+            dir.create(footprint_dir, recursive = TRUE, showWarnings = FALSE)
+            cache_file <- file.path(footprint_dir, "footprint.rds")
+            footprint_png <- file.path(footprint_dir, "footprint-300dpi.png")
+            vplot_png <- file.path(footprint_dir, "vplot-300dpi.png")
+            if (
+                file.exists(cache_file) &&
+                file.exists(footprint_png) &&
+                file.exists(vplot_png)
+            ) {
+                incProgress(1, detail = "Loaded cached result")
+                cached <- readRDS(cache_file)
+                footprint_done(TRUE)
+                js$addStatusIcon("footprinting_tab", "done")
+                return(cached)
+            }
 
-    bamfiles <- file.path(
-        outPath,
-        c(
-            "NucleosomeFree.bam",
-            "mononucleosome.bam",
-            "dinucleosome.bam",
-            "trinucleosome.bam"
-        )
+            motif <- as.list(query(MotifDb, trimws(input$motif_value)))
+            validate(need(length(motif) > 0, "No matching motif was found."))
+            genome_name <- strsplit(core$genome_package, ".", fixed = TRUE)[[1]][2]
+            genome <- get(genome_name)
+
+            incProgress(0.2, detail = "Calculating footprint profile")
+            grDevices::png(footprint_png, width = 3000, height = 2000, res = 300)
+            footprint_signals <- tryCatch(
+                factorFootprints(
+                    core$shifted_bam,
+                    pfm = motif[[1]],
+                    genome = genome,
+                    min.score = "90%",
+                    seqlev = core$chromosome,
+                    upstream = 100,
+                    downstream = 100
+                ),
+                finally = grDevices::dev.off()
+            )
+
+            incProgress(0.45, detail = "Calculating fragment V-plot")
+            grDevices::png(vplot_png, width = 3000, height = 2000, res = 300)
+            vplot <- tryCatch(
+                vPlot(
+                    core$shifted_bam,
+                    bindingSites = footprint_signals$bindingSites,
+                    genome = genome,
+                    seqlev = core$chromosome,
+                    upstream = 200,
+                    downstream = 200,
+                    ylim = c(30, 250),
+                    bandwidth = c(2, 1)
+                ),
+                finally = grDevices::dev.off()
+            )
+
+            result <- list(
+                signals = footprint_signals,
+                vplot = vplot,
+                footprint_png = footprint_png,
+                vplot_png = vplot_png
+            )
+            incProgress(0.25, detail = "Saving reusable result")
+            write_cache(result, cache_file)
+            footprint_done(TRUE)
+            js$addStatusIcon("footprinting_tab", "done")
+            result
+        }
     )
+}
 
-    TSS <- promoters(txs, upstream = 0, downstream = 1)
-    TSS <- unique(TSS)
-    ## estimate the library size for normalization
-    (librarySize <- estLibSize(bamfiles))
-    ## splited/NucleosomeFree.bam splited/mononucleosome.bam
-    ##                      34276                       1933
-    ##   splited/dinucleosome.bam  splited/trinucleosome.bam
-    ##                       1871                        403
-
-    NTILE <- 101 # Not sure chosen value?
-    dws <- ups <- 1010 # Not sure chosen value?
-    tss_sigs <- enrichedFragments(
-        gal = objs[c(
-            "NucleosomeFree",
-            "mononucleosome",
-            "dinucleosome",
-            "trinucleosome"
-        )],
-        TSS = TSS,
-        librarySize = librarySize,
-        seqlev = seqlev,
-        TSS.filter = 0.5,
-        n.tile = NTILE,
-        upstream = ups,
-        downstream = dws
-    )
-    ## log2 transformed signals
-    tss_sigs.log2 <- lapply(tss_sigs, function(.ele) log2(.ele + 1))
-    tss_center_peaks <- reCenterPeaks(TSS, width = ups + dws)
-    my_values$tss_center_peaks <- tss_center_peaks
-
-
-    ## get signals normalized for nucleosome-free and nucleosome-bound regions.
-    out <- featureAlignedDistribution(tss_sigs,
-        tss_center_peaks,
-        zeroAt = .5, n.tile = NTILE, type = "l",
-        ylab = "Averaged coverage"
-    )
-
-    range01 <- function(x) {
-        (x - min(x)) / (max(x) - min(x))
-    }
-    out <- apply(out, 2, range01)
-    my_values$out <- out
-
-    ####################################################################################################
-    # plot Footprints
-    # ATAC-seq footprints infer factor occupancy genome-wide. The factorFootprints function uses matchPWM
-    # to predict the binding sites using the input position weight matrix (PWM). Then it calculates and plots
-    # the accumulated coverage for those binding sites to show the status of the occupancy genome-wide.
-    # Unlike CENTIPEDE4, the footprints generated here do not take the conservation (PhyloP) into consideration.
-    # factorFootprints function could also accept the binding sites as a GRanges object.
-    ####################################################################################################
-
-    CTCF <- query(MotifDb, c(input$motif_value))
-    CTCF <- as.list(CTCF)
-    print(CTCF[[1]], digits = 2)
-
-
-
-    # library(BSgenome.Hsapiens.UCSC.hg19)
-    # library(input$bs_genome_input, character.only = T)
-
-
-    genome <- get(unlist(strsplit(input$bs_genome_input, "\\."))[[2]])
-
-
-
-
-
-    js$addStatusIcon("nucleosomepositioning_tab", "done")
-    isolate({
-        my_values$done <- TRUE
-    })
-
-    return(list("gal1" = gal1, "txs" = txs, "objs" = objs, "tss_sigs" = tss_sigs, "tss_sigs.log2" = tss_sigs.log2, "TSS" = TSS, "dws" = dws, "ups" = ups, "NTILE" = NTILE, "genome" = genome, "CTCF" = CTCF))
+nucleosomeDataReactive <- reactive({
+    req(nucleosome_result())
+    nucleosome_result()
 })
+
+footprintDataReactive <- reactive({
+    req(footprint_result())
+    footprint_result()
+})
+
+observeEvent(input$run_nucleosome_plots, {
+    tryCatch(
+        nucleosome_result(calculateNucleosomeData()),
+        error = function(error) {
+            js$addStatusIcon("nucleosomeprofiles_tab", "fail")
+            message <- conditionMessage(error)
+            if (!nzchar(message)) {
+                message <- "Run core QC before starting nucleosome analysis."
+            }
+            showNotification(
+                paste("Nucleosome analysis failed:", message),
+                type = "error",
+                duration = NULL
+            )
+        }
+    )
+}, ignoreInit = TRUE)
+
+observeEvent(input$run_footprint_plots, {
+    tryCatch(
+        footprint_result(calculateFootprintData()),
+        error = function(error) {
+            js$addStatusIcon("footprinting_tab", "fail")
+            message <- conditionMessage(error)
+            if (!nzchar(message)) {
+                message <- "Run core QC and enter a motif before footprint analysis."
+            }
+            showNotification(
+                paste("Footprint analysis failed:", message),
+                type = "error",
+                duration = NULL
+            )
+        }
+    )
+}, ignoreInit = TRUE)
 
 output$empty_txt_output <- renderText({
     inputDataReactive()
-
     ""
 })
 
+output$nucleosome_context <- renderText({
+    core <- inputDataReactive()
+    paste(
+        tools::file_path_sans_ext(basename(core$bamfile)),
+        "on",
+        core$chromosome
+    )
+})
 
+output$footprint_context <- renderText({
+    core <- inputDataReactive()
+    paste(
+        tools::file_path_sans_ext(basename(core$bamfile)),
+        "on",
+        core$chromosome
+    )
+})
 
-output$plot_pt_score <- renderPlot({
-    # files will be output into outPath
-    inputDataReactive()
-    pt <- my_values$pt
-    plot(pt$log2meanCoverage, pt$PT_score,
+pt_score_plot <- reactive({
+    pt <- inputDataReactive()$pt
+    plot(
+        pt$log2meanCoverage,
+        pt$PT_score,
         xlab = "log2 mean coverage",
         ylab = "Promoter vs Transcript"
     )
 })
 
-
-output$plot_nfr_score <- renderPlot({
-    inputDataReactive()
-    nfr <- my_values$nfr
-    plot(nfr$log2meanCoverage, nfr$NFR_score,
+nfr_score_plot <- reactive({
+    nfr <- inputDataReactive()$nfr
+    plot(
+        nfr$log2meanCoverage,
+        nfr$NFR_score,
         xlab = "log2 mean coverage",
         ylab = "Nucleosome Free Regions score",
-        main = "NFRscore for 200bp flanking TSSs",
-        xlim = c(-10, 0), ylim = c(-5, 5)
+        main = "NFR score for 200 bp flanking TSSs",
+        xlim = c(-10, 0),
+        ylim = c(-5, 5)
     )
 })
 
-
-output$plot_tssre_score <- renderPlot({
-    inputDataReactive()
-    tsse <- my_values$tsse
-    plot(100 * (-9:10 - .5), tsse$values,
+tss_enrichment_plot <- reactive({
+    tsse <- inputDataReactive()$tsse
+    plot(
+        100 * (-9:10 - 0.5),
+        tsse$values,
         type = "b",
         xlab = "distance to TSS",
         ylab = "aggregate TSS score"
     )
 })
 
-
-output$plotCumulativePercentage <- renderPlot({
-    inputDataReactive()
-    outPath <- my_values$outPath
-    bamfiles <- file.path(
-        outPath,
-        c(
-            "NucleosomeFree.bam",
-            "mononucleosome.bam",
-            "dinucleosome.bam",
-            "trinucleosome.bam"
-        )
+cumulative_percentage_plot <- reactive({
+    core <- inputDataReactive()
+    nucleosome <- nucleosomeDataReactive()
+    cumulativePercentage(
+        nucleosome$bamfiles[1:2],
+        core$chromosome_range
     )
-    # print(bamfiles)
-    ## Plot the cumulative percentage of tag allocation in nucleosome-free
-    ## and mononucleosome bam files.
-    # cumulativePercentage(bamfiles[1:2], as(seqinformation[input$sel_chromosome], "GRanges"))
-    cumulativePercentage(bamfiles[1:2], my_values$GRanges)
 })
 
-output$plot_tss_featureAlignedHeatmap <- renderPlot({
-    tss_sigs.log2 <- inputDataReactive()$tss_sigs.log2
-    NTILE <- inputDataReactive()$NTILE
-    tss_center_peaks <- my_values$tss_center_peaks
-
-    featureAlignedHeatmap(tss_sigs.log2, tss_center_peaks, zeroAt = .5, n.tile = NTILE)
-
-
-
-    # featureAlignedHeatmap(sigs$signal,
-    #         feature.gr=reCenterPeaks(sigs$bindingSites,
-    #                                 width=200+width(sigs$bindingSites[1])),
-    #         annoMcols="score",
-    #         sortBy="score",
-    #         n.tile=ncol(sigs$signal[[1]]))
+tss_heatmap_plot <- reactive({
+    nucleosome <- nucleosomeDataReactive()
+    featureAlignedHeatmap(
+        nucleosome$log2_signals,
+        nucleosome$centered_tss,
+        zeroAt = 0.5,
+        n.tile = nucleosome$n_tile
+    )
 })
 
-
-
-output$plot_signals <- renderPlot({
-    inputDataReactive()
-    out <- my_values$out
-    matplot(out,
-        type = "l", xaxt = "n",
+nucleosome_signal_plot <- reactive({
+    distribution <- nucleosomeDataReactive()$distribution
+    matplot(
+        distribution,
+        type = "l",
+        xaxt = "n",
         xlab = "Position (bp)",
         ylab = "Fraction of signal"
     )
-    axis(1,
+    axis(
+        1,
         at = seq(0, 100, by = 10) + 1,
-        labels = c("-1K", seq(-800, 800, by = 200), "1K"), las = 2
+        labels = c("-1K", seq(-800, 800, by = 200), "1K"),
+        las = 2
     )
     abline(v = seq(0, 100, by = 10) + 1, lty = 2, col = "gray")
 })
 
+output$plot_pt_score <- renderPlot(pt_score_plot())
+output$plot_nfr_score <- renderPlot(nfr_score_plot())
+output$plot_tssre_score <- renderPlot(tss_enrichment_plot())
+output$plotCumulativePercentage <- renderPlot(cumulative_percentage_plot())
+output$plot_tss_featureAlignedHeatmap <- renderPlot(tss_heatmap_plot())
+output$plot_signals <- renderPlot(nucleosome_signal_plot())
 
+register_publication_downloads(
+    output, "download_pt_score", function() "atacseq-promoter-transcript-score",
+    pt_score_plot, width = 6.5, height = 5.5
+)
+register_publication_downloads(
+    output, "download_nfr_score", function() "atacseq-nucleosome-free-region-score",
+    nfr_score_plot, width = 6.5, height = 5.5
+)
+register_publication_downloads(
+    output, "download_tss_enrichment", function() "atacseq-tss-enrichment",
+    tss_enrichment_plot, width = 6.5, height = 5.5
+)
+register_publication_downloads(
+    output, "download_cumulative_tags", function() "atacseq-cumulative-tag-allocation",
+    cumulative_percentage_plot, width = 7, height = 5.5
+)
+register_publication_downloads(
+    output, "download_tss_heatmap", function() "atacseq-tss-aligned-heatmap",
+    tss_heatmap_plot, width = 10, height = 6
+)
+register_publication_downloads(
+    output, "download_nucleosome_signals", function() "atacseq-nucleosome-signals",
+    nucleosome_signal_plot, width = 10, height = 5.5
+)
 
-output$plot_Footprints <- renderPlot({
-    isolate({
-        seqlev <- input$sel_chromosome
-    })
+output$plot_Footprints <- renderImage({
+    result <- footprintDataReactive()
+    list(
+        src = result$footprint_png,
+        contentType = "image/png",
+        alt = "DNA-binding factor footprint"
+    )
+}, deleteFile = FALSE)
 
-    CTCF <- inputDataReactive()$CTCF
-    genome <- inputDataReactive()$genome
-
-    outPath <- my_values$outPath
-    shiftedBamfile <- file.path(outPath, "shifted.bam")
-
-    my_values$binding_sites_sigs <- factorFootprints(shiftedBamfile,
-        pfm = CTCF[[1]],
-        genome = genome, ## Don't have a genome? ask ?factorFootprints for help
-        min.score = "90%", seqlev = seqlev,
-        upstream = 100, downstream = 100
+binding_site_heatmap_plot <- reactive({
+    signals <- footprintDataReactive()$signals
+    featureAlignedHeatmap(
+        signals$signal,
+        feature.gr = reCenterPeaks(
+            signals$bindingSites,
+            width = 200 + width(signals$bindingSites[1])
+        ),
+        annoMcols = "score",
+        sortBy = "score",
+        n.tile = ncol(signals$signal[[1]])
     )
 })
 
+output$plot_binding_sites_featureAlignedHeatmap <- renderPlot(binding_site_heatmap_plot())
+register_publication_downloads(
+    output, "download_binding_heatmap", function() "atacseq-binding-site-heatmap",
+    binding_site_heatmap_plot, width = 8, height = 7
+)
 
-output$plot_binding_sites_featureAlignedHeatmap <- renderPlot({
-    inputDataReactive()
-    sigs <- my_values$binding_sites_sigs
-    NTILE <- inputDataReactive()$NTILE
-    tss_center_peaks <- my_values$tss_center_peaks
+output$plot_vp <- renderImage({
+    result <- footprintDataReactive()
+    list(
+        src = result$vplot_png,
+        contentType = "image/png",
+        alt = "ATAC-seq fragment V-plot"
+    )
+}, deleteFile = FALSE)
 
-    
-    featureAlignedHeatmap(sigs$signal,
-            feature.gr=reCenterPeaks(sigs$bindingSites,
-                                    width=200+width(sigs$bindingSites[1])),
-            annoMcols="score",
-            sortBy="score",
-            n.tile=ncol(sigs$signal[[1]]))
-})
-
-
-
-
-output$plot_vp <- renderPlot({
-    isolate({
-        seqlev <- input$sel_chromosome
-    })
-    inputDataReactive()
-
-    outPath <- my_values$outPath
-    shiftedBamfile <- file.path(outPath, "shifted.bam")
-
-    CTCF <- inputDataReactive()$CTCF
-    genome <- inputDataReactive()$genome
-    my_values$vp <- vPlot(shiftedBamfile,
-        pfm = CTCF[[1]],
-        genome = genome, min.score = "90%", seqlev = seqlev,
-        upstream = 200, downstream = 200,
-        ylim = c(30, 250), bandwidth = c(2, 1)
+dyadEstimateReactive <- reactive({
+    with_null_device(
+        distanceDyad(
+            footprintDataReactive()$vplot,
+            pch = 20,
+            cex = 0.5
+        )
     )
 })
 
-output$plot_distanceDyad <- renderPlot({
-    inputDataReactive()
-    vp <- my_values$vp
-    distanceDyad(vp, pch = 20, cex = .5)
+output$dyad_available <- reactive({
+    any(!is.na(dyadEstimateReactive()))
+})
+outputOptions(output, "dyad_available", suspendWhenHidden = FALSE)
+
+dyad_distance_plot <- reactive({
+    validate(need(
+        any(!is.na(dyadEstimateReactive())),
+        "No nucleosome dyad position is available."
+    ))
+    distanceDyad(
+        footprintDataReactive()$vplot,
+        pch = 20,
+        cex = 0.5
+    )
 })
 
+output$plot_distanceDyad <- renderPlot(dyad_distance_plot())
+register_publication_downloads(
+    output, "download_dyad_distance", function() "atacseq-nucleosome-dyad-distance",
+    dyad_distance_plot, width = 8, height = 5.5
+)
 
+register_publication_png(
+    output, "download_footprint", function() "atacseq-factor-footprint",
+    function() footprintDataReactive()$footprint_png
+)
+register_publication_png(
+    output, "download_vplot", function() "atacseq-fragment-vplot",
+    function() footprintDataReactive()$vplot_png
+)
 
 output$bamfilesTable <- renderDataTable(
     {
-        inputDataReactive()
-        files <- list.files(my_values$outPath, full.names = T, recursive = TRUE)
-        df <- data.frame(Filename=basename(files))
-        DT::datatable(df, options = list(scrollX = TRUE))
+        files <- list.files(
+            inputDataReactive()$cache_dir,
+            pattern = "\\.bam(\\.bai)?$",
+            full.names = TRUE
+        )
+        DT::datatable(
+            data.frame(Filename = basename(files)),
+            options = list(scrollX = TRUE)
+        )
     },
     options = list(scrollX = TRUE)
 )
 
-  output$download_bamfiles_btn <- downloadHandler(
-    filename = function(){
-      paste("bamfiles_", Sys.Date(), ".zip", sep = "")
+output$download_bamfiles_btn <- downloadHandler(
+    filename = function() {
+        paste("bamfiles_", Sys.Date(), ".zip", sep = "")
     },
-    content = function(file){
-      
-      temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
-      dir.create(temp_directory)
-      files <- list.files(my_values$outPath, full.names = T, recursive = TRUE)
-      files <- files[input$bamfilesTable_rows_selected]
-      print(files)
-      print(input$bamfilesTable_rows_selected)
-    #   reactiveValuesToList(to_download) %>%
-    #     imap(function(x,y){
-    #       if(!is.null(x)){
-    #         file_name <- glue("{y}_data.csv")
-    #         readr::write_csv(x, file.path(temp_directory, file_name))
-    #       }
-    #     })
-      
-      file.copy(files, temp_directory)
-    #   for(f in files){
-    #     file_copy(f, paste0(temp_directory, basename(f)))
-    #   }
-     
-      zip::zip(
-        zipfile = file,
-        files = dir(temp_directory),
-        root = temp_directory
-      )
-      
-      
-      
+    content = function(file) {
+        temporary_directory <- tempfile(pattern = "bam-download-")
+        dir.create(temporary_directory)
+        files <- list.files(
+            inputDataReactive()$cache_dir,
+            pattern = "\\.bam(\\.bai)?$",
+            full.names = TRUE
+        )
+        selected <- input$bamfilesTable_rows_selected
+        if (length(selected) > 0) {
+            files <- files[selected]
+        }
+        file.copy(files, temporary_directory)
+        zip::zip(
+            zipfile = file,
+            files = dir(temporary_directory),
+            root = temporary_directory
+        )
     },
     contentType = "application/zip"
-    
-  )
+)

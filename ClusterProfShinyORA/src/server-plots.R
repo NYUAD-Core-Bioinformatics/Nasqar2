@@ -163,7 +163,7 @@ output$genesInGoTerm <- plotly::renderPlotly({
                     shareX = TRUE, titleY = TRUE) %>%
         plotly::layout(plot_bgcolor = "#ffffff", paper_bgcolor = "#ffffff",
                        margin = list(l = 220), autosize = TRUE) %>%
-        plotly::config(responsive = TRUE) %>%
+        publication_plotly_config("ora-go-gene-membership") %>%
         htmlwidgets::onRender("function(el) { setTimeout(function() { Plotly.Plots.resize(el); }, 300); }")
 })
 
@@ -500,8 +500,8 @@ fc_to_hex <- function(fc_values, max_abs_fc = NULL) {
 }
 
 
-# Reactive: build the KEGG reference-map coloring URL for the selected pathway.
-# Format: map{id}/{KO_id}%09%23{hex}  e.g. map04130/K08513%09%23FBEAE9
+# Reactive: build the organism-specific KEGG coloring URL.
+# Organism gene IDs avoid a second REST request for KO conversion.
 keggColorUrl <- reactive({
     req(input$pathwayIds, myValues$kegg_gene_list)
     kegg_enrich <- enrichGoReactive()$kegg_enrich
@@ -518,23 +518,12 @@ keggColorUrl <- reactive({
     max_abs_fc <- max(abs(myValues$kegg_gene_list), na.rm = TRUE)
     bg_colors  <- fc_to_hex(gene_fcs, max_abs_fc)
 
-    # Convert ENTREZ IDs → KO IDs  (e.g. "38742" → "K08513")
     entrez_ids <- names(gene_fcs)
     org        <- myValues$organismKegg
-    ko_map     <- build_ko_map(entrez_ids, org)
-    ko_ids     <- ko_map[as.character(entrez_ids)]
-
-    # Drop genes with no KO assignment or empty KO string
-    valid      <- !is.na(ko_ids) & nzchar(ko_ids)
-    ko_ids     <- ko_ids[valid]
-    bg_colors  <- bg_colors[valid]
-    req(length(ko_ids) > 0)
-
-    # Use reference map ID: dme04080 → map04080
-    map_id <- sub("^[a-z]+", "map", input$pathwayIds)
-    parts  <- paste0(ko_ids, "%09%23", substring(bg_colors, 2))
+    kegg_ids   <- paste0(org, ":", entrez_ids)
+    parts      <- paste0(kegg_ids, "%09%23", substring(bg_colors, 2))
     paste0("https://www.kegg.jp/kegg-bin/show_pathway?",
-           map_id, "/",
+           input$pathwayIds, "/",
            paste(parts, collapse = "/"))
 })
 
@@ -598,15 +587,11 @@ pathwayGenesDf <- reactive({
             orig_ids <- orig_map[[keytype]][match(entrez_ids, orig_map$ENTREZID)]
     }
 
-    # ENTREZ → KO ID  (e.g. "38742" → "K08513")
-    ko_map   <- build_ko_map(entrez_ids, org)
-    kegg_ids <- ko_map[as.character(entrez_ids)]
-
     # Build data frame — insert original ID column right after Symbol when present
     df <- data.frame(Symbol = symbols, stringsAsFactors = FALSE)
     if (!is.null(orig_ids))
         df[[keytype]] <- orig_ids
-    df$KO_ID  <- kegg_ids
+    df$KEGG_ID <- paste0(org, ":", entrez_ids)
     df$ENTREZ <- entrez_ids
     df$Log2FC <- round(as.numeric(lfc_vals), 3)
 
@@ -670,16 +655,21 @@ pathviewReactive <- eventReactive(input$generatePathview, {
             req(myValues$kegg_gene_list)
 
             tryCatch({
+                pathview_dir <- file.path(tempdir(check = TRUE), "pathview")
+                dir.create(pathview_dir, recursive = TRUE, showWarnings = FALSE)
+
                 setProgress(0.3, detail = paste0("Downloading pathway map — ", input$pathwayIds, " \u2026"))
                 dme <- pathview(
                     gene.data   = myValues$kegg_gene_list,
                     pathway.id  = input$pathwayIds,
                     species     = myValues$organismKegg,
-                    gene.idtype = "ENTREZ"
+                    gene.idtype = "ENTREZ",
+                    kegg.dir    = pathview_dir
                 )
                 # Copy to a unique name so the UI preview refreshes each run
-                unique_img <- paste0("testimage_", input$pathwayIds, ".png")
-                file.copy(paste0(input$pathwayIds, ".pathview.png"), unique_img, overwrite = TRUE)
+                native_img <- file.path(pathview_dir, paste0(input$pathwayIds, ".pathview.png"))
+                unique_img <- file.path(pathview_dir, paste0("testimage_", input$pathwayIds, ".png"))
+                file.copy(native_img, unique_img, overwrite = TRUE)
 
                 setProgress(0.7, detail = paste0("Generating PDF \u2014 ", input$pathwayIds, " \u2026"))
                 dmePdf <- pathview(
@@ -687,11 +677,19 @@ pathviewReactive <- eventReactive(input$generatePathview, {
                     pathway.id  = input$pathwayIds,
                     species     = myValues$organismKegg,
                     gene.idtype = "ENTREZ",
-                    kegg.native = FALSE
+                    kegg.native = FALSE,
+                    kegg.dir    = pathview_dir
                 )
 
-                myValues$imagePath <- paste0(input$pathwayIds, ".pathview.")
-                list(src = unique_img, filetype = "image/png", alt = "pathview image")
+                myValues$imagePath <- file.path(
+                    pathview_dir,
+                    paste0(input$pathwayIds, ".pathview.")
+                )
+                list(
+                    src = normalizePath(unique_img, mustWork = TRUE),
+                    filetype = "image/png",
+                    alt = paste("Pathview overlay for", input$pathwayIds)
+                )
 
             }, error = function(e) {
                 msg <- conditionMessage(e)
@@ -728,7 +726,7 @@ output$pathview_plot <- renderImage({
     img <- pathviewReactive()
     req(!is.null(img))
     img
-})
+}, deleteFile = FALSE)
 
 output$pathviewPlotsAvailable <-
     reactive({
@@ -738,19 +736,19 @@ outputOptions(output, "pathviewPlotsAvailable", suspendWhenHidden = FALSE)
 
 output$downloadPathviewPng <- downloadHandler(
     filename = function() {
-        paste0(myValues$imagePath, "png")
+        basename(paste0(myValues$imagePath, "png"))
     },
     content = function(file) {
-        file.copy(paste0(getwd(), "/", myValues$imagePath, "png"), file)
+        file.copy(paste0(myValues$imagePath, "png"), file)
     }
 )
 
 output$downloadPathviewPdf <- downloadHandler(
     filename = function() {
-        paste0(myValues$imagePath, "pdf")
+        basename(paste0(myValues$imagePath, "pdf"))
     },
     content = function(file) {
-        file.copy(paste0(getwd(), "/", myValues$imagePath, "pdf"), file)
+        file.copy(paste0(myValues$imagePath, "pdf"), file)
     }
 )
 

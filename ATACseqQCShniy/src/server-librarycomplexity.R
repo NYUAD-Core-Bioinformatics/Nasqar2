@@ -1,14 +1,12 @@
-output$plot_libcomplexity <- renderPlot({
-    print(input$sample_librarycomplexity)
-    print(my_values$samples_df[input$sample_librarycomplexity, "BamFile"])
-
+library_complexity_plot <- reactive({
+    req(input$sample_librarycomplexity, my_values$base_dir)
     bamfile <- file.path(my_values$base_dir, my_values$samples_df[input$sample_librarycomplexity, "BamFile"])
-    print(bamfile)
-    e <- estimateLibComplexity(readsDupFreq(bamfile))
-    # js$addStatusIcon("input_tab", "done")
-    e
+    estimateLibComplexity(readsDupFreq(bamfile))
 })
 
-text_reactive <- observeEvent(input$submit, {
-    print("submit")
-})
+output$plot_libcomplexity <- renderPlot(library_complexity_plot())
+register_publication_downloads(
+    output, "download_library_complexity",
+    function() paste0("atacseq-library-complexity-", input$sample_librarycomplexity),
+    library_complexity_plot, width = 8, height = 6
+)

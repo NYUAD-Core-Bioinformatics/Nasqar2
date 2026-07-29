@@ -21,3 +21,6 @@ dependencies:
   - r-sodium
   - bioconductor-clusterprofiler
   - bioconductor-pathview
+  - bioconductor-org.hs.eg.db
+  - bioconductor-org.mm.eg.db
+  - bioconductor-org.dm.eg.db

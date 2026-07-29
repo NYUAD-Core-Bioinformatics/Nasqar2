@@ -10,9 +10,11 @@ dependencies:
   - r-shinyjs
   - r-shinyBS
   - r-shinycssloaders
+  - r-cairo
   - bioconductor-atacseqqc
-  - bioconductor-atacseqqc
+  - bioconductor-bsgenome.hsapiens.ucsc.hg19
   - bioconductor-chippeakanno
+  - bioconductor-txdb.hsapiens.ucsc.hg19.knowngene
   - bioconductor-motifdb
   - bioconductor-genomicalignments
   - bioconductor-rsamtools

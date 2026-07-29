@@ -7,7 +7,7 @@ tabItem(
         conditionalPanel("output.multiple_bamfiles",
 
         column(
-            4,wellPanel(
+            3, wellPanel(
             selectInput("sel_chromosome_heatmap_tab",
                             label = "Chromosome", # or Ensembl ID",
                             choices = NULL,
@@ -16,10 +16,12 @@ tabItem(
         ),
         
         column(
-            7,
-            wellPanel(
-                h5("Assessing similarity of replicates"),
-                withSpinner(plotOutput("plot_heatmap"))
+            9,
+            analysis_panel(
+                "Replicate correlation heatmap",
+                "Pairwise ATAC-seq signal similarity across uploaded BAM files for the selected chromosome.",
+                withSpinner(plotOutput("plot_heatmap", height = "620px")),
+                publication_downloads("download_replicate_heatmap")
             )
         )
         ),

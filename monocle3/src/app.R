@@ -18,9 +18,7 @@ library(monocle3)
 library(stringr)
 library(SeuratWrappers)
 library(mclust)
-library(genesorteR)
 library(pheatmap)
-library(dqshiny)
 
 # Change data load maximum
 options(shiny.maxRequestSize = 115*1024^3)
@@ -50,10 +48,33 @@ ui <- shinyUI(fluidPage(
                         
                         # Create Input
                         fluidRow(column(2, wellPanel(
-                        fileInput("file", 'Choose Rdata/Rds to upload',
+                        radioButtons(
+                          "data_source",
+                          "Seurat object source",
+                          c(
+                            "Upload from browser" = "upload",
+                            "Use HPC scratch file" = "hpc"
+                          ),
+                          selected = "upload"
+                        ),
+                        conditionalPanel(
+                          "input.data_source == 'upload'",
+                          fileInput("file", 'Choose Rdata/Rds to upload',
                                     accept = c('.Rdata', ".rds", ".Rds")),
+                          actionButton("upload", "Upload")
+                        ),
+                        conditionalPanel(
+                          "input.data_source == 'hpc'",
+                          textInput(
+                            "hpc_input_path",
+                            "Seurat .rds or .RData file inside HPC scratch",
+                            value = ""
+                          ),
+                          actionButton("load_hpc", "Load HPC Object")
+                        ),
+                        textInput("hpc_project_name", "Persistent project name", value = "monocle3-project"),
                         #Set load button
-                        actionButton("upload", "Upload"),
+                        textOutput("hpc_output_path"),
                         
                         fluidRow(tags$hr(style="border-color: black;")),
                         
@@ -68,7 +89,7 @@ ui <- shinyUI(fluidPage(
                                     NULL),
                         
                         #Set progenitor gene
-                        autocomplete_input("gene", "Progenitor gene:", NULL),
+                        textInput("gene", "Progenitor gene:", value = ""),
                         
                         #Set load button
                         actionButton("run", "Run Monocle3"),
@@ -99,6 +120,84 @@ ui <- shinyUI(fluidPage(
 
 # Define server logic
 server <- shinyServer(function(input, output, session) {
+  seurat_data <- reactiveVal(NULL)
+  monocle_workers <- suppressWarnings(
+    as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1"))
+  )
+  if (is.na(monocle_workers) || monocle_workers < 1L) monocle_workers <- 1L
+
+  resolve_hpc_path <- function(path) {
+    root <- normalizePath(
+      Sys.getenv("NASQAR_DATA_ROOT", unset = "/scratch/nr83"),
+      mustWork = TRUE
+    )
+    resolved <- normalizePath(path, mustWork = TRUE)
+    allowed <- identical(resolved, root) ||
+      startsWith(resolved, paste0(root, .Platform$file.sep))
+    if (!allowed) stop("The file must be inside the configured HPC data root.")
+    if (dir.exists(resolved)) stop("Select a Seurat .rds or .RData file, not a directory.")
+    resolved
+  }
+
+  project_directory <- function(name) {
+    root <- Sys.getenv("NASQAR_MONOCLE3_PROJECT_DIR", unset = "")
+    if (!nzchar(root)) return(tempdir())
+    safe_name <- gsub("[^A-Za-z0-9._-]+", "-", trimws(name))
+    if (!nzchar(safe_name)) safe_name <- "monocle3-project"
+    path <- file.path(root, safe_name)
+    dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
+    if (!dir.exists(path) || file.access(path, 2) != 0) {
+      stop("The Monocle3 HPC project directory is not writable.")
+    }
+    path
+  }
+
+  read_seurat_file <- function(path) {
+    if (grepl("\\.rdata$", path, ignore.case = TRUE)) {
+      load_env <- new.env(parent = emptyenv())
+      object_names <- load(path, envir = load_env)
+      candidates <- object_names[
+        vapply(object_names, function(name) inherits(load_env[[name]], "Seurat"), logical(1))
+      ]
+      validate(need(length(candidates) == 1L, "The .RData file must contain exactly one Seurat object."))
+      load_env[[candidates[[1L]]]]
+    } else {
+      readRDS(path)
+    }
+  }
+
+  configure_seurat_input <- function(data) {
+    validate(need(inherits(data, "Seurat"), "The transferred object is not a Seurat object."))
+    seurat_data(data)
+    updateSelectInput(session, "assay", "Select assay", choices = names(data@assays))
+    updateSelectInput(
+      session, "ident", "Select Identity for clustering",
+      choices = colnames(data@meta.data)
+    )
+    shinyjs::enable("gene")
+    shinyjs::enable("assay")
+    shinyjs::enable("ident")
+    shinyjs::enable("run")
+  }
+
+  read_exchange_object <- function(token) {
+    validate(need(
+      length(token) == 1L &&
+        grepl("^[0-9a-fA-F-]{36}$", token),
+      "Invalid NASQAR2 transfer token."
+    ))
+    exchange_dir <- file.path(tempdir(check = TRUE), "..", "nasqar_exchange")
+    exchange_dir <- normalizePath(exchange_dir, mustWork = FALSE)
+    path <- file.path(exchange_dir, paste0(token, ".rds"))
+    validate(need(file.exists(path), "The transferred Seurat object has expired."))
+    validate(need(
+      as.numeric(difftime(Sys.time(), file.info(path)$mtime, units = "secs")) <= 3600,
+      "The transferred Seurat object has expired."
+    ))
+    object <- readRDS(path)
+    unlink(path)
+    object
+  }
   
   #Set text outputs
   output$title <- renderText("Pseudotime projection with Monocle3")
@@ -109,12 +208,7 @@ server <- shinyServer(function(input, output, session) {
     rdata <- isolate({input$file})
     short <- input$file
     
-    if(grepl(".Rdata", short$name)) {
-    load(rdata$datapath, envir = .GlobalEnv)
-    data <- get(names(which(unlist(eapply(.GlobalEnv, is.Seurat)))))
-    } else {
-    data <- readRDS(rdata$datapath)
-    }
+    data <- read_seurat_file(rdata$datapath)
     
     return(data)
   }
@@ -134,37 +228,61 @@ server <- shinyServer(function(input, output, session) {
   
   observeEvent(input$upload,{
     data <- load_Rdata()
-    
-    #data <- UpdateSeuratObject(object = data)
-    
-    str(rownames(data))
-    
-    #Update assay list
-    updateSelectInput(session, "assay", "Select assay", choices = names(data@assays))
-    
-    #Update identity list
-    updateSelectInput(session, "ident", "Select Identity for clustering", choices = colnames(data@meta.data))
-    
-    #Update autocomplete for gene searching
-    genes <- unique(rownames(data))
-    update_autocomplete_input(session, "gene",
-                              options = genes)
-    
-    #Enable buttons
-    shinyjs::enable("gene")
-    shinyjs::enable("assay")
-    shinyjs::enable("ident")
-    shinyjs::enable("run")
-  
+    configure_seurat_input(data)
+  })
+
+  observeEvent(input$load_hpc, {
+    validate(need(nzchar(trimws(input$hpc_input_path)), "Enter an HPC Seurat object path."))
+    path <- tryCatch(
+      resolve_hpc_path(input$hpc_input_path),
+      error = function(e) {
+        validate(need(FALSE, e$message))
+      }
+    )
+    configure_seurat_input(read_seurat_file(path))
+    showNotification("Seurat object loaded directly from HPC scratch.", type = "message")
+  })
+
+  observeEvent(TRUE, {
+    query <- parseQueryString(session$clientData$url_search)
+    if (!is.null(query[["exchange"]])) {
+      configure_seurat_input(read_exchange_object(query[["exchange"]]))
+      showNotification(
+        "Seurat object transferred from SeuratV5Shiny.",
+        type = "message"
+      )
+    }
+  }, once = TRUE)
+
   # Create event when report load button is activated
   observeEvent(input$run,{
+    data <- seurat_data()
+    req(data)
     
     #Set assay
     DefaultAssay(data) <- input$assay
     
     #Create progress bar
     withProgress(message = 'Running Monocle3...please wait', {
-    out <- mon.run(data=data, gene=input$gene, id=input$ident)
+    out <- mon.run(data=data, gene=input$gene, id=input$ident, cores=monocle_workers)
+    })
+
+    output_dir <- project_directory(input$hpc_project_name)
+    saveRDS(out$seurat, file.path(output_dir, "seurat-with-monocle3-pseudotime.rds"))
+    saveRDS(out$cds, file.path(output_dir, "monocle3-cell-data-set.rds"))
+    write.csv(out$t1, file.path(output_dir, "monocle3-pseudotime-results.csv"), row.names = FALSE)
+    pdf(file.path(output_dir, "monocle3-plots.pdf"), width = 10, height = 8)
+    print(out$dim)
+    print(out$p1)
+    print(out$p2)
+    print(out$p3)
+    print(out$p4)
+    print(out$p5)
+    dev.off()
+    output$hpc_output_path <- renderText({
+      if (nzchar(Sys.getenv("NASQAR_MONOCLE3_PROJECT_DIR", ""))) {
+        paste("Saved persistently on HPC:", output_dir)
+      }
     })
     
     output$dim <- renderPlot({out$dim})
@@ -218,9 +336,7 @@ server <- shinyServer(function(input, output, session) {
           })
   
       })
-  })
 })
 
 # Run the application 
 shinyApp(ui = ui, server = server)
-

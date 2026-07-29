@@ -101,30 +101,21 @@ output$svaText <- renderText({
     return(paste("Using biological factors:", input$designFormulaSva, "to estimate Surrogate Variables (SVs)"))
 })
 
-output$svaPlot <- renderPlotly({
+sva_scatter_plot <- reactive({
     dds <- svaReactive()$ddsSva
-
-    if (!is.null(dds)) {
-        df <- as.data.frame(colData(dds))
-
-        xaxis <- input$xaxisSva
-        yaxis <- input$yaxisSva
-        colorBy <- input$colorBy
-
-        if (xaxis == "" && yaxis == "" && colorBy == "") {
-            xaxis <- colnames(df)[1]
-            yaxis <- colnames(df)[1]
-            colorBy <- colnames(df)[1]
-        }
-
-        ggplot(df, aes_string(xaxis, yaxis, col = colorBy)) +
-            geom_point(size = 4, alpha = 0.9) +
-            geom_text(aes(label = rownames(df)), hjust = 0, vjust = 0,
-                      size = 4) +
-            theme_minimal(base_size = 15)
+    req(dds)
+    df <- as.data.frame(colData(dds))
+    axes <- c(input$xaxisSva, input$yaxisSva, input$colorBy)
+    if (any(!nzchar(axes))) {
+        axes[!nzchar(axes)] <- colnames(df)[1]
     }
+    ggplot(df, aes_string(axes[1], axes[2], col = axes[3])) +
+        geom_point(size = 3.5, alpha = 0.9) +
+        geom_text(aes(label = rownames(df)), hjust = 0, vjust = 0, size = 3.5) +
+        theme_minimal(base_size = 12)
 })
 
+output$svaPlot <- renderPlotly(ggplotly(sva_scatter_plot()))
 
 observeEvent(input$regressVarsBatch, ignoreInit = TRUE, {
     withProgress(message = "Removing batch effect, this may take a long time.", {
@@ -157,25 +148,37 @@ observeEvent(input$regressVarsBatch, ignoreInit = TRUE, {
 })
 
 
-output$pcaSvaPlot <- renderPlotly({
+pca_sva_plot <- reactive({
     validate(need(length(input$factorNameInputSva) > 0, "Need at least one condition!"))
-
     vsd <- myValues$vsdSva
-
-    if (!is.null(vsd)) {
-        p <- DESeq2::plotPCA(vsd, intgroup = input$factorNameInputSva)
-        if (length(p$layers) > 0) {
-            p$layers[[1]]$aes_params$size <- 4
-            p$layers[[1]]$aes_params$alpha <- 0.9
-        }
-        ggplotly(p + theme_minimal(base_size = 15)) %>%
-            layout(
-                font = list(size = 15),
-                margin = list(l = 90, r = 40, b = 80, t = 60)
-            ) %>%
-            config(responsive = TRUE, displaylogo = FALSE)
+    req(vsd)
+    p <- DESeq2::plotPCA(vsd, intgroup = input$factorNameInputSva)
+    if (length(p$layers) > 0) {
+        p$layers[[1]]$aes_params$size <- 4
+        p$layers[[1]]$aes_params$alpha <- 0.9
     }
+    p + theme_minimal(base_size = 12)
 })
+
+output$pcaSvaPlot <- renderPlotly({
+    ggplotly(pca_sva_plot()) %>%
+        layout(
+            font = list(size = 15),
+            margin = list(l = 90, r = 40, b = 80, t = 60)
+        ) %>%
+        config(responsive = TRUE, displaylogo = FALSE)
+})
+
+register_publication_downloads(
+    output, "download_sva_scatter",
+    function() "deseq2-surrogate-variable-scatter",
+    sva_scatter_plot, width = 8, height = 6
+)
+register_publication_downloads(
+    output, "download_sva_pca",
+    function() "deseq2-batch-corrected-pca",
+    pca_sva_plot, width = 8, height = 6
+)
 
 output$pcaSvaAvailable <- reactive({
     return(!is.null(myValues$vsdSva))

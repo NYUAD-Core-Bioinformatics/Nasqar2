@@ -96,7 +96,7 @@ sctransformReactive <-
       shiny::setProgress(value = 0.4, detail = "Running SCTransform ...")
       #jay
       #plan("multiprocess", workers = 3)
-      plan("multisession", workers =3)
+      plan("multisession", workers = nasqar_seurat_workers)
       pbmc <- SCTransform(object = pbmc, verbose = F, vars.to.regress = input$varsToRegressUmap)
       
       myValues$scriptCommands$sctransform = paste0("pbmc <- SCTransform(object = pbmc, vars.to.regress = ",vectorToStr(input$varsToRegressUmap),")")

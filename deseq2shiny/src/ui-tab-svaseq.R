@@ -41,7 +41,8 @@ tabItem(
                     title = "SVA Plot", width = 12, solidHeader = T, status = "primary",
                     column(
                         8,
-                        withSpinner(plotlyOutput("svaPlot"))
+                        withSpinner(plotlyOutput("svaPlot")),
+                        publication_downloads("download_sva_scatter")
                     ),
                     column(
                         4,
@@ -104,7 +105,8 @@ tabItem(
                             h4(strong("PCA (VST) after regression of batch/surrogate variable(s)")),
                             column(
                                 8,
-                                withSpinner(plotlyOutput("pcaSvaPlot"))
+                                withSpinner(plotlyOutput("pcaSvaPlot")),
+                                publication_downloads("download_sva_pca")
                             ),
                             column(
                                 4,

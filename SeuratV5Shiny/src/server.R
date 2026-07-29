@@ -3,10 +3,39 @@
 options(shiny.maxRequestSize = 400*1024^2)
 options(future.globals.maxSize = 3000 * 1024 ^ 2)
 library(future)
-#plan("multiprocess", workers = 2)
-plan("multisession", workers =2)
+nasqar_seurat_workers <- suppressWarnings(
+  as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1"))
+)
+if (is.na(nasqar_seurat_workers) || nasqar_seurat_workers < 1L) {
+  nasqar_seurat_workers <- 1L
+}
+plan("multisession", workers = nasqar_seurat_workers)
 
 server <- function(input, output, session) {
+  resolve_hpc_path <- function(path) {
+    root <- normalizePath(
+      Sys.getenv("NASQAR_DATA_ROOT", unset = "/scratch/nr83"),
+      mustWork = TRUE
+    )
+    resolved <- normalizePath(path, mustWork = TRUE)
+    allowed <- identical(resolved, root) ||
+      startsWith(resolved, paste0(root, .Platform$file.sep))
+    if (!allowed) stop("The path must be inside the configured HPC data root.")
+    resolved
+  }
+
+  seurat_project_directory <- function(name) {
+    root <- Sys.getenv("NASQAR_SEURAT_PROJECT_DIR", unset = "")
+    if (!nzchar(root)) return(tempdir())
+    safe_name <- gsub("[^A-Za-z0-9._-]+", "-", trimws(name))
+    if (!nzchar(safe_name)) safe_name <- "seurat-project"
+    path <- file.path(root, safe_name)
+    dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
+    if (!dir.exists(path) || file.access(path, 2) != 0) {
+      stop("The Seurat HPC project directory is not writable.")
+    }
+    path
+  }
 
   source("server-initInputData.R",local = TRUE)
 

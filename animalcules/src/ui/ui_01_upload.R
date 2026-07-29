@@ -13,6 +13,7 @@ tags$div(
 
     )
 ),
+uiOutput("nasqar_transfer_status"),
 sidebarLayout(
     sidebarPanel(
         tags$span(style="color:#72bcd4", "Application Settings"),

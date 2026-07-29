@@ -110,3 +110,31 @@
 body {
   font-size: 16px;
 }
+
+.analysis-handoff-card {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.analysis-handoff-card .alert,
+.analysis-handoff-card p,
+.analysis-handoff-card code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.analysis-handoff-button {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  height: auto;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+  text-align: center;
+}

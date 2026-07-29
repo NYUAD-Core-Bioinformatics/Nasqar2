@@ -1,10 +1,3 @@
-# Installl missing packages
-list.of.packages <- c("parallel", "shinythemes")
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
-if (length(new.packages)) {
-    install.packages(new.packages, repos = "https://cloud.r-project.org/", dependencies = T)
-}
-
 library(shiny)
 library(shinyBS)
 library(parallel)
@@ -14,6 +7,64 @@ library(uuid)
 library(readr)
 library(tximport)
 
+merge_count_frames <- function(frames) {
+    if (!is.list(frames) || length(frames) == 0L) {
+        stop("At least one count table is required.", call. = FALSE)
+    }
+
+    frames <- lapply(seq_along(frames), function(index) {
+        frame <- as.data.frame(frames[[index]], check.names = FALSE)
+        if (!"gene.ids" %in% names(frame)) {
+            stop(sprintf("Count table %d has no gene.ids column.", index),
+                 call. = FALSE)
+        }
+        identifiers <- trimws(as.character(frame$gene.ids))
+        if (anyNA(identifiers) || any(!nzchar(identifiers))) {
+            stop(sprintf("Count table %d contains an empty gene identifier.",
+                         index),
+                 call. = FALSE)
+        }
+        duplicated_ids <- unique(identifiers[duplicated(identifiers)])
+        if (length(duplicated_ids) > 0L) {
+            stop(
+                sprintf(
+                    "Count table %d contains duplicate gene identifiers: %s",
+                    index,
+                    paste(utils::head(duplicated_ids, 5L), collapse = ", ")
+                ),
+                call. = FALSE
+            )
+        }
+        frame$gene.ids <- identifiers
+        frame
+    })
+
+    sample_names <- unlist(lapply(frames, function(frame) {
+        setdiff(names(frame), "gene.ids")
+    }), use.names = FALSE)
+    duplicated_samples <- unique(sample_names[duplicated(sample_names)])
+    if (length(duplicated_samples) > 0L) {
+        stop(
+            sprintf(
+                "Sample column names must be unique across files: %s",
+                paste(duplicated_samples, collapse = ", ")
+            ),
+            call. = FALSE
+        )
+    }
+
+    merged <- Reduce(
+        function(left, right) {
+            merge(left, right, by = "gene.ids", all = TRUE, sort = FALSE)
+        },
+        frames
+    )
+    count_columns <- setdiff(names(merged), "gene.ids")
+    for (column in count_columns) {
+        merged[[column]][is.na(merged[[column]])] <- 0
+    }
+    merged[order(merged$gene.ids), , drop = FALSE]
+}
 
 
 ui <- tagList(
@@ -226,7 +277,6 @@ ui <- tagList(
                                         tags$li(
                                             strong("Transcriptome Analysis (Optional)"), " – launch downstream analysis directly from the merged output:",
                                             tags$ul(
-                                                tags$li("Use our ", strong("Seurat Wizard"), " for single-cell RNA analysis"),
                                                 tags$li("Use ", strong("DESeq2Shiny"), " or ", strong("START"), " for bulk RNA analysis"),
                                                 tags$li("If there are ", strong("no replicates"), ", use DESeq2Shiny for exploratory analysis")
                                             )
@@ -416,19 +466,11 @@ ui <- tagList(
                                 div(style = "clear:both;"),
                                 tags$div(
                                     class = "BoxArea2",
-                                    p(strong("Start your analysis by launching the appropriate application for your data")),
+                                    p(strong("Continue with bulk RNA-seq analysis")),
                                     p(strong("Your merged counts data will be automatically loaded")),
                                     fluidRow(
                                         column(
-                                            4,
-                                            tags$div(
-                                                class = "BoxArea3", style = "text-align:center;",
-                                                p(strong("Single-Cell RNA")),
-                                                tags$span(class = "btn btn-success btn-sm", style = "width:100%; pointer-events:none;", "Seurat Wizard")
-                                            )
-                                        ),
-                                        column(
-                                            4,
+                                            6,
                                             tags$div(
                                                 class = "BoxArea3", style = "text-align:center;",
                                                 p(strong("Bulk RNA")),
@@ -438,7 +480,7 @@ ui <- tagList(
                                             )
                                         ),
                                         column(
-                                            4,
+                                            6,
                                             p(em("Buttons appear automatically after merging is complete."))
                                         )
                                     ),
@@ -707,45 +749,78 @@ server <- function(input, output, session) {
     })
 
 
+    handoffLink <- function(label, path, token, style = "width: 100%;") {
+        handoffPath <- paste0(path, "?countsdata=", token)
+        a(
+            label,
+            href = handoffPath,
+            `data-handoff-path` = handoffPath,
+            onclick = paste(
+                "this.href = window.location.origin +",
+                "this.getAttribute('data-handoff-path');"
+            ),
+            class = "btn btn-success",
+            target = "_blank",
+            style = style
+        )
+    }
+
+    nasqarExchangeDir <- function() {
+        configured <- Sys.getenv("NASQAR_EXCHANGE_DIR", unset = "")
+        path <- if (nzchar(configured)) {
+            configured
+        } else {
+            file.path(dirname(tempdir(check = TRUE)), "nasqar_exchange")
+        }
+        dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
+        normalizePath(path, mustWork = TRUE)
+    }
+
     output$tab <- renderUI({
         if (is.null(myValues$fileUrl)) return(NULL)
+        if (is.null(myValues$startAppFileUrl)) return(NULL)
+        analysisCard <- tags$div(
+            class = "BoxArea3 analysis-handoff-card",
+            style = "text-align: center;",
+            p(strong("Bulk RNA")),
+            div(
+                class = "alert alert-info",
+                style = "text-align: left; font-size: 13px;",
+                p(
+                    style = "margin-bottom: 0;",
+                    strong("Gene columns: "),
+                    code("gene.ids"), " is required; ",
+                    code("gene.names"), " is optional. Neither column is",
+                    "treated as count data."
+                )
+            ),
+            h4(strong("DESeq2Shiny")),
+            p(
+                style = "text-align: left; font-size: 13px;",
+                "Define biological groups and contrasts using the sample",
+                "metadata uploaded in DESeq2Shiny."
+            ),
+            handoffLink(
+                "Open DESeq2Shiny",
+                "/deseq2shiny/",
+                encryptUrlParam(myValues$fileUrl)
+            ),
+            hr(),
+            h4(strong("START")),
+            div(
+                class = "alert alert-info",
+                style = "text-align: left; font-size: 13px;",
+                textOutput("startHandoffNote", inline = TRUE)
+            ),
+            uiOutput("startHandoffLink")
+        )
+
         tagList(
             h4(strong("Transcriptome Analysis (Optional):")),
-            p("Start your analysis by launching the appropriate application for your data"),
-            p("* If there are ", strong("NO replicates"), ", use DESeq2Shiny app for exploratory analysis"),
+            p("Continue to a compatible bulk RNA-seq application."),
             p(strong("Your merged counts data will be automatically loaded")),
             fluidRow(
-                column(8,
-                    style = "margin-left: 20%;",
-                    div(class = "BoxArea3 para", strong("Select Analysis Type:"))
-                )
-            ),
-            fluidRow(
-                column(8,
-                    offset = 2,
-                    div(class = "brace top")
-                )
-            ),
-            fluidRow(
-                column(
-                    6,
-                    tags$div(
-                        class = "BoxArea3", style = "text-align: center;",
-                        p(strong("Single-Cell RNA")),
-                        a("Seurat Wizard", href = paste0("/SeuratWizard?countsdata=", encryptUrlParam(myValues$fileUrl)), class = "btn btn-success", target = "_blank", style = "width: 100%;")
-                    )
-                ),
-                column(
-                    6,
-                    tags$div(
-                        class = "BoxArea3", style = "text-align: center;",
-                        p(strong("Bulk RNA")),
-                        a("DESeq2Shiny", href = paste0("/deseq2shiny?countsdata=", encryptUrlParam(myValues$fileUrl)), class = "btn btn-success", target = "_blank", style = "width: 100%;"),
-                        hr(),
-                        a("START", href = paste0("/tsar_nasqar?countsdata=", encryptUrlParam(myValues$startAppFileUrl)), class = "btn btn-success", target = "_blank", style = "width: 100%;")
-                    )
-                ),
-                div(style = "clear:both;")
+                column(10, offset = 1, analysisCard)
             )
         )
     })
@@ -955,8 +1030,10 @@ server <- function(input, output, session) {
                 }
 
 
-                myValues$fileUrl <- UUIDgenerate()
-                myValues$fileUrl <- paste0(tempdir(), "/", myValues$fileUrl, ".csv")
+                myValues$fileUrl <- file.path(
+                    nasqarExchangeDir(),
+                    paste0(UUIDgenerate(), ".csv")
+                )
 
                 updateTabsetPanel(session, "tabs", selected = "Output")
 
@@ -973,38 +1050,81 @@ server <- function(input, output, session) {
         {
             write.csv(myValues$mergedData, myValues$fileUrl, row.names = F)
 
-
-            # this is specific to STARTapp. need to add _1 when no replicates are present
-            myValues$startAppFileUrl <- gsub("\\.csv", "_startapp.csv", myValues$fileUrl)
-
-            mergedCountsOnly <- myValues$mergedData[, -1]
-            countsColStartIndex <- 2
-
-            if (class(mergedCountsOnly[, 1]) != "integer") {
-                mergedCountsOnly <- mergedCountsOnly[, -1]
-                countsColStartIndex <- 3
+            secondColumnName <- if (ncol(myValues$mergedData) >= 2L) {
+                tolower(gsub(
+                    "[^a-z0-9]",
+                    "",
+                    colnames(myValues$mergedData)[[2L]]
+                ))
+            } else {
+                ""
             }
+            hasSeparateGeneNames <- secondColumnName %in% c(
+                "genename", "genenames", "genesymbol", "symbol"
+            )
 
-            # mergedColNames = colnames(mergedCountsOnly)
-            #
-            # containsUnderscoreReplNum= grepl('_[0-9]+$',mergedColNames)
-            # if(!all(containsUnderscoreReplNum))
-            # {
-            #   #remove all underscores if present
-            #   mergedColNames = gsub("_","",mergedColNames)
-            #
-            #   #add underscore 1
-            #   mergedColNames = paste0(mergedColNames, "_1")
-            #
-            #   startappMergedDf = myValues$mergedData
-            #   colnames(startappMergedDf)[seq(countsColStartIndex,ncol(startappMergedDf))] = mergedColNames
-            #
-            #   write.csv(startappMergedDf, myValues$startAppFileUrl, row.names = F)
-            # }
-            # else
+            myValues$startAppFileUrl <- gsub(
+                "\\.csv$",
+                "_startapp.csv",
+                myValues$fileUrl
+            )
             write.csv(myValues$mergedData, myValues$startAppFileUrl, row.names = F)
+
+            identifierColumnCount <- if (hasSeparateGeneNames) 2L else 1L
+            startSampleNames <- colnames(myValues$mergedData)[
+                -(seq_len(identifierColumnCount))
+            ]
+            validStartNames <- grepl(
+                "^[A-Za-z0-9.-]+_[0-9]+$",
+                startSampleNames
+            )
+            startGroups <- sub("_[0-9]+$", "", startSampleNames)
+            replicatedGroups <- length(startGroups) > 0L &&
+                all(table(startGroups) >= 2L)
+            myValues$startHandoffReady <- length(startSampleNames) >= 2L &&
+                all(validStartNames) &&
+                replicatedGroups
+            myValues$startHandoffNote <- if (isTRUE(
+                myValues$startHandoffReady
+            )) {
+                paste(
+                    "Ready. Sample columns use GROUP_REPLICATE names and",
+                    "each group has at least two biological replicates."
+                )
+            } else {
+                paste(
+                    "START requires GROUP_REPLICATE sample names such as",
+                    "WT_1, WT_2, HET_1, and HET_2.",
+                    "Use Edit Column Names before launching START."
+                )
+            }
         }
     )
+
+    output$startHandoffNote <- renderText({
+        req(myValues$startHandoffNote)
+        myValues$startHandoffNote
+    })
+
+    output$startHandoffLink <- renderUI({
+        req(!is.null(myValues$startHandoffReady))
+        if (!isTRUE(myValues$startHandoffReady)) {
+            return(tags$span(
+                class = paste(
+                    "btn btn-default disabled",
+                    "analysis-handoff-button"
+                ),
+                role = "button",
+                `aria-disabled` = "true",
+                "START unavailable"
+            ))
+        }
+        handoffLink(
+            "START",
+            "/tsar_nasqar/",
+            encryptUrlParam(myValues$startAppFileUrl)
+        )
+    })
 
     multmerge <- function(inFiles, sep, isMultiple) {
         filenames <- inFiles$datapath
@@ -1014,7 +1134,8 @@ server <- function(input, output, session) {
 
         useHeader <- isTRUE(input$hasHeader)
 
-        datalist <- lapply(filenames, function(x) {
+        datalist <- lapply(seq_along(filenames), function(file_index) {
+            x <- filenames[[file_index]]
             fileContent <- read.csv(file = x, header = useHeader, sep = sep)
 
             n <- ncol(fileContent)
@@ -1034,7 +1155,13 @@ server <- function(input, output, session) {
             }
 
             colnames(fileContent)[1] <- "gene.ids"
-            fileContent <- fileContent[!grepl("__", fileContent[, 1]), ] # remove rows containing underscores
+            if (!isMultiple) {
+                colnames(fileContent)[2] <- tools::file_path_sans_ext(
+                    inFiles$name[[file_index]]
+                )
+            }
+            # HTSeq summary records are named __no_feature, __ambiguous, etc.
+            fileContent <- fileContent[!grepl("^__", fileContent[, 1]), ]
 
             # Sort by gene_id incase they are not sorted
             fileContent <- fileContent[order(fileContent[, 1]), ]
@@ -1042,19 +1169,8 @@ server <- function(input, output, session) {
             fileContent
         })
 
-        reduced <- Reduce(function(x, y) {
-            merge(x, y, by = "gene.ids")
-        }, datalist)
+        reduced <- merge_count_frames(datalist)
 
-
-
-        if (!isMultiple) {
-            samplenames <- unlist(lapply(inFiles$name, function(x) {
-                tools::file_path_sans_ext(x)
-            }))
-
-            colnames(reduced) <- c("gene.ids", samplenames)
-        }
 
 
         return(reduced)
@@ -1098,15 +1214,39 @@ server <- function(input, output, session) {
 
         # Import via tximport (type = "kallisto", TSV format).
         # abundance.tsv columns: target_id, length, eff_length, est_counts, tpm
+        # Kallisto indices built from Gencode FASTA files may append metadata
+        # after "|" while Ensembl mappings may differ only by version suffix.
+        first_targets <- read.delim(
+            files[[1]],
+            nrows = 100,
+            stringsAsFactors = FALSE,
+            check.names = FALSE
+        )$target_id
+        primary_targets <- sub("\\|.*$", "", first_targets)
+        mapping_targets <- as.character(tx2gene[[1]])
+        exact_matches <- sum(primary_targets %in% mapping_targets)
+        version_matches <- sum(
+            sub("\\.[0-9]+$", "", primary_targets) %in%
+                sub("\\.[0-9]+$", "", mapping_targets)
+        )
+        ignore_after_bar <- any(grepl("|", first_targets, fixed = TRUE))
+        ignore_tx_version <- exact_matches == 0 && version_matches > 0
+
         txi <- tximport::tximport(
             files,
             type            = "kallisto",
             tx2gene         = tx2gene,
-            ignoreTxVersion = TRUE
+            ignoreTxVersion = ignore_tx_version,
+            ignoreAfterBar  = ignore_after_bar,
+            countsFromAbundance = "lengthScaledTPM"
         )
 
-        # Convert estimated counts to data.frame (preserving decimal values)
-        counts_mat <- txi$counts
+        # Export bias-corrected gene-level counts that can be used without a
+        # transcript-length offset by matrix-based downstream applications.
+        # DESeq2's tximport constructor rounds abundance-derived estimates before
+        # constructing the integer count matrix. Apply the same single rounding
+        # step here so the downloaded matrix is accepted by matrix-based tools.
+        counts_mat <- round(txi$counts)
         df         <- as.data.frame(counts_mat, stringsAsFactors = FALSE)
         df         <- cbind(gene.ids = rownames(df), df)
         rownames(df) <- NULL
@@ -1129,8 +1269,23 @@ server <- function(input, output, session) {
         #   1. Custom upload → read user-supplied CSV
         #   2. Pre-built     → load from refGenome .Rda
         if (isTRUE(input$geneNamesSource == "custom")) {
-            geneid2name <- read.csv2(input$gtfMappingFile$datapath, sep = ",",
-                                     colClasses = c("character", "character"))
+            mappingPath <- input$gtfMappingFile$datapath
+            validate(need(
+                length(mappingPath) == 1L && nzchar(mappingPath),
+                "Upload the custom GENE_ID/GENE_NAME mapping before merging."
+            ))
+            geneid2name <- read.csv(
+                mappingPath,
+                header = TRUE,
+                colClasses = c("character", "character"),
+                strip.white = TRUE
+            )
+            validate(need(
+                ncol(geneid2name) >= 2L,
+                "The custom mapping must contain GENE_ID and GENE_NAME columns."
+            ))
+            geneid2name <- geneid2name[, 1:2, drop = FALSE]
+            colnames(geneid2name) <- c("GENE_ID", "GENE_NAME")
         } else {
             load(paste0("www/gene_names/", input$refGenome, ".Rda"))
         }
@@ -1154,26 +1309,15 @@ server <- function(input, output, session) {
         #   annoDb <- org.Hs.eg.db
 
 
-        # Calculate the number of cores
-        no_cores <- detectCores() - 1
-
-        # Initiate cluster
-        # cl <- makeCluster(no_cores)
-        cl <- makeForkCluster(no_cores)
-
         print(paste(format(Sys.time(), "%H:%M:%OS3"), ": Started Renaming ", length(ensNames), " genes"))
-        # levelsList = character(length(ensNames))
-        levelsList <- parallel::parLapply(cl, ensNames, function(x) {
-            # return(ids[geneid2name$GENE_ID == as.character(x),]$GENE_NAME)
-            return(geneid2name[geneid2name$GENE_ID == as.character(x), ]$GENE_NAME)
-        })
-
+        mappingIndex <- match(
+            as.character(ensNames),
+            as.character(geneid2name$GENE_ID)
+        )
+        flatList <- as.character(geneid2name$GENE_NAME[mappingIndex])
         print(paste(format(Sys.time(), "%H:%M:%OS3"), ": Finished renaming"))
-        stopCluster(cl)
 
         progress$set(value = 0.8)
-
-        flatList <- unlist(levelsList)
 
         progress$set(value = 1)
         return(flatList)
@@ -1183,12 +1327,20 @@ server <- function(input, output, session) {
 
 
     output$filesUploaded <- reactive({
+        geneNamesReady <- !isTRUE(input$addGeneNames) ||
+            !isTRUE(input$geneNamesSource == "custom") ||
+            (
+                !is.null(input$gtfMappingFile) &&
+                length(input$gtfMappingFile$datapath) == 1L &&
+                nzchar(input$gtfMappingFile$datapath)
+            )
+
         if (isTRUE(input$inputType == "kallisto")) {
             h5Ready      <- !is.null(input$kallistoFiles)
             tx2geneReady <- isTRUE(input$tx2geneSource == "prebuilt") || !is.null(input$tx2geneFile)
-            return(h5Ready && tx2geneReady)
+            return(h5Ready && tx2geneReady && geneNamesReady)
         }
-        return(!is.null(inputDataReactive()))
+        return(!is.null(inputDataReactive()) && geneNamesReady)
     })
     outputOptions(output, "filesUploaded", suspendWhenHidden = FALSE)
 

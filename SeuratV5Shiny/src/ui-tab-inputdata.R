@@ -4,13 +4,24 @@ tabItem(tabName = "datainput",
                          box(title = "Upload Data", solidHeader = T, status = "primary", width = 12, collapsible = T,id = "uploadbox",
 
                              #downloadLink("instructionspdf",label="Download Instructions (pdf)"),
-                             radioButtons('data_file_type','Use example file or upload your own data',
+                             radioButtons('data_file_type','Select count data source',
                                           c(
                                             #'Upload Data (Dropseq)'="uploadDropseq",
                                             'Upload Data (nonUMI)'="uploadNonUmi",
                                             'Upload Data (10X)'="upload10x",
-                                            'Example Data (PBMC)'="examplecounts"
+                                            'Example Data (PBMC)'="examplecounts",
+                                            'Use HPC scratch path'="hpcScratch"
                                           ),selected = "uploadNonUmi"),
+                             conditionalPanel(
+                               condition="input.data_file_type=='hpcScratch'",
+                               textInput(
+                                 "hpc_data_path",
+                                 "10X directory or CSV/TSV count matrix inside HPC scratch",
+                                 value = ""
+                               ),
+                               actionButton("load_hpc_data", "Load HPC Data", class = "btn btn-primary"),
+                               helpText("The input is read directly; it is not copied through the browser.")
+                             ),
                              conditionalPanel(condition="input.data_file_type=='upload10x'",
                                               p("10X Data, 1 .mtx.gz file, and 2 .tsv.gz files")
                                               #fileInput('datafile', 'Choose File Containing Data (.mtx, .tsv)', multiple = TRUE)

@@ -1,32 +1,23 @@
 options(shiny.maxRequestSize = 30 * 1024^4)
 
 server <- function(input, output,session) {
-  # Function to check if a Bioconductor package is installed, and install it if not
   check_and_load_bioc_package <- function(pkg) {
-    
-    if (!require(pkg, character.only = TRUE)) {
-       withProgress(
-            message = paste0("Installing package ",pkg),
-            detail = "This may take a while...",
-            value = 0,
-            {
-                incProgress(0.4)
-                BiocManager::install(pkg, update = FALSE)
-                incProgress(0.4)
-                
-                    
-                    
-            }
-            
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+        stop(
+            paste(
+                "Required genome package is not installed in this image:",
+                pkg
+            ),
+            call. = FALSE
         )
-
-        library(pkg, character.only = TRUE)
-
-      
-
     }
+    suppressPackageStartupMessages(
+        library(pkg, character.only = TRUE)
+    )
+    invisible(TRUE)
   }
 
+  source("plot-downloads.R", local = TRUE)
   source("server-inputdata.R", local = TRUE)
   source("server-heatmap.R", local = TRUE)
   source("server-librarycomplexity.R", local = TRUE)

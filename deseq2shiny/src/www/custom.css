@@ -473,3 +473,18 @@ div[style*="overflow-y: auto"]::-webkit-scrollbar-thumb:hover {
         transform: scale(1);
     }
 }
+.publication-downloads {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 0 4px;
+    margin-top: 10px;
+    border-top: 1px solid #d9dee3;
+}
+
+.publication-downloads__label {
+    color: #4f5b66;
+    font-weight: 600;
+    margin-right: 4px;
+}
