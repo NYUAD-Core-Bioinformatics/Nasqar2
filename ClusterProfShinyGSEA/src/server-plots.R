@@ -621,15 +621,20 @@ pathviewReactive <- eventReactive(input$generatePathview, {
         isolate({
             req(myValues$kegg_gene_list)
             tryCatch({
+                pathview_dir <- file.path(tempdir(check = TRUE), "pathview")
+                dir.create(pathview_dir, recursive = TRUE, showWarnings = FALSE)
+
                 setProgress(0.3, detail = paste0("Downloading pathway map \u2014 ", input$pathwayIds, " \u2026"))
                 dme <- pathview(
                     gene.data   = myValues$kegg_gene_list,
                     pathway.id  = input$pathwayIds,
                     species     = myValues$organismKegg,
-                    gene.idtype = "ENTREZ"
+                    gene.idtype = "ENTREZ",
+                    kegg.dir    = pathview_dir
                 )
-                unique_img <- paste0("testimage_", input$pathwayIds, ".png")
-                file.copy(paste0(input$pathwayIds, ".pathview.png"), unique_img, overwrite = TRUE)
+                native_img <- file.path(pathview_dir, paste0(input$pathwayIds, ".pathview.png"))
+                unique_img <- file.path(pathview_dir, paste0("testimage_", input$pathwayIds, ".png"))
+                file.copy(native_img, unique_img, overwrite = TRUE)
 
                 setProgress(0.7, detail = paste0("Generating PDF \u2014 ", input$pathwayIds, " \u2026"))
                 dmePdf <- pathview(
@@ -637,11 +642,19 @@ pathviewReactive <- eventReactive(input$generatePathview, {
                     pathway.id  = input$pathwayIds,
                     species     = myValues$organismKegg,
                     gene.idtype = "ENTREZ",
-                    kegg.native = FALSE
+                    kegg.native = FALSE,
+                    kegg.dir    = pathview_dir
                 )
 
-                myValues$imagePath <- paste0(input$pathwayIds, ".pathview.")
-                list(src = unique_img, filetype = "image/png", alt = "pathview image")
+                myValues$imagePath <- file.path(
+                    pathview_dir,
+                    paste0(input$pathwayIds, ".pathview.")
+                )
+                list(
+                    src = normalizePath(unique_img, mustWork = TRUE),
+                    filetype = "image/png",
+                    alt = "pathview image"
+                )
 
             }, error = function(e) {
                 msg <- conditionMessage(e)
@@ -688,19 +701,19 @@ outputOptions(output, "pathviewPlotsAvailable", suspendWhenHidden = FALSE)
 
 output$downloadPathviewPng <- downloadHandler(
     filename = function() {
-        paste0(myValues$imagePath, "png")
+        basename(paste0(myValues$imagePath, "png"))
     },
     content = function(file) {
-        file.copy(paste0(getwd(), "/", myValues$imagePath, "png"), file)
+        file.copy(paste0(myValues$imagePath, "png"), file)
     }
 )
 
 output$downloadPathviewPdf <- downloadHandler(
     filename = function() {
-        paste0(myValues$imagePath, "pdf")
+        basename(paste0(myValues$imagePath, "pdf"))
     },
     content = function(file) {
-        file.copy(paste0(getwd(), "/", myValues$imagePath, "pdf"), file)
+        file.copy(paste0(myValues$imagePath, "pdf"), file)
     }
 )
 

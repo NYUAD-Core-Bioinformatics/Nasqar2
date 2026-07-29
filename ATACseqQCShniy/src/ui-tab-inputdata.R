@@ -7,23 +7,22 @@ tabItem(
                 title = "Upload bam file", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "uploadbox",
                 # h4("Upload Gene Counts"),
                 h4("(select .bam/.bai)"),
-                radioButtons("data_file_type", "Use example file or upload your own data",
+                radioButtons("data_file_type", "Input source",
                     c(
-                        "Upload bam File" = "upload_bam_file",
-                        "Example bam Data" = "example_bam_file",
-                        "Mount remote server" = "mount_remote_server"
+                        "Upload BAM files" = "upload_bam_file",
+                        "Example BAM data" = "example_bam_file",
+                        "Use HPC scratch directory" = "hpc_scratch_directory"
                     ),
                     selected = "upload_bam_file"
                 ),
                 conditionalPanel(
-                    condition = "input.data_file_type=='mount_remote_server'",
-                    p("Upload ssh private key "),
-                    fileInput("id_rsa", ""),
-                    textInput("username", "User name", value=''),
-                    textInput("hostname", "Server name", value=''),
-                    textInput("mountpoint", "Directory to mount on remote server", value=''),
-                    actionButton("connect_remote_server", "Connect")
-
+                    condition = "input.data_file_type=='hpc_scratch_directory'",
+                    textInput(
+                        "scratch_directory",
+                        "Directory containing BAM and BAI files",
+                        value = Sys.getenv("NASQAR_DATA_ROOT", unset = "/scratch/nr83")
+                    ),
+                    actionButton("load_scratch_directory", "Load directory")
                 ),
                 conditionalPanel(
                     condition = "input.data_file_type=='upload_bam_file'",

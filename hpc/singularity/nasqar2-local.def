@@ -1,0 +1,28 @@
+Bootstrap: docker-daemon
+From: nasqar2-local:bulk-gcm
+
+%labels
+    Author NASQAR2 developers
+    Application NASQAR2
+    Deployment Jubail HPC
+    Runtime Singularity
+
+%files
+    hpc/bin/nasqar2-hpc /opt/nasqar2-hpc/bin/nasqar2-hpc
+
+%post
+    chmod 0755 /opt/nasqar2-hpc/bin/nasqar2-hpc
+    chmod -R a+rX /srv/shiny-server /usr/share/nginx/html /etc/nginx
+    mkdir -p /runtime
+
+%environment
+    export PATH=/opt/conda/envs/merged_env/bin:$PATH
+    export TZ=Asia/Dubai
+
+%runscript
+    exec /opt/nasqar2-hpc/bin/nasqar2-hpc "$@"
+
+%test
+    test -x /opt/nasqar2-hpc/bin/nasqar2-hpc
+    test -x /opt/conda/envs/merged_env/bin/R
+    test -x /usr/sbin/nginx

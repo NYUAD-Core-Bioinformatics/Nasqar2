@@ -52,26 +52,47 @@ observe({
 
 
 my_values <- reactiveValues()
-my_values$mounted_dir <- FALSE
+my_values$scratch_dir <- NULL
 
-observeEvent(input$connect_remote_server, {
-    print(input$username)
-    print(input$hostname)
-    print(input$mountpoint)
-    print(input$id_rsa$datapath)
-    my_values$mounted_dir <- FALSE
+scratch_root <- normalizePath(
+    Sys.getenv("NASQAR_DATA_ROOT", unset = "/scratch/nr83"),
+    winslash = "/",
+    mustWork = FALSE
+)
 
+observeEvent(input$scratch_directory, {
+    my_values$scratch_dir <- NULL
+}, ignoreInit = TRUE)
 
-    system(paste(
-        "sh generate_ssh_config.sh ", input$username, " ",
-        input$hostname, " ", input$mountpoint, " ",
-        input$id_rsa$datapath
-    ))
+observeEvent(input$load_scratch_directory, {
+    requested_dir <- tryCatch(
+        normalizePath(input$scratch_directory, winslash = "/", mustWork = TRUE),
+        error = function(error) NULL
+    )
 
+    if (is.null(requested_dir) || !dir.exists(requested_dir)) {
+        showNotification("Directory does not exist or is not readable.", type = "error")
+        return()
+    }
 
-    # Get the list of files in the directory
-    # files <- list.files(base_dir, full.names = FALSE)
-    my_values$mounted_dir <- TRUE
+    inside_scratch <- identical(requested_dir, scratch_root) ||
+        startsWith(requested_dir, paste0(scratch_root, "/"))
+    if (!inside_scratch) {
+        showNotification(
+            paste("Directory must be inside", scratch_root),
+            type = "error"
+        )
+        return()
+    }
+
+    files <- list.files(requested_dir, full.names = FALSE)
+    if (!any(grepl("\\.bam$", files, ignore.case = TRUE))) {
+        showNotification("No BAM files were found in this directory.", type = "error")
+        return()
+    }
+
+    my_values$scratch_dir <- requested_dir
+    showNotification("BAM directory loaded.", type = "message")
 })
 
 
@@ -108,7 +129,7 @@ input_files_reactive <- reactive({
     # )
 
     shiny::validate(
-        need(identical(input$data_file_type, "example_bam_file") | identical(input$data_file_type, "mount_remote_server") | (identical(input$data_file_type, "upload_bam_file") & !is.null(input$bam_files) & length(input$bam_files$name) > 1),
+        need(identical(input$data_file_type, "example_bam_file") | identical(input$data_file_type, "hpc_scratch_directory") | (identical(input$data_file_type, "upload_bam_file") & !is.null(input$bam_files) & length(input$bam_files$name) > 1),
             message = "Please upload both .bam and .bai files "
         )
     )
@@ -118,8 +139,8 @@ input_files_reactive <- reactive({
 
 
     shiny::validate(
-        need(identical(input$data_file_type, "example_bam_file") | identical(input$data_file_type, "upload_bam_file") | identical(input$data_file_type, "mount_remote_server") & my_values$mounted_dir,
-            message = "Please connect to the server "
+        need(identical(input$data_file_type, "example_bam_file") | identical(input$data_file_type, "upload_bam_file") | (identical(input$data_file_type, "hpc_scratch_directory") & !is.null(my_values$scratch_dir)),
+            message = "Enter a scratch directory and select Load directory."
         )
     )
 
@@ -160,20 +181,35 @@ input_files_reactive <- reactive({
         # Filter BAM and BMI files
         bam_files <- files[grepl(".bam$", files)]
         bai_files <- files[grepl(".bai$", files)]
-    } else {
-        base_dir <- "./mnt"
+    } else if (identical(input$data_file_type, "hpc_scratch_directory")) {
+        base_dir <- my_values$scratch_dir
         # Get the list of files in the directory
         files <- list.files(base_dir, full.names = FALSE)
 
         # Filter BAM and BMI files
-        bam_files <- files[grepl(".bam$", files)]
-        bai_files <- files[grepl(".bai$", files)]
-        matching_files <- sapply(bam_files, function(bam_file) {
-            bmi_file <- gsub(".bam$", ".bai", bam_file)
-            bmi_file %in% bai_files
-        })
-        bam_files <- names(matching_files[matching_files == TRUE])
-        bai_files <- stringr::str_replace_all(bam_files, ".bam", ".bai")
+        bam_candidates <- files[grepl("\\.bam$", files, ignore.case = TRUE)]
+        bai_candidates <- files[grepl("\\.bai$", files, ignore.case = TRUE)]
+        index_files <- vapply(bam_candidates, function(bam_file) {
+            candidates <- c(
+                paste0(bam_file, ".bai"),
+                sub("\\.bam$", ".bai", bam_file, ignore.case = TRUE)
+            )
+            match_index <- match(tolower(candidates), tolower(bai_candidates))
+            if (all(is.na(match_index))) {
+                return(NA_character_)
+            }
+            bai_candidates[match_index[which(!is.na(match_index))[1]]]
+        }, character(1))
+
+        has_index <- !is.na(index_files)
+        bam_files <- unname(bam_candidates[has_index])
+        bai_files <- unname(index_files[has_index])
+        shiny::validate(
+            need(
+                length(bam_files) > 0,
+                message = "No BAM files with matching .bai indexes were found."
+            )
+        )
     }
 
 

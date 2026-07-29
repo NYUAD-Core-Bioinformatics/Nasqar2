@@ -52,7 +52,8 @@ tabItem(
                     )
                 ),
     
-                actionButton("runDADA2", "Run DADA2", class = "btn-info btn-success", style = "width: 100%")
+                actionButton("runDADA2", "Run DADA2", class = "btn-info btn-success", style = "width: 100%"),
+                textOutput("dada_cache_status")
             )
         )
     ),

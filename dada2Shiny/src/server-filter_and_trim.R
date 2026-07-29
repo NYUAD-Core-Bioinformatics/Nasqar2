@@ -1,269 +1,273 @@
+activate_dada_results <- function(seq_type) {
+    shinyjs::show(selector = "a[data-value=\"errorRatesTab\"]")
+    if (identical(seq_type, "paired")) {
+        shinyjs::show(selector = "a[data-value=\"margePairedReadsTab\"]")
+        js$addStatusIcon("margePairedReadsTab", "done")
+    }
+    shinyjs::show(selector = "a[data-value=\"taxanomyTab\"]")
+    shinyjs::show(selector = "a[data-value=\"trackReadsTab\"]")
+    shinyjs::show(selector = "a[data-value=\"filter_and_trim_tab\"]")
+    js$addStatusIcon("filter_and_trim_tab", "done")
+    js$addStatusIcon("errorRatesTab", "done")
+    js$addStatusIcon("trackReadsTab", "done")
+    js$addStatusIcon("taxanomyTab", "next")
+    qc_done(TRUE)
+}
+
 reactiveInputData <- eventReactive(input$runDADA2, {
+    shinyjs::disable("runDADA2")
+    on.exit(shinyjs::enable("runDADA2"), add = TRUE)
+
+    # Forked DADA2 workers must receive ordinary values, not Shiny reactives.
+    seq_type <- isolate(input$seq_type)
+    trunc_fwd <- as.integer(isolate(input$truncLen_fwd))
+    trunc_rev <- as.integer(isolate(input$truncLen_rev))
+    max_ee_fwd <- as.numeric(isolate(input$maxEE_fwd))
+    max_ee_rev <- as.numeric(isolate(input$maxEE_rev))
+    selected_sample <- isolate(input$sel_sample_qualityprofile_tab)
+    req(selected_sample)
+
     qc_done(FALSE)
     divergen_done(FALSE)
-    
-    # Clear all reactive values from downstream processing to ensure clean state
-    if (exists("reactiveTaxonomyData")) {
-        reactiveTaxonomyData$taxa <- NULL
-    }
-    if (exists("selectedTaxonomyRows")) {
-        selectedTaxonomyRows(NULL)
-    }
+    if (exists("reactiveTaxonomyData")) reactiveTaxonomyData$taxa <- NULL
+    if (exists("selectedTaxonomyRows")) selectedTaxonomyRows(NULL)
     if (exists("alphaDiversityResults")) {
         alphaDiversityResults$ps <- NULL
         alphaDiversityResults$ps.prop <- NULL
         alphaDiversityResults$ord.nmds.bray <- NULL
         alphaDiversityResults$ps.top20 <- NULL
     }
-    
-    #    shinyjs::hide(selector = "a[data-value=\"qualityprofile_tab\"]")
+
     shinyjs::hide(selector = "a[data-value=\"errorRatesTab\"]")
-    # shinyjs::hide(selector = "a[data-value=\"filter_and_trim_tab\"]")
     shinyjs::hide(selector = "a[data-value=\"margePairedReadsTab\"]")
     shinyjs::hide(selector = "a[data-value=\"trackReadsTab\"]")
     shinyjs::hide(selector = "a[data-value=\"taxanomyTab\"]")
     shinyjs::hide(selector = "a[data-value=\"alphaDiversityTab\"]")
-
-
-
-
     js$addStatusIcon("filter_and_trim_tab", "loading")
-    req(input$sel_sample_qualityprofile_tab)
-    path <- my_values$base_dir
-    sample.names <- row.names(my_values$samples_df)
 
-    # print(my_values$samples_df)
-    fnFs <- file.path(path, my_values$samples_df[, "FASTQ_Fs"])
+    input_path <- my_values$base_dir
+    project_path <- my_values$work_dir
+    local_work_path <- my_values$local_work_dir
+    req(input_path, project_path, local_work_path, my_values$samples_df)
 
-    filtFs <- file.path(path, "filtered", paste0(sample.names, "_F_filt.fastq.gz"))
-    print("dir1")
-    sapply(fnFs, function(fasqfile) {
-        print(file.exists(fasqfile))
-    })
-    names(filtFs) <- sample.names
-
-    if (input$seq_type == "paired") {
-        fnRs <- file.path(path, my_values$samples_df[, "FASTQ_Rs"])
-        filtRs <- file.path(path, "filtered", paste0(sample.names, "_R_filt.fastq.gz"))
-        print("dir2")
-        sapply(fnRs, function(fasqfile) {
-            print(file.exists(fasqfile))
-        })
-
-        names(filtRs) <- sample.names
+    sample_names <- row.names(my_values$samples_df)
+    fn_fs <- file.path(input_path, my_values$samples_df[, "FASTQ_Fs"])
+    fn_rs <- character()
+    if (identical(seq_type, "paired")) {
+        fn_rs <- file.path(input_path, my_values$samples_df[, "FASTQ_Rs"])
     }
-    # print(fnFs)
-    # print(fnRs)
 
+    input_paths <- c(fn_fs, fn_rs)
+    input_info <- file.info(input_paths)
+    validate(need(
+        all(file.exists(input_paths)) && all(!input_info$isdir),
+        "One or more FASTQ files are unavailable."
+    ))
 
+    parameters <- list(
+        seq_type = seq_type,
+        trunc_fwd = trunc_fwd,
+        trunc_rev = if (identical(seq_type, "paired")) trunc_rev else NULL,
+        max_ee_fwd = max_ee_fwd,
+        max_ee_rev = if (identical(seq_type, "paired")) max_ee_rev else NULL,
+        dada2_version = as.character(utils::packageVersion("dada2"))
+    )
+    cache_key <- digest::digest(
+        list(
+            paths = normalizePath(input_paths, mustWork = TRUE),
+            sizes = input_info$size,
+            mtimes = as.numeric(input_info$mtime),
+            parameters = parameters
+        ),
+        algo = "xxhash64"
+    )
+    cache_dir <- file.path(project_path, "cache")
+    dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE, mode = "0700")
+    cache_file <- file.path(cache_dir, paste0(cache_key, ".rds"))
 
+    if (file.exists(cache_file)) {
+        cached_result <- tryCatch(readRDS(cache_file), error = function(e) NULL)
+        if (!is.null(cached_result)) {
+            my_values$cache_status <- paste("Loaded cached DADA2 result:", cache_key)
+            activate_dada_results(seq_type)
+            return(cached_result)
+        }
+    }
 
+    my_values$cache_status <- paste("Computing DADA2 result:", cache_key)
+    filtered_path <- file.path(local_work_path, cache_key, "filtered")
+    dir.create(filtered_path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
+    filt_fs <- file.path(filtered_path, paste0(sample_names, "_F_filt.fastq.gz"))
+    names(filt_fs) <- sample_names
+    filt_rs <- character()
+    if (identical(seq_type, "paired")) {
+        filt_rs <- file.path(filtered_path, paste0(sample_names, "_R_filt.fastq.gz"))
+        names(filt_rs) <- sample_names
+    }
 
-
-
-    withProgress(message = "Running DADA2 , please wait", {
-        shiny::setProgress(value = 0.1, detail = "...filterAndTrim")
-
-        # disabling multithread as it is runs in reactive context
-        if (input$seq_type == "paired") {
-            out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs,
-                truncLen = c(input$truncLen_fwd, input$truncLen_rev),
-                maxN = 0, maxEE = c(input$maxEE_fwd, input$maxEE_rev), truncQ = 2, rm.phix = TRUE,
-                compress = TRUE, multithread = FALSE
+    withProgress(message = "Running DADA2, please wait", {
+        shiny::setProgress(value = 0.1, detail = "Filtering and trimming")
+        if (identical(seq_type, "paired")) {
+            filtered_counts <- filterAndTrim(
+                fn_fs,
+                filt_fs,
+                fn_rs,
+                filt_rs,
+                truncLen = c(trunc_fwd, trunc_rev),
+                maxN = 0,
+                maxEE = c(max_ee_fwd, max_ee_rev),
+                truncQ = 2,
+                rm.phix = TRUE,
+                compress = TRUE,
+                multithread = hpc_workers
             )
         } else {
-            out <- filterAndTrim(fnFs, filtFs,
-                truncLen = c(input$truncLen_fwd),
-                maxN = 0, maxEE = c(input$maxEE_fwd), truncQ = 2, rm.phix = TRUE,
-                compress = TRUE, multithread = FALSE
+            filtered_counts <- filterAndTrim(
+                fn_fs,
+                filt_fs,
+                truncLen = trunc_fwd,
+                maxN = 0,
+                maxEE = max_ee_fwd,
+                truncQ = 2,
+                rm.phix = TRUE,
+                compress = TRUE,
+                multithread = hpc_workers
+            )
+        }
+        rownames(filtered_counts) <- sample_names
+
+        shiny::setProgress(value = 0.25, detail = "Learning forward-read errors")
+        err_f <- learnErrors(filt_fs, multithread = hpc_workers)
+        err_r <- NULL
+        if (identical(seq_type, "paired")) {
+            shiny::setProgress(value = 0.4, detail = "Learning reverse-read errors")
+            err_r <- learnErrors(filt_rs, multithread = hpc_workers)
+        }
+
+        shiny::setProgress(value = 0.55, detail = "Denoising reads")
+        dada_fs <- dada(filt_fs, err = err_f, multithread = hpc_workers)
+        dada_rs <- NULL
+        mergers <- NULL
+        if (identical(seq_type, "paired")) {
+            dada_rs <- dada(filt_rs, err = err_r, multithread = hpc_workers)
+            shiny::setProgress(value = 0.7, detail = "Merging paired reads")
+            mergers <- mergePairs(
+                dada_fs,
+                filt_fs,
+                dada_rs,
+                filt_rs,
+                verbose = TRUE
+            )
+            updateSelectInput(
+                session,
+                "selSample4margePairedReadsTab",
+                choices = names(mergers)
             )
         }
 
-        rownames(out) <- sample.names
-
-        shiny::setProgress(value = 0.2, detail = "...learnErrors Fr")
-        errF <- learnErrors(filtFs, multithread = TRUE)
-
-        if (input$seq_type == "paired") {
-            shiny::setProgress(value = 0.3, detail = "...learnErrors Rr")
-            errR <- learnErrors(filtRs, multithread = TRUE)
-        }
-
-        shiny::setProgress(value = 0.4, detail = "...dadafs")
-        dadaFs <- dada(filtFs, err = errF, multithread = TRUE)
-
-        if (input$seq_type == "paired") {
-            shiny::setProgress(value = 0.5, detail = "...dadaRs")
-            dadaRs <- dada(filtRs, err = errR, multithread = TRUE)
-        }
-
-        if (input$seq_type == "paired") {
-            shiny::setProgress(value = 0.6, detail = "...mergePairs")
-            mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose = TRUE)
-            # Inspect the merger data.frame from the first sample
-            print("mergers")
-
-
-
-            # print(names(head(mergers)))
-            updateSelectInput(session, "selSample4margePairedReadsTab", choices = names(mergers))
-        }
-        shiny::setProgress(value = 0.7, detail = "...makeSequenceTable")
-
-        if (input$seq_type == "paired") {
-            seqtab <- makeSequenceTable(mergers)
+        shiny::setProgress(value = 0.82, detail = "Removing chimeras")
+        sequence_table <- if (identical(seq_type, "paired")) {
+            makeSequenceTable(mergers)
         } else {
-            seqtab <- makeSequenceTable(dadaFs)
+            makeSequenceTable(dada_fs)
         }
-        dim(seqtab)
+        sequence_lengths <- table(nchar(getSequences(sequence_table)))
+        sequence_table_nochim <- removeBimeraDenovo(
+            sequence_table,
+            method = "consensus",
+            multithread = hpc_workers,
+            verbose = TRUE
+        )
 
-        # Inspect distribution of sequence lengths
-        print("table")
-        seqtabTable <- table(nchar(getSequences(seqtab)))
-
-        shiny::setProgress(value = 0.8, detail = "...makeSequenceTable")
-        # remove chimeras from the sequence table:
-        seqtab.nochim <- removeBimeraDenovo(seqtab, method = "consensus", multithread = TRUE, verbose = TRUE)
-        dim(seqtab.nochim)
-
-        sum(seqtab.nochim) / sum(seqtab)
-
-        getN <- function(x) sum(getUniques(x))
-
-        if (input$seq_type == "paired") {
-
-            denoisedF <- if (inherits(dadaFs, "dada")) getN(dadaFs) else sapply(dadaFs, getN)
-            denoisedR <- if (inherits(dadaRs, "dada")) getN(dadaRs) else sapply(dadaRs, getN)
-            merged <- if (is.data.frame(mergers)) getN(mergers) else sapply(mergers, getN)
-
-            track <- cbind(out, denoisedF, denoisedR, merged, rowSums(seqtab.nochim))
-            # If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
-            colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
-            rownames(track) <- sample.names
+        get_n <- function(x) sum(getUniques(x))
+        denoised_f <- if (inherits(dada_fs, "dada")) {
+            get_n(dada_fs)
         } else {
-            denoisedF <- if (inherits(dadaFs, "dada")) getN(dadaFs) else sapply(dadaFs, getN)
-            track <- cbind(out, denoisedF, rowSums(seqtab.nochim))
-            # If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
+            vapply(dada_fs, get_n, numeric(1))
+        }
+        if (identical(seq_type, "paired")) {
+            denoised_r <- if (inherits(dada_rs, "dada")) {
+                get_n(dada_rs)
+            } else {
+                vapply(dada_rs, get_n, numeric(1))
+            }
+            merged <- if (is.data.frame(mergers)) {
+                get_n(mergers)
+            } else {
+                vapply(mergers, get_n, numeric(1))
+            }
+            track <- cbind(
+                filtered_counts,
+                denoised_f,
+                denoised_r,
+                merged,
+                rowSums(sequence_table_nochim)
+            )
+            colnames(track) <- c(
+                "input",
+                "filtered",
+                "denoisedF",
+                "denoisedR",
+                "merged",
+                "nonchim"
+            )
+        } else {
+            track <- cbind(
+                filtered_counts,
+                denoised_f,
+                rowSums(sequence_table_nochim)
+            )
             colnames(track) <- c("input", "filtered", "denoisedF", "nonchim")
-            rownames(track) <- sample.names
         }
-        # updateSelectInput(session, "selSample4trackReadsTab", choices = sample.names)
-
-
-        print("track")
-        # print(head(track))
-
-        print("taxa")
-
-
-        # taxa <- assignTaxonomy(seqtab.nochim, "./www/taxonomy/silva_nr99_v138.1_train_set.fa.gz", multithread = TRUE)
-        # print(taxa)
-        # print("taxa second")
-        # taxa <- addSpecies(taxa, "./www/taxonomy/silva_species_assignment_v138.1.fa.gz")
-        # print(taxa)
-        # taxa.print <- taxa # Removing sequence rownames for display only
-        # rownames(taxa.print) <- NULL
-
-
-        # print(head(taxa.print))
-
-
-        # samples.out <- rownames(seqtab.nochim)
-        # print('samples.out')
-        # print(samples.out)
-        # subject <- sapply(strsplit(samples.out, "D"), '[', 1)
-        # gender <- substr(subject,1,1)
-        # subject <- substr(subject,2,999)
-        # # day <- as.integer(sapply(strsplit(samples.out, "D"), '[', 2))
-        # day <- as.integer(sapply(strsplit(sapply(strsplit(samples.out, "D"), '[', 2), '_'), '[', 1))
-        # samdf <- data.frame(Subject=subject, Gender=gender, Day=day)
-        # samdf$When <- "Early"
-        # samdf$When[samdf$Day>100] <- "Late"
-        # rownames(samdf) <- samples.out
-
-        # print("samples.out")
-        # print(samdf)
-
-        # ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE),
-        #        sample_data(samdf),
-        #        tax_table(taxa))
-        # ps <- prune_samples(sample_names(ps) != "Mock", ps) # Remove mock sample
-
-
-        # dna <- Biostrings::DNAStringSet(taxa_names(ps))
-        # names(dna) <- taxa_names(ps)
-        # ps <- merge_phyloseq(ps, dna)
-        # taxa_names(ps) <- paste0("ASV", seq(ntaxa(ps)))
-        # print(ps)
-        # # Transform data to proportions as appropriate for Bray-Curtis distances
-        # ps.prop <- transform_sample_counts(ps, function(otu) otu/sum(otu))
-        # ord.nmds.bray <- ordinate(ps.prop, method="NMDS", distance="bray")
-
-
-        # top20 <- names(sort(taxa_sums(ps), decreasing=TRUE))[1:20]
-        # ps.top20 <- transform_sample_counts(ps, function(OTU) OTU/sum(OTU))
-        # ps.top20 <- prune_taxa(top20, ps.top20)
-
-        print("qc done")
-
-
-        qc_done(TRUE)
-
-        shiny::setProgress(value = 1.0, detail = "...done")
+        rownames(track) <- sample_names
+        shiny::setProgress(value = 1, detail = "Done")
     })
 
-    shinyjs::show(selector = "a[data-value=\"errorRatesTab\"]")
-    if (input$seq_type == "paired") {
-        shinyjs::show(selector = "a[data-value=\"margePairedReadsTab\"]")
-        js$addStatusIcon("margePairedReadsTab", "done")
+    result <- list(
+        sample.names = sample_names,
+        dadaFs = dada_fs,
+        out = filtered_counts,
+        errF = err_f,
+        seqtabTable = sequence_lengths,
+        track = track,
+        seqtab.nochim = sequence_table_nochim
+    )
+    if (identical(seq_type, "paired")) {
+        result$dadaRs <- dada_rs
+        result$errR <- err_r
+        result$mergers <- mergers
     }
 
-    shinyjs::show(selector = "a[data-value=\"taxanomyTab\"]")
-    shinyjs::show(selector = "a[data-value=\"trackReadsTab\"]")
-    shinyjs::show(selector = "a[data-value=\"filter_and_trim_tab\"]")
-    # shinyjs::show(selector = "a[data-value=\"taxanomyTab\"]")
-
-
-
-    js$addStatusIcon("filter_and_trim_tab", "done")
-    js$addStatusIcon("errorRatesTab", "done")
-    js$addStatusIcon("trackReadsTab", "done")
-    js$addStatusIcon("taxanomyTab", "next")
-    
-
-
-
-
-
-    if (input$seq_type == "paired") {
-        return(list(sample.names=sample.names,dadaFs=dadaFs,dadaRs=dadaRs,mergers=mergers, out = out, errF = errF, errR = errR, mergers = mergers, seqtabTable = seqtabTable, track = track, seqtab.nochim = seqtab.nochim))
-    } else {
-        return(list(sample.names=sample.names,dadaFs=dadaFs,dadaRs=dadaRs, out = out, errF = errF, seqtabTable = seqtabTable, track = track, seqtab.nochim = seqtab.nochim))
-    }
+    saveRDS(result, file.path(project_path, "dada2-results.rds"))
+    write.csv(track, file.path(project_path, "read-tracking.csv"))
+    write.csv(
+        sequence_table_nochim,
+        file.path(project_path, "sequence-table-nochim.csv")
+    )
+    cache_tmp <- paste0(cache_file, ".tmp-", Sys.getpid())
+    saveRDS(result, cache_tmp)
+    if (!file.rename(cache_tmp, cache_file)) unlink(cache_tmp)
+    my_values$cache_status <- paste("Saved DADA2 cache:", cache_key)
+    activate_dada_results(seq_type)
+    result
 })
 
 output$dada2object_ready <- reactive({
-    return(!is.null(reactiveInputData()))
+    !is.null(reactiveInputData())
 })
 outputOptions(output, "dada2object_ready", suspendWhenHidden = FALSE)
 
-
-
-
-
-
 output$filterAndTrim_output_table <- DT::renderDataTable(
     {
-        # print(filtFs)
-
         data <- reactiveInputData()
-
-        # output_table_wth_samples <- cbind(Sample = rownames(data$out), data$out)
-        output_table_wth_samples <- cbind(Sample = data$sample.names, data$out)
-        
-        colnames(output_table_wth_samples) <- c('Sample', "Fragments before Quality trimming", "Fragments after Quality trimming")
-        output_table_wth_samples
+        output_table <- cbind(Sample = data$sample.names, data$out)
+        colnames(output_table) <- c(
+            "Sample",
+            "Fragments before Quality trimming",
+            "Fragments after Quality trimming"
+        )
+        output_table
     },
-    rownames = FALSE, 
+    rownames = FALSE,
     options = list(scrollX = TRUE, pageLength = 10)
 )

@@ -1,6 +1,7 @@
 ## Filter by metadata
 output$filter_metadata_params <- renderUI({
 
+    req(input$filter_type_metadata)
     MAE <- vals$MAE
     microbe <- MAE[['MicrobeGenetics']]
     sam_table <- as.data.frame(colData(microbe)) # sample x condition
@@ -167,10 +168,12 @@ output$download_biom <- downloadHandler(filename = function() {
 
 ## Categorize
 output$filter_nbins <- renderUI({
+    req(input$filter_bin_cov)
     MAE <- vals$MAE
     microbe <- MAE[['MicrobeGenetics']]
     sam_table <- as.data.frame(colData(microbe)) # sample x condition
     vals <- unlist(sam_table[,input$filter_bin_cov,drop=TRUE])
+    req(length(unique(vals[!is.na(vals)])) >= 2)
     sliderInput("filter_nbins", label="Number of Bins", min=2, max=length(unique(vals)), value=2, step=1)
 })
 output$filter_bin_to1 <- renderPrint({
@@ -350,7 +353,6 @@ output$download_assay_annot <- downloadHandler(filename = function() {
   df.out <- find_assay_annot()
   write.csv(df.out, file)
 })
-
 
 
 

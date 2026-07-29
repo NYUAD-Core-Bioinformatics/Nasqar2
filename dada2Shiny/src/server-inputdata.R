@@ -16,6 +16,9 @@ observe({
 my_values <- reactiveValues()
 my_values$mounted_dir <- FALSE
 my_values$downloaded_files <- FALSE
+my_values$work_dir <- NULL
+my_values$local_work_dir <- NULL
+my_values$cache_status <- NULL
 
 # observeEvent(input$connect_remote_server, {
 #     print(input$username)
@@ -132,6 +135,7 @@ outputOptions(output, "qc_result_available", suspendWhenHidden = FALSE)
 # })
 
 input_files_reactive <- eventReactive(input$initFastq, {
+    fn_Rs <- character()
     # shiny::validate(
     #     need(identical(input$data_file_type, "example_bam_file") | (is.null(input$bam_files)),
     #         message = "Please select a file"
@@ -269,6 +273,37 @@ input_files_reactive <- eventReactive(input$initFastq, {
             fn_Fs <- names(matching_files[matching_files == TRUE])
             fn_Rs <- stringr::str_replace_all(fn_Fs, input$forward_pattern, input$reverse_pattern)
         }
+    } else if (identical(input$data_file_type, "hpc_scratch_directory")) {
+        shiny::validate(need(nzchar(trimws(input$hpc_fastq_directory)), "Enter an HPC FASTQ directory."))
+        base_dir <- tryCatch(
+            resolve_hpc_path(input$hpc_fastq_directory),
+            error = function(e) {
+                shiny::validate(need(FALSE, e$message))
+            }
+        )
+        files <- list.files(base_dir, full.names = FALSE)
+        fn_Fs <- files[grepl(input$forward_pattern, files)]
+        if (input$seq_type == "paired") {
+            fn_Rs <- files[grepl(input$reverse_pattern, files)]
+            matching_files <- sapply(fn_Fs, function(fastq_file) {
+                expected <- gsub(
+                    paste0(input$forward_pattern, "$"),
+                    input$reverse_pattern,
+                    fastq_file
+                )
+                expected %in% fn_Rs
+            })
+            fn_Fs <- names(matching_files[matching_files])
+            fn_Rs <- stringr::str_replace_all(
+                fn_Fs,
+                input$forward_pattern,
+                input$reverse_pattern
+            )
+            shiny::validate(need(
+                length(fn_Fs) > 0L && length(fn_Fs) == length(fn_Rs),
+                "No matching paired FASTQ files were found with these patterns."
+            ))
+        }
     } else {
         base_dir <- my_values$download_path
         print(base_dir)
@@ -322,6 +357,21 @@ input_files_reactive <- eventReactive(input$initFastq, {
     }
     my_values$base_dir <- base_dir
     my_values$samples_df <- samples_df
+    my_values$work_dir <- project_directory(
+        if (identical(input$data_file_type, "hpc_scratch_directory")) {
+            input$hpc_project_name
+        } else {
+            paste0("session-", session$token)
+        }
+    )
+    my_values$local_work_dir <- local_working_directory(
+        if (identical(input$data_file_type, "hpc_scratch_directory")) {
+            input$hpc_project_name
+        } else {
+            paste0("session-", session$token)
+        }
+    )
+    my_values$cache_status <- NULL
 
     if(nrow(samples_df) > 0) {
 
@@ -358,7 +408,7 @@ input_files_reactive <- eventReactive(input$initFastq, {
   output$result1 <- renderText({
         # Ensure the input is between 1 and 10
         shiny::validate(
-        need(identical(input$data_file_type, "example_fastq_file") | identical(input$data_file_type, "download_remote_server") | (identical(input$data_file_type, "upload_fastq_file") & !is.null(input$fastq_files) & length(input$fastq_files$name) > 1),
+        need(identical(input$data_file_type, "example_fastq_file") | identical(input$data_file_type, "hpc_scratch_directory") | identical(input$data_file_type, "download_remote_server") | (identical(input$data_file_type, "upload_fastq_file") & !is.null(input$fastq_files) & length(input$fastq_files$name) > 1),
             message = "Please upload both R1 andd R2 fastq files "
         )
     )
@@ -366,12 +416,22 @@ input_files_reactive <- eventReactive(input$initFastq, {
     print('load')
 
     shiny::validate(
-        need(identical(input$data_file_type, "example_fastq_file") | identical(input$data_file_type, "upload_fastq_file") | identical(input$data_file_type, "download_remote_server") & my_values$downloaded_files,
+        need(identical(input$data_file_type, "example_fastq_file") | identical(input$data_file_type, "upload_fastq_file") | identical(input$data_file_type, "hpc_scratch_directory") | identical(input$data_file_type, "download_remote_server") & my_values$downloaded_files,
             message = "Please connect to the server "
         )
     )
         paste("You entered:", input$num)
     })
+
+output$hpc_dada2_path <- renderText({
+    req(my_values$work_dir)
+    paste("DADA2 project output:", my_values$work_dir)
+})
+
+output$dada_cache_status <- renderText({
+    req(my_values$cache_status)
+    my_values$cache_status
+})
 
 
 output$fastqfiles_uploaded <- reactive({
