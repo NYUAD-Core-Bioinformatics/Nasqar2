@@ -1,6 +1,8 @@
 observe({
     shinyjs::hide(selector = "a[data-value=\"fragmentsize_tab\"]")
     shinyjs::hide(selector = "a[data-value=\"nucleosomepositioning_tab\"]")
+    shinyjs::hide(selector = "a[data-value=\"nucleosomeprofiles_tab\"]")
+    shinyjs::hide(selector = "a[data-value=\"footprinting_tab\"]")
     shinyjs::hide(selector = "a[data-value=\"heatmap_tab\"]")
     shinyjs::hide(selector = "a[data-value=\"librarycomplexity_tab\"]")
 })
@@ -99,15 +101,24 @@ observeEvent(input$load_scratch_directory, {
 
 
 observeEvent(input$bs_genome_input, {
-    print(input$bs_genome_input)
-    if (input$bs_genome_input != "" & input$bs_genome_input != " ") {
-        print("input$bs_genome_input")
-        print(input$bs_genome_input)
-        check_and_load_bioc_package(input$bs_genome_input)
-        # library(input$bs_genome_input, character.only = T)
-        tx_db <- list("BSgenome.Hsapiens.UCSC.hg19" = c("TxDb.Hsapiens.UCSC.hg19.knownGene"))
+    if (!is.null(input$bs_genome_input) && nzchar(trimws(input$bs_genome_input))) {
+        genome_ready <- requireNamespace(
+            input$bs_genome_input,
+            quietly = TRUE
+        )
+        tx_package <- tx_db_list[[input$bs_genome_input]]
+        tx_ready <- length(tx_package) == 1L &&
+            requireNamespace(tx_package, quietly = TRUE)
+        if (!genome_ready || !tx_ready) {
+            shinyjs::disable("initQC")
+            showNotification(
+                "The selected genome is not installed in this ATACseqQC image.",
+                type = "error",
+                duration = NULL
+            )
+            return()
+        }
         shinyjs::enable("initQC")
-        # updateSelectInput(session, "tx_db_input", choices = tx_db[[input$bs_genome_input]])
     }
 })
 
@@ -221,7 +232,27 @@ input_files_reactive <- reactive({
 
     print(dir(base_dir))
 
-    bs_genome_db <- c(" " = " ", "Human(BSgenome.Hsapiens.UCSC.hg19)" = "BSgenome.Hsapiens.UCSC.hg19", "Mouse(BSgenome.Mmusculus.UCSC.mm10)" = "BSgenome.Mmusculus.UCSC.mm10", "ZebraFish(BSgenome.Drerio.UCSC.danRer11)" = "BSgenome.Drerio.UCSC.danRer11", "Worm(BSgenome.Celegans.UCSC.ce6)" = "BSgenome.Celegans.UCSC.ce6")
+    genome_labels <- c(
+        "Human (hg19)" = "BSgenome.Hsapiens.UCSC.hg19",
+        "Mouse (mm10)" = "BSgenome.Mmusculus.UCSC.mm10",
+        "Zebrafish (danRer11)" = "BSgenome.Drerio.UCSC.danRer11",
+        "C. elegans (ce11)" = "BSgenome.Celegans.UCSC.ce11"
+    )
+    installed <- vapply(
+        unname(genome_labels),
+        function(genome_package) {
+            tx_package <- tx_db_list[[genome_package]]
+            requireNamespace(genome_package, quietly = TRUE) &&
+                length(tx_package) == 1L &&
+                requireNamespace(tx_package, quietly = TRUE)
+        },
+        logical(1)
+    )
+    bs_genome_db <- c("Select a reference genome" = "", genome_labels[installed])
+    shiny::validate(need(
+        any(installed),
+        "No supported reference genome packages are installed in this image."
+    ))
     if (identical(input$data_file_type, "example_bam_file")) {
       updateSelectInput(session, "bs_genome_input", choices = bs_genome_db, selected = "BSgenome.Hsapiens.UCSC.hg19")
     } else {

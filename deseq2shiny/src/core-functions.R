@@ -132,39 +132,42 @@ safe_file_name <- function(value, extension = NULL) {
   value
 }
 
+nasqar_exchange_dir <- function(create = FALSE) {
+  configured <- Sys.getenv("NASQAR_EXCHANGE_DIR", unset = "")
+  path <- if (nzchar(configured)) {
+    configured
+  } else {
+    file.path(dirname(tempdir(check = TRUE)), "nasqar_exchange")
+  }
+  if (create) {
+    dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
+  }
+  normalizePath(path, mustWork = create)
+}
+
+new_exchange_file <- function(extension = ".csv") {
+  file.path(
+    nasqar_exchange_dir(create = TRUE),
+    paste0(uuid::UUIDgenerate(), extension)
+  )
+}
+
 validate_exchange_path <- function(path) {
   if (!is.character(path) || length(path) != 1L || !nzchar(path)) {
     stop("Invalid NASQAR exchange path.", call. = FALSE)
   }
 
   resolved <- normalizePath(path, mustWork = TRUE)
-  configured_root <- Sys.getenv("NASQAR_EXCHANGE_DIR", unset = "")
-
-  if (nzchar(configured_root)) {
-    allowed_root <- normalizePath(configured_root, mustWork = TRUE)
-    prefix <- paste0(allowed_root, .Platform$file.sep)
-    if (!startsWith(resolved, prefix)) {
-      stop("Exchange file is outside the configured NASQAR directory.",
-           call. = FALSE)
-    }
-  } else {
-    # Backward-compatible constraint for GeneCountMerger handoffs.
-    temp_parent <- normalizePath(dirname(tempdir()), mustWork = TRUE)
-    temp_prefix <- paste0(temp_parent, .Platform$file.sep)
-    if (!startsWith(resolved, temp_prefix)) {
-      stop("Exchange file is outside the temporary NASQAR directory.",
-           call. = FALSE)
-    }
-    relative_path <- substring(resolved, nchar(temp_parent) + 2L)
-    path_parts <- strsplit(relative_path, .Platform$file.sep, fixed = TRUE)[[1L]]
-    uuid_csv <- "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\.csv$"
-
-    if (length(path_parts) != 2L ||
-        !grepl("^Rtmp[A-Za-z0-9]+$", path_parts[[1L]]) ||
-        !grepl(uuid_csv, path_parts[[2L]])) {
-      stop("Exchange path does not match a NASQAR temporary CSV.",
-           call. = FALSE)
-    }
+  allowed_root <- nasqar_exchange_dir(create = TRUE)
+  prefix <- paste0(allowed_root, .Platform$file.sep)
+  uuid_csv <- paste0(
+    "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-",
+    "[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\.csv$"
+  )
+  if (!startsWith(resolved, prefix) ||
+      !grepl(uuid_csv, basename(resolved))) {
+    stop("Exchange path does not match a NASQAR2 exchange CSV.",
+         call. = FALSE)
   }
 
   info <- file.info(resolved)
@@ -172,6 +175,87 @@ validate_exchange_path <- function(path) {
     stop("Exchange file is invalid or too large.", call. = FALSE)
   }
   resolved
+}
+
+publication_downloads <- function(id) {
+    shiny::tags$div(
+        class = "publication-downloads",
+        shiny::tags$span(class = "publication-downloads__label", "Download figure"),
+        shiny::downloadButton(
+            paste0(id, "_png"), "PNG (300 DPI)",
+            class = "btn btn-default btn-sm"
+        ),
+        shiny::downloadButton(
+            paste0(id, "_pdf"), "PDF",
+            class = "btn btn-default btn-sm"
+        ),
+        shiny::downloadButton(
+            paste0(id, "_svg"), "SVG",
+            class = "btn btn-default btn-sm"
+        )
+    )
+}
+
+draw_publication_plot <- function(plot_function) {
+    plot_object <- plot_function()
+    if (inherits(plot_object, c("gg", "ggplot", "grob", "gTree", "gtable"))) {
+        print(plot_object)
+    }
+    invisible(plot_object)
+}
+
+register_publication_downloads <- function(
+    output,
+    id,
+    filename,
+    plot_function,
+    width = 8,
+    height = 6
+) {
+    formats <- list(
+        png = list(
+            extension = "png",
+            content_type = "image/png",
+            open = function(file) {
+                grDevices::png(
+                    file,
+                    width = width,
+                    height = height,
+                    units = "in",
+                    res = 300,
+                    type = if (capabilities("cairo")) "cairo" else getOption("bitmapType")
+                )
+            }
+        ),
+        pdf = list(
+            extension = "pdf",
+            content_type = "application/pdf",
+            open = function(file) {
+                grDevices::pdf(file, width = width, height = height, useDingbats = FALSE)
+            }
+        ),
+        svg = list(
+            extension = "svg",
+            content_type = "image/svg+xml",
+            open = function(file) grDevices::svg(file, width = width, height = height)
+        )
+    )
+    for (format in names(formats)) {
+        config <- formats[[format]]
+        local({
+            local_format <- format
+            local_config <- config
+            output[[paste0(id, "_", local_format)]] <- shiny::downloadHandler(
+                filename = function() paste0(filename(), ".", local_config$extension),
+                contentType = local_config$content_type,
+                content = function(file) {
+                    local_config$open(file)
+                    on.exit(grDevices::dev.off(), add = TRUE)
+                    draw_publication_plot(plot_function)
+                }
+            )
+        })
+    }
 }
 
 snapshot_saved_results <- function(file_list) {

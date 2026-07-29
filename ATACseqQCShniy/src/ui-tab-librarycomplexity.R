@@ -4,15 +4,16 @@ tabItem(
     tabName = "librarycomplexity_tab",
     fluidRow(
         column(
-            4,wellPanel(
-            selectInput("sample_librarycomplexity", "Salect Sample File", choices = NULL, selected = NULL))
+            3,wellPanel(
+            selectInput("sample_librarycomplexity", "Select Sample File", choices = NULL, selected = NULL))
         ),
         column(
-            7,
-            wellPanel(
-            h5("Assessing sequencing depth and library complexity"),
-            withSpinner(plotOutput("plot_libcomplexity")),
-            h5("BAM files without removing duplicates are expected for estimating library complexity!")
+            9,
+            analysis_panel(
+            "Library complexity",
+            "Estimated sequencing-library complexity. Use a BAM file that retains duplicate reads.",
+            withSpinner(plotOutput("plot_libcomplexity", height = "560px")),
+            publication_downloads("download_library_complexity")
             )
       
             # actionButton("run_deseq2", "Run DESeq2",

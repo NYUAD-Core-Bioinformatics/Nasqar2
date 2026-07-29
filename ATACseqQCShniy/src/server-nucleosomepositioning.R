@@ -14,6 +14,8 @@ dir.create(atac_cache_root, recursive = TRUE, showWarnings = FALSE)
 core_done <- reactiveVal(FALSE)
 nucleosome_done <- reactiveVal(FALSE)
 footprint_done <- reactiveVal(FALSE)
+nucleosome_result <- reactiveVal(NULL)
+footprint_result <- reactiveVal(NULL)
 
 output$task_done <- reactive(core_done())
 output$nucleosome_task_done <- reactive(nucleosome_done())
@@ -21,6 +23,17 @@ output$footprint_task_done <- reactive(footprint_done())
 outputOptions(output, "task_done", suspendWhenHidden = FALSE)
 outputOptions(output, "nucleosome_task_done", suspendWhenHidden = FALSE)
 outputOptions(output, "footprint_task_done", suspendWhenHidden = FALSE)
+
+observe({
+    if (isTRUE(core_done())) {
+        shinyjs::show(selector = "a[data-value=\"nucleosomeprofiles_tab\"]")
+        shinyjs::show(selector = "a[data-value=\"footprinting_tab\"]")
+        js$addStatusIcon("nucleosomeprofiles_tab", "next")
+    } else {
+        shinyjs::hide(selector = "a[data-value=\"nucleosomeprofiles_tab\"]")
+        shinyjs::hide(selector = "a[data-value=\"footprinting_tab\"]")
+    }
+})
 
 observeEvent(
     list(
@@ -32,12 +45,15 @@ observeEvent(
         core_done(FALSE)
         nucleosome_done(FALSE)
         footprint_done(FALSE)
+        nucleosome_result(NULL)
+        footprint_result(NULL)
     },
     ignoreInit = TRUE
 )
 
 observeEvent(input$motif_value, {
     footprint_done(FALSE)
+    footprint_result(NULL)
 }, ignoreInit = TRUE)
 
 available_workers <- function(limit) {
@@ -250,13 +266,14 @@ inputDataReactive <- eventReactive(input$run_qc, {
     )
 }, ignoreInit = TRUE)
 
-nucleosomeDataReactive <- eventReactive(input$run_nucleosome_plots, {
+calculateNucleosomeData <- function() {
     core <- inputDataReactive()
     req(core)
 
     shinyjs::disable("run_nucleosome_plots")
     on.exit(shinyjs::enable("run_nucleosome_plots"), add = TRUE)
     nucleosome_done(FALSE)
+    js$addStatusIcon("nucleosomeprofiles_tab", "loading")
 
     withProgress(
         message = "Calculating nucleosome distributions",
@@ -279,6 +296,7 @@ nucleosomeDataReactive <- eventReactive(input$run_nucleosome_plots, {
                 incProgress(1, detail = "Loaded cached result")
                 cached <- readRDS(cache_file)
                 nucleosome_done(TRUE)
+                js$addStatusIcon("nucleosomeprofiles_tab", "done")
                 return(cached)
             }
 
@@ -352,18 +370,20 @@ nucleosomeDataReactive <- eventReactive(input$run_nucleosome_plots, {
             incProgress(0.15, detail = "Saving reusable result")
             write_cache(result, cache_file)
             nucleosome_done(TRUE)
+            js$addStatusIcon("nucleosomeprofiles_tab", "done")
             result
         }
     )
-}, ignoreInit = TRUE)
+}
 
-footprintDataReactive <- eventReactive(input$run_footprint_plots, {
+calculateFootprintData <- function() {
     core <- inputDataReactive()
     req(core, input$motif_value)
 
     shinyjs::disable("run_footprint_plots")
     on.exit(shinyjs::enable("run_footprint_plots"), add = TRUE)
     footprint_done(FALSE)
+    js$addStatusIcon("footprinting_tab", "loading")
 
     withProgress(
         message = "Calculating motif footprinting",
@@ -377,8 +397,8 @@ footprintDataReactive <- eventReactive(input$run_footprint_plots, {
             footprint_dir <- file.path(core$cache_dir, motif_key)
             dir.create(footprint_dir, recursive = TRUE, showWarnings = FALSE)
             cache_file <- file.path(footprint_dir, "footprint.rds")
-            footprint_png <- file.path(footprint_dir, "footprint.png")
-            vplot_png <- file.path(footprint_dir, "vplot.png")
+            footprint_png <- file.path(footprint_dir, "footprint-300dpi.png")
+            vplot_png <- file.path(footprint_dir, "vplot-300dpi.png")
             if (
                 file.exists(cache_file) &&
                 file.exists(footprint_png) &&
@@ -387,6 +407,7 @@ footprintDataReactive <- eventReactive(input$run_footprint_plots, {
                 incProgress(1, detail = "Loaded cached result")
                 cached <- readRDS(cache_file)
                 footprint_done(TRUE)
+                js$addStatusIcon("footprinting_tab", "done")
                 return(cached)
             }
 
@@ -396,7 +417,7 @@ footprintDataReactive <- eventReactive(input$run_footprint_plots, {
             genome <- get(genome_name)
 
             incProgress(0.2, detail = "Calculating footprint profile")
-            grDevices::png(footprint_png, width = 1200, height = 800, res = 120)
+            grDevices::png(footprint_png, width = 3000, height = 2000, res = 300)
             footprint_signals <- tryCatch(
                 factorFootprints(
                     core$shifted_bam,
@@ -411,7 +432,7 @@ footprintDataReactive <- eventReactive(input$run_footprint_plots, {
             )
 
             incProgress(0.45, detail = "Calculating fragment V-plot")
-            grDevices::png(vplot_png, width = 1200, height = 800, res = 120)
+            grDevices::png(vplot_png, width = 3000, height = 2000, res = 300)
             vplot <- tryCatch(
                 vPlot(
                     core$shifted_bam,
@@ -435,17 +456,33 @@ footprintDataReactive <- eventReactive(input$run_footprint_plots, {
             incProgress(0.25, detail = "Saving reusable result")
             write_cache(result, cache_file)
             footprint_done(TRUE)
+            js$addStatusIcon("footprinting_tab", "done")
             result
         }
     )
-}, ignoreInit = TRUE)
+}
+
+nucleosomeDataReactive <- reactive({
+    req(nucleosome_result())
+    nucleosome_result()
+})
+
+footprintDataReactive <- reactive({
+    req(footprint_result())
+    footprint_result()
+})
 
 observeEvent(input$run_nucleosome_plots, {
     tryCatch(
-        nucleosomeDataReactive(),
+        nucleosome_result(calculateNucleosomeData()),
         error = function(error) {
+            js$addStatusIcon("nucleosomeprofiles_tab", "fail")
+            message <- conditionMessage(error)
+            if (!nzchar(message)) {
+                message <- "Run core QC before starting nucleosome analysis."
+            }
             showNotification(
-                paste("Nucleosome analysis failed:", conditionMessage(error)),
+                paste("Nucleosome analysis failed:", message),
                 type = "error",
                 duration = NULL
             )
@@ -455,10 +492,15 @@ observeEvent(input$run_nucleosome_plots, {
 
 observeEvent(input$run_footprint_plots, {
     tryCatch(
-        footprintDataReactive(),
+        footprint_result(calculateFootprintData()),
         error = function(error) {
+            js$addStatusIcon("footprinting_tab", "fail")
+            message <- conditionMessage(error)
+            if (!nzchar(message)) {
+                message <- "Run core QC and enter a motif before footprint analysis."
+            }
             showNotification(
-                paste("Footprint analysis failed:", conditionMessage(error)),
+                paste("Footprint analysis failed:", message),
                 type = "error",
                 duration = NULL
             )
@@ -471,7 +513,25 @@ output$empty_txt_output <- renderText({
     ""
 })
 
-output$plot_pt_score <- renderPlot({
+output$nucleosome_context <- renderText({
+    core <- inputDataReactive()
+    paste(
+        tools::file_path_sans_ext(basename(core$bamfile)),
+        "on",
+        core$chromosome
+    )
+})
+
+output$footprint_context <- renderText({
+    core <- inputDataReactive()
+    paste(
+        tools::file_path_sans_ext(basename(core$bamfile)),
+        "on",
+        core$chromosome
+    )
+})
+
+pt_score_plot <- reactive({
     pt <- inputDataReactive()$pt
     plot(
         pt$log2meanCoverage,
@@ -481,7 +541,7 @@ output$plot_pt_score <- renderPlot({
     )
 })
 
-output$plot_nfr_score <- renderPlot({
+nfr_score_plot <- reactive({
     nfr <- inputDataReactive()$nfr
     plot(
         nfr$log2meanCoverage,
@@ -494,7 +554,7 @@ output$plot_nfr_score <- renderPlot({
     )
 })
 
-output$plot_tssre_score <- renderPlot({
+tss_enrichment_plot <- reactive({
     tsse <- inputDataReactive()$tsse
     plot(
         100 * (-9:10 - 0.5),
@@ -505,7 +565,7 @@ output$plot_tssre_score <- renderPlot({
     )
 })
 
-output$plotCumulativePercentage <- renderPlot({
+cumulative_percentage_plot <- reactive({
     core <- inputDataReactive()
     nucleosome <- nucleosomeDataReactive()
     cumulativePercentage(
@@ -514,7 +574,7 @@ output$plotCumulativePercentage <- renderPlot({
     )
 })
 
-output$plot_tss_featureAlignedHeatmap <- renderPlot({
+tss_heatmap_plot <- reactive({
     nucleosome <- nucleosomeDataReactive()
     featureAlignedHeatmap(
         nucleosome$log2_signals,
@@ -524,7 +584,7 @@ output$plot_tss_featureAlignedHeatmap <- renderPlot({
     )
 })
 
-output$plot_signals <- renderPlot({
+nucleosome_signal_plot <- reactive({
     distribution <- nucleosomeDataReactive()$distribution
     matplot(
         distribution,
@@ -542,6 +602,38 @@ output$plot_signals <- renderPlot({
     abline(v = seq(0, 100, by = 10) + 1, lty = 2, col = "gray")
 })
 
+output$plot_pt_score <- renderPlot(pt_score_plot())
+output$plot_nfr_score <- renderPlot(nfr_score_plot())
+output$plot_tssre_score <- renderPlot(tss_enrichment_plot())
+output$plotCumulativePercentage <- renderPlot(cumulative_percentage_plot())
+output$plot_tss_featureAlignedHeatmap <- renderPlot(tss_heatmap_plot())
+output$plot_signals <- renderPlot(nucleosome_signal_plot())
+
+register_publication_downloads(
+    output, "download_pt_score", function() "atacseq-promoter-transcript-score",
+    pt_score_plot, width = 6.5, height = 5.5
+)
+register_publication_downloads(
+    output, "download_nfr_score", function() "atacseq-nucleosome-free-region-score",
+    nfr_score_plot, width = 6.5, height = 5.5
+)
+register_publication_downloads(
+    output, "download_tss_enrichment", function() "atacseq-tss-enrichment",
+    tss_enrichment_plot, width = 6.5, height = 5.5
+)
+register_publication_downloads(
+    output, "download_cumulative_tags", function() "atacseq-cumulative-tag-allocation",
+    cumulative_percentage_plot, width = 7, height = 5.5
+)
+register_publication_downloads(
+    output, "download_tss_heatmap", function() "atacseq-tss-aligned-heatmap",
+    tss_heatmap_plot, width = 10, height = 6
+)
+register_publication_downloads(
+    output, "download_nucleosome_signals", function() "atacseq-nucleosome-signals",
+    nucleosome_signal_plot, width = 10, height = 5.5
+)
+
 output$plot_Footprints <- renderImage({
     result <- footprintDataReactive()
     list(
@@ -551,7 +643,7 @@ output$plot_Footprints <- renderImage({
     )
 }, deleteFile = FALSE)
 
-output$plot_binding_sites_featureAlignedHeatmap <- renderPlot({
+binding_site_heatmap_plot <- reactive({
     signals <- footprintDataReactive()$signals
     featureAlignedHeatmap(
         signals$signal,
@@ -565,6 +657,12 @@ output$plot_binding_sites_featureAlignedHeatmap <- renderPlot({
     )
 })
 
+output$plot_binding_sites_featureAlignedHeatmap <- renderPlot(binding_site_heatmap_plot())
+register_publication_downloads(
+    output, "download_binding_heatmap", function() "atacseq-binding-site-heatmap",
+    binding_site_heatmap_plot, width = 8, height = 7
+)
+
 output$plot_vp <- renderImage({
     result <- footprintDataReactive()
     list(
@@ -574,9 +672,47 @@ output$plot_vp <- renderImage({
     )
 }, deleteFile = FALSE)
 
-output$plot_distanceDyad <- renderPlot({
-    distanceDyad(footprintDataReactive()$vplot, pch = 20, cex = 0.5)
+dyadEstimateReactive <- reactive({
+    with_null_device(
+        distanceDyad(
+            footprintDataReactive()$vplot,
+            pch = 20,
+            cex = 0.5
+        )
+    )
 })
+
+output$dyad_available <- reactive({
+    any(!is.na(dyadEstimateReactive()))
+})
+outputOptions(output, "dyad_available", suspendWhenHidden = FALSE)
+
+dyad_distance_plot <- reactive({
+    validate(need(
+        any(!is.na(dyadEstimateReactive())),
+        "No nucleosome dyad position is available."
+    ))
+    distanceDyad(
+        footprintDataReactive()$vplot,
+        pch = 20,
+        cex = 0.5
+    )
+})
+
+output$plot_distanceDyad <- renderPlot(dyad_distance_plot())
+register_publication_downloads(
+    output, "download_dyad_distance", function() "atacseq-nucleosome-dyad-distance",
+    dyad_distance_plot, width = 8, height = 5.5
+)
+
+register_publication_png(
+    output, "download_footprint", function() "atacseq-factor-footprint",
+    function() footprintDataReactive()$footprint_png
+)
+register_publication_png(
+    output, "download_vplot", function() "atacseq-fragment-vplot",
+    function() footprintDataReactive()$vplot_png
+)
 
 output$bamfilesTable <- renderDataTable(
     {

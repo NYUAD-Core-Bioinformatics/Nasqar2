@@ -25,6 +25,7 @@ dada2_projects="${NASQAR2_DADA2_PROJECTS:-$SCRATCH/nasqar2/projects/DADA2}"
 seurat_projects="${NASQAR2_SEURAT_PROJECTS:-$SCRATCH/nasqar2/projects/SeuratV5}"
 monocle3_projects="${NASQAR2_MONOCLE3_PROJECTS:-$SCRATCH/nasqar2/projects/Monocle3}"
 node_tmp="${SLURM_TMPDIR:-/tmp/$USER/nasqar2-$SLURM_JOB_ID}"
+exchange_dir="$runtime_dir/exchange"
 
 if [[ ! -f "$sif" ]]; then
     echo "NASQAR2 image not found: $sif" >&2
@@ -40,14 +41,16 @@ if [[ ! -d "$data_root" ]]; then
 fi
 
 mkdir -p "$runtime_dir/R/library" "$r_library" "$atac_cache" "$deseq2_states" \
-    "$dada2_projects" "$seurat_projects" "$monocle3_projects" "$node_tmp/DADA2"
+    "$dada2_projects" "$seurat_projects" "$monocle3_projects" \
+    "$node_tmp/DADA2" "$exchange_dir"
 chmod 700 "$r_library" "$atac_cache" "$deseq2_states" \
-    "$dada2_projects" "$seurat_projects" "$monocle3_projects"
+    "$dada2_projects" "$seurat_projects" "$monocle3_projects" "$exchange_dir"
 
 singularity exec --cleanenv \
     --env "SLURM_JOB_ID=$SLURM_JOB_ID" \
     --env "SLURM_CPUS_PER_TASK=$SLURM_CPUS_PER_TASK" \
     --env "NASQAR_DATA_ROOT=$data_root" \
+    --env "NASQAR_EXCHANGE_DIR=/runtime/exchange" \
     --env "NASQAR_ATAC_CACHE_DIR=/runtime/cache/ATACseqQC" \
     --env "NASQAR_DESEQ2_STATE_DIR=/runtime/states/DESeq2Shiny" \
     --env "NASQAR_DADA2_PROJECT_DIR=/runtime/projects/DADA2" \

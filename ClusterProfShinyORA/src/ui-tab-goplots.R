@@ -4,101 +4,107 @@ tabItem(
     uiOutput("goPlots_selectionBanner"),
     fluidRow(
         column(
-            3,
+            4,
             wellPanel(
-                numericInput("showCategory_go_global", "Number of categories to show", value = 5, min = 1),
-                tags$small(class = "text-muted", "Disabled when terms are selected in the enrichGO tab.")
+                numericInput(
+                    "showCategory_go_global",
+                    "Number of categories to show",
+                    value = 5,
+                    min = 1
+                ),
+                tags$small(
+                    class = "text-muted",
+                    "Disabled when terms are selected in the enrichGO table."
+                )
             )
         )
     ),
-    tags$div(
-        box(
-            title = "UpSet Plot (Interactive)", solidHeader = T, status = "danger", width = 12, collapsible = T,
-            fluidRow(
-                column(
-                    12,
-                    wellPanel(
-                        plotly::plotlyOutput("genesInGoTerm", width = "100%", height = "500px"),
-                        uiOutput("go_clicked_genes_inline"),
-                        tags$hr(),
-                        h4(strong("Gene Membership")),
-                        dataTableOutput("genesGoMembershipTable")
-                    )
-                )
-            )
+    fluidRow(
+        class = "analysis-plot-row",
+        analysis_plot_panel(
+            "Interactive gene membership",
+            "Intersection sizes and member genes for the displayed GO terms.",
+            plotly::plotlyOutput(
+                "genesInGoTerm",
+                width = "100%",
+                height = "520px"
+            ),
+            uiOutput("go_clicked_genes_inline"),
+            tags$hr(),
+            h4(strong("Gene membership")),
+            dataTableOutput("genesGoMembershipTable")
+        )
+    ),
+    fluidRow(
+        class = "analysis-plot-row",
+        analysis_plot_panel(
+            "Bar plot",
+            "Enriched GO terms ranked by the selected significance measure.",
+            withSpinner(
+                plotOutput("barPlot", height = "420px"),
+                type = 8
+            ),
+            plot_dl_buttons("barPlot"),
+            width = 6
         ),
-        box(
-            title = "Bar Plot", solidHeader = T, status = "danger", width = 12, collapsible = T,
-            fluidRow(
-                column(12, wellPanel(
-                    withSpinner(plotOutput(outputId = "barPlot"), type = 8),
-                    plot_dl_buttons("barPlot")
-                ))
-            )
+        analysis_plot_panel(
+            "Dot plot",
+            "GO term enrichment, gene ratio, and significance in a compact comparison.",
+            withSpinner(
+                plotOutput("dotPlot", height = "420px"),
+                type = 8
+            ),
+            plot_dl_buttons("dotPlot"),
+            width = 6
+        )
+    ),
+    fluidRow(
+        class = "analysis-plot-row",
+        analysis_plot_panel(
+            "Enrichment map",
+            "Similarity network connecting GO terms with overlapping gene sets.",
+            plotOutput("enrichPlotMap", height = "620px"),
+            plot_dl_buttons("enrichPlotMap")
         ),
-        box(
-            title = "Dot Plot", solidHeader = T, status = "danger", width = 12, collapsible = T,
-            fluidRow(
-                column(12, wellPanel(
-                    withSpinner(plotOutput(outputId = "dotPlot"), type = 8),
-                    plot_dl_buttons("dotPlot")
-                ))
-            )
+        analysis_plot_panel(
+            "GO induced graph",
+            "Ontology graph showing relationships among selected enriched terms.",
+            plotOutput("goInducedGraph", height = "620px"),
+            plot_dl_buttons("goInducedGraph")
         ),
-        box(
-            title = "Enrichment Plot Map", solidHeader = T, status = "danger", width = 12, collapsible = T,
-            fluidRow(
-                column(12, wellPanel(
-                    plotOutput(outputId = "enrichPlotMap"),
-                    plot_dl_buttons("enrichPlotMap")
-                ))
-            )
+        analysis_plot_panel(
+            "Category-gene network",
+            "Network linking enriched GO terms to the genes contributing to each term.",
+            plotOutput("cnetplot", width = "100%", height = "620px"),
+            plot_dl_buttons("cnetplot")
+        )
+    ),
+    fluidRow(
+        class = "analysis-plot-row",
+        analysis_plot_panel(
+            "GO term tree",
+            "Hierarchical clustering of enriched GO terms by semantic similarity.",
+            numericInput(
+                "nCluster_tree",
+                "Number of clusters",
+                value = 5,
+                min = 2,
+                max = 20
+            ),
+            withSpinner(
+                plotOutput("treePlot", height = "620px"),
+                type = 8
+            ),
+            plot_dl_buttons("treePlot")
         ),
-        box(
-            title = "Category Netplot", solidHeader = T, status = "danger", width = 12, collapsible = T,
-            fluidRow(
-                column(12, wellPanel(
-                    plotOutput(outputId = "goInducedGraph"),
-                    plot_dl_buttons("goInducedGraph")
-                ))
-            )
-        ),
-        box(
-            title = "Enriched GO induced graph (cnetplot)", solidHeader = T, status = "danger", width = 12, collapsible = T,
-            fluidRow(
-                column(12, wellPanel(
-                    plotOutput(outputId = "cnetplot", width = "100%", height = "400px"),
-                    plot_dl_buttons("cnetplot")
-                ))
-            )
-        ),
-        box(
-            title = "Tree Plot (hierarchical clustering of GO terms)", solidHeader = T, status = "danger", width = 12, collapsible = T,
-            fluidRow(
-                column(
-                    3,
-                    wellPanel(
-                        numericInput("nCluster_tree", "Number of clusters", value = 5, min = 2, max = 20)
-                    )
-                ),
-                column(
-                    9,
-                    wellPanel(
-                        withSpinner(plotOutput(outputId = "treePlot", height = "500px"), type = 8),
-                        plot_dl_buttons("treePlot")
-                    )
-                )
-            )
-        ),
-        box(
-            title = "Heat Plot (gene-term associations)", solidHeader = T, status = "danger", width = 12, collapsible = T,
-            fluidRow(
-                column(12, wellPanel(
-                    withSpinner(plotOutput(outputId = "heatPlot", height = "400px"), type = 8),
-                    plot_dl_buttons("heatPlot")
-                ))
-            )
-        ),
-        style = "display:table;"
+        analysis_plot_panel(
+            "Gene-term heat plot",
+            "Gene-level fold changes across the selected enriched GO terms.",
+            withSpinner(
+                plotOutput("heatPlot", height = "520px"),
+                type = 8
+            ),
+            plot_dl_buttons("heatPlot")
+        )
     )
 )

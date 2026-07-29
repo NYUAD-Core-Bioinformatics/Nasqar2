@@ -64,7 +64,16 @@ tabItem(
             conditionalPanel(condition = "output.dada2object_ready === true",
             box(
                 title = "Fragments Summary Table", solidHeader = TRUE, status = "primary", width = 12, collapsible = TRUE, collapsed = FALSE,
-                withSpinner(dataTableOutput("filterAndTrim_output_table"))
+                withSpinner(dataTableOutput("filterAndTrim_output_table")),
+                tags$div(
+                    style = "margin-top: 12px; text-align: right;",
+                    downloadButton(
+                        "download_fragments_summary",
+                        "Download summary (CSV)",
+                        icon = icon("download"),
+                        class = "btn btn-primary"
+                    )
+                )
             ))
         )
     )

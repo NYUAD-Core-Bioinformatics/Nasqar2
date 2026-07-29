@@ -7,6 +7,64 @@ library(uuid)
 library(readr)
 library(tximport)
 
+merge_count_frames <- function(frames) {
+    if (!is.list(frames) || length(frames) == 0L) {
+        stop("At least one count table is required.", call. = FALSE)
+    }
+
+    frames <- lapply(seq_along(frames), function(index) {
+        frame <- as.data.frame(frames[[index]], check.names = FALSE)
+        if (!"gene.ids" %in% names(frame)) {
+            stop(sprintf("Count table %d has no gene.ids column.", index),
+                 call. = FALSE)
+        }
+        identifiers <- trimws(as.character(frame$gene.ids))
+        if (anyNA(identifiers) || any(!nzchar(identifiers))) {
+            stop(sprintf("Count table %d contains an empty gene identifier.",
+                         index),
+                 call. = FALSE)
+        }
+        duplicated_ids <- unique(identifiers[duplicated(identifiers)])
+        if (length(duplicated_ids) > 0L) {
+            stop(
+                sprintf(
+                    "Count table %d contains duplicate gene identifiers: %s",
+                    index,
+                    paste(utils::head(duplicated_ids, 5L), collapse = ", ")
+                ),
+                call. = FALSE
+            )
+        }
+        frame$gene.ids <- identifiers
+        frame
+    })
+
+    sample_names <- unlist(lapply(frames, function(frame) {
+        setdiff(names(frame), "gene.ids")
+    }), use.names = FALSE)
+    duplicated_samples <- unique(sample_names[duplicated(sample_names)])
+    if (length(duplicated_samples) > 0L) {
+        stop(
+            sprintf(
+                "Sample column names must be unique across files: %s",
+                paste(duplicated_samples, collapse = ", ")
+            ),
+            call. = FALSE
+        )
+    }
+
+    merged <- Reduce(
+        function(left, right) {
+            merge(left, right, by = "gene.ids", all = TRUE, sort = FALSE)
+        },
+        frames
+    )
+    count_columns <- setdiff(names(merged), "gene.ids")
+    for (column in count_columns) {
+        merged[[column]][is.na(merged[[column]])] <- 0
+    }
+    merged[order(merged$gene.ids), , drop = FALSE]
+}
 
 
 ui <- tagList(
@@ -707,11 +765,22 @@ server <- function(input, output, session) {
         )
     }
 
+    nasqarExchangeDir <- function() {
+        configured <- Sys.getenv("NASQAR_EXCHANGE_DIR", unset = "")
+        path <- if (nzchar(configured)) {
+            configured
+        } else {
+            file.path(dirname(tempdir(check = TRUE)), "nasqar_exchange")
+        }
+        dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
+        normalizePath(path, mustWork = TRUE)
+    }
+
     output$tab <- renderUI({
         if (is.null(myValues$fileUrl)) return(NULL)
         if (is.null(myValues$startAppFileUrl)) return(NULL)
         analysisCard <- tags$div(
-            class = "BoxArea3",
+            class = "BoxArea3 analysis-handoff-card",
             style = "text-align: center;",
             p(strong("Bulk RNA")),
             div(
@@ -961,8 +1030,10 @@ server <- function(input, output, session) {
                 }
 
 
-                myValues$fileUrl <- UUIDgenerate()
-                myValues$fileUrl <- paste0(tempdir(), "/", myValues$fileUrl, ".csv")
+                myValues$fileUrl <- file.path(
+                    nasqarExchangeDir(),
+                    paste0(UUIDgenerate(), ".csv")
+                )
 
                 updateTabsetPanel(session, "tabs", selected = "Output")
 
@@ -1039,9 +1110,13 @@ server <- function(input, output, session) {
         req(!is.null(myValues$startHandoffReady))
         if (!isTRUE(myValues$startHandoffReady)) {
             return(tags$span(
-                class = "btn btn-default disabled",
-                style = "width: 100%;",
-                "START unavailable: rename samples as GROUP_REPLICATE"
+                class = paste(
+                    "btn btn-default disabled",
+                    "analysis-handoff-button"
+                ),
+                role = "button",
+                `aria-disabled` = "true",
+                "START unavailable"
             ))
         }
         handoffLink(
@@ -1059,7 +1134,8 @@ server <- function(input, output, session) {
 
         useHeader <- isTRUE(input$hasHeader)
 
-        datalist <- lapply(filenames, function(x) {
+        datalist <- lapply(seq_along(filenames), function(file_index) {
+            x <- filenames[[file_index]]
             fileContent <- read.csv(file = x, header = useHeader, sep = sep)
 
             n <- ncol(fileContent)
@@ -1079,7 +1155,13 @@ server <- function(input, output, session) {
             }
 
             colnames(fileContent)[1] <- "gene.ids"
-            fileContent <- fileContent[!grepl("__", fileContent[, 1]), ] # remove rows containing underscores
+            if (!isMultiple) {
+                colnames(fileContent)[2] <- tools::file_path_sans_ext(
+                    inFiles$name[[file_index]]
+                )
+            }
+            # HTSeq summary records are named __no_feature, __ambiguous, etc.
+            fileContent <- fileContent[!grepl("^__", fileContent[, 1]), ]
 
             # Sort by gene_id incase they are not sorted
             fileContent <- fileContent[order(fileContent[, 1]), ]
@@ -1087,19 +1169,8 @@ server <- function(input, output, session) {
             fileContent
         })
 
-        reduced <- Reduce(function(x, y) {
-            merge(x, y, by = "gene.ids")
-        }, datalist)
+        reduced <- merge_count_frames(datalist)
 
-
-
-        if (!isMultiple) {
-            samplenames <- unlist(lapply(inFiles$name, function(x) {
-                tools::file_path_sans_ext(x)
-            }))
-
-            colnames(reduced) <- c("gene.ids", samplenames)
-        }
 
 
         return(reduced)

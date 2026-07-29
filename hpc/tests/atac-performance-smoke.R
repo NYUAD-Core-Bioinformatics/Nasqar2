@@ -15,6 +15,14 @@ elapsed <- function(expression) {
     list(value = value, seconds = unname(timing[["elapsed"]]))
 }
 
+requested_workers <- suppressWarnings(as.integer(
+    Sys.getenv("SLURM_CPUS_PER_TASK", unset = "1")
+))
+if (is.na(requested_workers) || requested_workers < 1L) {
+    requested_workers <- 1L
+}
+expected_score_workers <- min(3L, requested_workers)
+
 shiny::testServer(server, {
     session$setInputs(data_file_type = "example_bam_file")
     samples <- input_files_reactive()
@@ -40,7 +48,7 @@ shiny::testServer(server, {
         core_done(),
         !nucleosome_done(),
         !footprint_done(),
-        identical(core_first$score_workers, 3L),
+        identical(core_first$score_workers, expected_score_workers),
         file.exists(core_first$shifted_bam),
         file.exists(paste0(core_first$shifted_bam, ".bai")),
         !is.null(core_first$pt),
@@ -87,7 +95,8 @@ shiny::testServer(server, {
         stopifnot(
             footprint_done(),
             file.exists(footprint$footprint_png),
-            file.exists(footprint$vplot_png)
+            file.exists(footprint$vplot_png),
+            !any(!is.na(dyadEstimateReactive()))
         )
         cat(sprintf(
             "FOOTPRINT elapsed=%.3fs\n",

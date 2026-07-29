@@ -1,107 +1,113 @@
 tabItem(
     tabName = "goplotsTab",
-    h2(strong("GO Plots")),
+    h2(strong("GO GSEA Plots")),
     uiOutput("goPlots_selectionBanner"),
     fluidRow(
         column(
-            3,
+            4,
             wellPanel(
-                numericInput("showCategory_go_global", "Number of categories to show", value = 5, min = 1),
-                tags$small(class = "text-muted", "Disabled when terms are selected in the gseGO tab.")
+                numericInput(
+                    "showCategory_go_global",
+                    "Number of gene sets to show",
+                    value = 5,
+                    min = 1
+                ),
+                tags$small(
+                    class = "text-muted",
+                    "Disabled when terms are selected in the gseGO table."
+                )
             )
         )
     ),
-    tags$div(
-        box(
-            title = "UpSet Plot (Interactive)", solidHeader = T, status = "danger", width = 12, collapsible = T,
-            fluidRow(
-                column(
-                    12,
-                    wellPanel(
-                        plotly::plotlyOutput("genesInGoTerm", width = "100%", height = "500px"),
-                        uiOutput("go_clicked_genes_inline"),
-                        tags$hr(),
-                        h4(strong("Gene Membership")),
-                        dataTableOutput("genesGoMembershipTable")
-                    )
-                )
-            )
+    fluidRow(
+        class = "analysis-plot-row",
+        analysis_plot_panel(
+            "Interactive gene membership",
+            "Intersection sizes and member genes for the displayed GO gene sets.",
+            plotly::plotlyOutput(
+                "genesInGoTerm",
+                width = "100%",
+                height = "520px"
+            ),
+            uiOutput("go_clicked_genes_inline"),
+            tags$hr(),
+            h4(strong("Gene membership")),
+            dataTableOutput("genesGoMembershipTable")
+        )
+    ),
+    fluidRow(
+        class = "analysis-plot-row",
+        analysis_plot_panel(
+            "Dot plot",
+            "Normalized enrichment scores and significance for GO gene sets.",
+            withSpinner(
+                plotOutput("dotPlot", height = "440px"),
+                type = 8
+            ),
+            plot_dl_buttons("dotPlot"),
+            width = 6
         ),
-        box(
-            title = "Dot Plot", solidHeader = T, status = "danger", width = 12, collapsible = T, id = "dotplot",
-            fluidRow(
-                column(12, wellPanel(
-                    withSpinner(plotOutput(outputId = "dotPlot"), type = 8),
-                    plot_dl_buttons("dotPlot")
-                ))
-            )
+        analysis_plot_panel(
+            "Ridge plot",
+            "Distribution of ranked gene statistics across enriched GO gene sets.",
+            withSpinner(
+                plotOutput("ridgePlot", height = "440px"),
+                type = 8
+            ),
+            plot_dl_buttons("ridgePlot"),
+            width = 6
+        )
+    ),
+    fluidRow(
+        class = "analysis-plot-row",
+        analysis_plot_panel(
+            "Enrichment map",
+            "Similarity network connecting GO gene sets with shared members.",
+            plotOutput("gsePlotMap", height = "620px"),
+            plot_dl_buttons("gsePlotMap")
         ),
-        box(
-            title = "Enrichment Plot Map", solidHeader = T, status = "danger", width = 12, collapsible = T, id = "gsePlotMap",
-            fluidRow(
-                column(12, wellPanel(
-                    plotOutput(outputId = "gsePlotMap"),
-                    plot_dl_buttons("gsePlotMap")
-                ))
-            )
+        analysis_plot_panel(
+            "Category-gene network",
+            "Network linking enriched GO gene sets to their leading-edge genes.",
+            plotOutput("cnetplot", height = "620px"),
+            plot_dl_buttons("cnetplot")
         ),
-        box(
-            title = "Category Netplot", solidHeader = T, status = "danger", width = 12, collapsible = T, id = "cnetplot",
-            fluidRow(
-                column(12, wellPanel(
-                    plotOutput(outputId = "cnetplot"),
-                    plot_dl_buttons("cnetplot")
-                ))
-            )
+        analysis_plot_panel(
+            "GO term tree",
+            "Hierarchical clustering of enriched GO gene sets.",
+            numericInput(
+                "nCluster_tree",
+                "Number of clusters",
+                value = 5,
+                min = 2,
+                max = 20
+            ),
+            withSpinner(
+                plotOutput("treePlot", height = "620px"),
+                type = 8
+            ),
+            plot_dl_buttons("treePlot")
         ),
-        box(
-            title = "Tree Plot (hierarchical clustering of GO terms)", solidHeader = T, status = "danger", width = 12, collapsible = T,
-            fluidRow(
-                column(3, wellPanel(
-                    numericInput("nCluster_tree", "Number of clusters", value = 5, min = 2, max = 20)
-                )),
-                column(9, wellPanel(
-                    withSpinner(plotOutput(outputId = "treePlot", height = "500px"), type = 8),
-                    plot_dl_buttons("treePlot")
-                ))
-            )
+        analysis_plot_panel(
+            "Gene-term heat plot",
+            "Ranked gene statistics across selected enriched GO gene sets.",
+            withSpinner(
+                plotOutput("heatPlot", height = "520px"),
+                type = 8
+            ),
+            plot_dl_buttons("heatPlot")
         ),
-        box(
-            title = "Heat Plot (gene-term associations)", solidHeader = T, status = "danger", width = 12, collapsible = T,
-            fluidRow(
-                column(12, wellPanel(
-                    withSpinner(plotOutput(outputId = "heatPlot", height = "400px"), type = 8),
-                    plot_dl_buttons("heatPlot")
-                ))
-            )
-        ),
-        box(
-            title = "Ridge Plot", solidHeader = T, status = "danger", width = 12, collapsible = T, id = "ridgeplot",
-            fluidRow(
-                column(12, wellPanel(
-                    withSpinner(plotOutput(outputId = "ridgePlot"), type = 8),
-                    plot_dl_buttons("ridgePlot")
-                ))
-            )
-        ),
-        box(
-            title = "GSEA Plot", solidHeader = T, status = "danger", width = 12, collapsible = T, id = "gseaplot",
-            fluidRow(
-                column(
-                    3,
-                    wellPanel(
-                        numericInput("geneSetId_gsea", "Gene Set ID (position in selected terms)", value = 1, min = 1)
-                    )
-                ),
-                column(
-                    9,
-                    wellPanel(
-                        plotOutput(outputId = "gseaplot", width = "100%", height = "400px"),
-                        plot_dl_buttons("gseaplot")
-                    )
-                )
-            )
-        ),
-        style = "display:table;"
+        analysis_plot_panel(
+            "Running enrichment score",
+            "Running-score curve and ranked-list position for the selected GO gene set.",
+            numericInput(
+                "geneSetId_gsea",
+                "Gene-set position",
+                value = 1,
+                min = 1
+            ),
+            plotOutput("gseaplot", width = "100%", height = "520px"),
+            plot_dl_buttons("gseaplot")
+        )
     )
 )

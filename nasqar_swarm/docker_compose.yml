@@ -4,6 +4,10 @@ services:
 
   nasqar:
     image: nyuadcorebio/nasqarall:latest
+    environment:
+      NASQAR_EXCHANGE_DIR: /runtime/exchange
+    volumes:
+      - ${NASQAR_EXCHANGE_HOST_DIR:-/data/nasqar_swarm/exchange}:/runtime/exchange
     networks:
       - net
     deploy:
@@ -64,4 +68,3 @@ services:
 networks:
   net:
     driver: overlay
-

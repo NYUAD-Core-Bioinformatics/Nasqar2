@@ -59,12 +59,18 @@ stopifnot(
 )
 
 exchange_filename <- "550e8400-e29b-41d4-a716-446655440000.csv"
-exchange_path <- file.path(tempdir(), exchange_filename)
+exchange_path <- file.path(
+  nasqar_exchange_dir(create = TRUE),
+  exchange_filename
+)
 write.csv(data.frame(gene = "g1", count = 1L), exchange_path,
           row.names = FALSE)
 stopifnot(identical(validate_exchange_path(exchange_path),
                     normalizePath(exchange_path)))
 expect_error(validate_exchange_path("/etc/passwd"))
+outside_exchange <- file.path(tempdir(), exchange_filename)
+write.csv(data.frame(gene = "g1"), outside_exchange, row.names = FALSE)
+expect_error(validate_exchange_path(outside_exchange))
 
 source_result <- file.path(tempdir(), "source-result.csv")
 write.csv(
