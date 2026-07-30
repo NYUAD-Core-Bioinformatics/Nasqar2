@@ -51,7 +51,8 @@ SHELL ["/bin/bash", "-c"]
 
 RUN source activate merged_env && \
     R -e "install.packages('https://cran.r-project.org/src/contrib/Archive/grr/grr_0.9.5.tar.gz', repos = NULL, type = 'source')" && \
-    R -e "devtools::install_github('cole-trapnell-lab/monocle3@4f4239a0afb0dd1941a0359ba6bec95eb0ccf628', force = TRUE)"
+    R -e "devtools::install_github('cole-trapnell-lab/monocle3@4f4239a0afb0dd1941a0359ba6bec95eb0ccf628', force = TRUE)" && \
+    Rscript -e "required <- c('monocle3', 'SeuratWrappers'); missing <- required[!vapply(required, requireNamespace, logical(1), quietly = TRUE)]; if (length(missing)) stop('Missing required Monocle3 packages: ', paste(missing, collapse = ', '))"
 
 # Clean stale data
 RUN mamba clean -a -y
