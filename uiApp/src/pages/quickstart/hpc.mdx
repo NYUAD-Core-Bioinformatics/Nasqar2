@@ -1,0 +1,134 @@
+## HPC deployment
+
+NASQAR2 can run as an unprivileged Singularity container inside a Slurm
+compute allocation. The deployment starts the portal and all analytical
+services on one compute node, stores writable state outside the read-only
+container image, and reports the SSH tunnel needed to open the portal.
+
+> Run NASQAR2 through `sbatch`. Do not start the service on an HPC login node.
+
+## Resource model
+
+The supplied job requests one task, 16 CPU cores, 32 GB memory, and eight
+hours. Adjust these values in `hpc/slurm/nasqar2.sbatch` for the dataset and
+local scheduling policy.
+
+| Resource | Default |
+| --- | --- |
+| Slurm tasks | 1 |
+| CPU cores | 16 |
+| Memory | 32 GB |
+| Wall time | 8 hours |
+| Portal port | Job-specific value from 20000 to 39999 |
+
+## Build the Singularity image
+
+Build the all-in-one Docker image using the tag referenced by the supplied
+Singularity definition, then create the SIF:
+
+```bash
+docker build -t nasqar2-local:bulk-gcm .
+./hpc/build-sif.sh
+```
+
+The default output is `hpc/build/nasqar2.sif`. The Singularity build can
+require approximately 25 GB of temporary space. Redirect its temporary and
+cache directories when `/tmp` is too small:
+
+```bash
+mkdir -p /data/nasqar2-build/{tmp,cache}
+TMPDIR=/data/nasqar2-build/tmp \
+SINGULARITY_TMPDIR=/data/nasqar2-build/tmp \
+SINGULARITY_CACHEDIR=/data/nasqar2-build/cache \
+./hpc/build-sif.sh /data/nasqar2-build/nasqar2.sif
+```
+
+## Install in scratch
+
+The example below uses `$SCRATCH/nasqar2`. Replace the login host and paths
+with values appropriate for the HPC system.
+
+```bash
+ssh USER@LOGIN_HOST \
+  'mkdir -p "$SCRATCH/nasqar2"/{bin,images,slurm,runs}'
+
+rsync -ah --partial hpc/build/nasqar2.sif \
+  USER@LOGIN_HOST:/path/to/scratch/nasqar2/images/nasqar2.sif
+rsync -ah hpc/bin/nasqar2-hpc \
+  USER@LOGIN_HOST:/path/to/scratch/nasqar2/bin/
+rsync -ah hpc/slurm/nasqar2.sbatch \
+  USER@LOGIN_HOST:/path/to/scratch/nasqar2/slurm/
+```
+
+## Submit and connect
+
+```bash
+ssh USER@LOGIN_HOST \
+  'cd "$SCRATCH/nasqar2/slurm" && sbatch nasqar2.sbatch'
+```
+
+After the job starts, read its connection file:
+
+```bash
+cat "$SCRATCH/nasqar2/runs/JOB_ID/connection.txt"
+```
+
+Run the reported tunnel command on the workstation. Keep that terminal open:
+
+```bash
+ssh -N -L PORT:COMPUTE_NODE:PORT USER@LOGIN_HOST
+```
+
+Then open `http://localhost:PORT`. The tunnel command intentionally appears to
+remain active; it is forwarding traffic until stopped with `Ctrl+C`.
+
+## Persistent and temporary storage
+
+| Data | Default location |
+| --- | --- |
+| Per-job runtime, logs, uploads, and exchange files | `$SCRATCH/nasqar2/runs/JOB_ID` |
+| ATACseqQC cache | `$SCRATCH/nasqar2/cache/ATACseqQC` |
+| DESeq2Shiny states | `$SCRATCH/nasqar2/states/DESeq2Shiny` |
+| DADA2 projects | `$SCRATCH/nasqar2/projects/DADA2` |
+| Seurat v5 projects | `$SCRATCH/nasqar2/projects/SeuratV5` |
+| Monocle 3 projects | `$SCRATCH/nasqar2/projects/Monocle3` |
+| Private R library | `$SCRATCH/nasqar2/r-library/R-4.3` |
+
+Input data are mounted read-only from `NASQAR2_DATA_ROOT`, which defaults to
+`$SCRATCH`. Applications validate requested paths against that root. Generated
+files are written to the job runtime or persistent project directories, not
+beside the source data.
+
+Override storage locations at submission:
+
+```bash
+NASQAR2_DATA_ROOT=/scratch/USER/project \
+NASQAR2_R_LIBRARY=/scratch/USER/project/r-library \
+sbatch nasqar2.sbatch
+```
+
+## HPC-aware applications
+
+- **ATACseqQC** loads BAM/BAI pairs directly from the allowed data root and
+  caches chromosome-, genome-, and motif-specific results.
+- **DESeq2Shiny** saves and restores application `.RData` states in persistent
+  scratch while retaining browser download and upload.
+- **DADA2** loads FASTQ files directly, processes temporary files in node-local
+  storage, caches parameter-aware results, and writes persistent projects.
+- **Seurat v5** loads count matrices or Seurat objects from the data root and
+  writes project outputs to persistent scratch.
+- **Monocle 3** loads Seurat objects from the data root and writes trajectory
+  outputs to persistent scratch.
+
+DADA2, Seurat v5, and Monocle 3 derive worker availability from
+`SLURM_CPUS_PER_TASK`. Other modules remain available in the same all-in-one
+portal but do not require a dedicated HPC input mode.
+
+## Stop a job
+
+```bash
+scancel JOB_ID
+```
+
+Stopping the Slurm job closes the portal. Persistent caches, states, and
+project outputs remain available to later jobs.

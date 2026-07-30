@@ -199,17 +199,30 @@ output$analysisRes_enrichGo <- renderUI({
     csv <- myValues$vsResults
 
     write.csv(csv, file = fileUrl)
+    exchangeToken <- encryptUrlParam(fileUrl)
+    oraPath <- paste0("/ClusterProfShinyORA/?countsdata=", exchangeToken)
+    gseaPath <- paste0("/ClusterProfShinyGSEA/?countsdata=", exchangeToken)
     return(tags$div(
         class = "BoxArea3", 
         style = "text-align: center; padding: 10px;",
         p(strong("Enrichment Analysis")),
         a("ClusterProfShinyORA (ORA)",
-          href = paste0("/ClusterProfShinyORA/?countsdata=", encryptUrlParam(fileUrl)),
+          href = oraPath,
+          `data-handoff-path` = oraPath,
+          onclick = paste(
+            "this.href = window.location.origin +",
+            "this.getAttribute('data-handoff-path');"
+          ),
           class = "btn btn-success btn-block", 
           target = "_blank", 
           style = "margin-bottom: 10px;"),
         a("ClusterProfShinyGSEA (GSEA)",
-          href = paste0("/ClusterProfShinyGSEA/?countsdata=", encryptUrlParam(fileUrl)),
+          href = gseaPath,
+          `data-handoff-path` = gseaPath,
+          onclick = paste(
+            "this.href = window.location.origin +",
+            "this.getAttribute('data-handoff-path');"
+          ),
           class = "btn btn-success btn-block", 
           target = "_blank")
     ))

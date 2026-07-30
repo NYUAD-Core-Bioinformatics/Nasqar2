@@ -1,40 +1,97 @@
-## Gene Enrichment Tools
+## Enrichment analysis
 
-We provide interactive web-based applications for gene enrichment analysis using clusterProfiler.
+NASQAR2 provides two clusterProfiler-based applications for functional interpretation of differential-expression results. Choose GSEA for a ranked list of all tested genes, or ORA for a selected list of significant genes.
 
-For more information about clusterProfiler, visit the [official documentation](https://yulab-smu.top/biomedical-knowledge-mining-book/).
+<div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+    gap: "2rem",
+    margin: "1.5rem 0 2rem"
+  }}
+>
+  <section style={{ borderTop: "3px solid #2563eb", paddingTop: "1rem" }}>
+    <h3 style={{ marginTop: 0 }}>Gene Set Enrichment Analysis</h3>
+    <p>
+      <strong>GSEA</strong> detects coordinated pathway changes using the complete
+      ranked gene list, without requiring a significance cutoff.
+    </p>
+    <p>
+      <strong>Input:</strong> gene identifiers and a ranking statistic, such as
+      log2 fold change.
+    </p>
+    <p>
+      <a href="https://yulab-smu.top/biomedical-knowledge-mining-book/clusterprofiler-gsea.html">
+        GSEA tutorial
+      </a>
+    </p>
+    <a
+      href="/ClusterProfShinyGSEA/"
+      target="_blank"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "44px",
+        padding: "10px 16px",
+        backgroundColor: "#2563eb",
+        color: "#ffffff",
+        fontWeight: 600,
+        textDecoration: "none",
+        borderRadius: "6px"
+      }}
+    >
+      Launch ClusterProfShinyGSEA
+    </a>
+  </section>
 
----
+  <section style={{ borderTop: "3px solid #16a34a", paddingTop: "1rem" }}>
+    <h3 style={{ marginTop: 0 }}>Over-Representation Analysis</h3>
+    <p>
+      <strong>ORA</strong> tests whether GO terms or KEGG pathways occur more
+      often than expected in a selected set of significant genes.
+    </p>
+    <p>
+      <strong>Input:</strong> gene identifiers, fold changes, and adjusted
+      P-values from a differential-expression table.
+    </p>
+    <p>
+      <a href="https://yulab-smu.top/biomedical-knowledge-mining-book/enrichment-overview.html">
+        ORA tutorial
+      </a>
+    </p>
+    <a
+      href="/ClusterProfShinyORA/"
+      target="_blank"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "44px",
+        padding: "10px 16px",
+        backgroundColor: "#15803d",
+        color: "#ffffff",
+        fontWeight: 600,
+        textDecoration: "none",
+        borderRadius: "6px"
+      }}
+    >
+      Launch ClusterProfShinyORA
+    </a>
+  </section>
+</div>
 
-### ClusterProfShinyGSEA (Gene Set Enrichment Analysis)
+### Choosing an analysis
 
-A web-based application to perform Gene Set Enrichment Analysis (GSEA) using clusterProfiler and shiny R libraries. This is based on clusterProfiler R package.
+| Method | Gene set used | Main results |
+| --- | --- | --- |
+| **GSEA** | All tested genes, ranked by a selected statistic | Enriched pathways with enrichment scores and normalized enrichment scores |
+| **ORA** | Genes passing selected significance and fold-change thresholds | Over-represented GO terms and KEGG pathways |
 
-**Tutorial:** [Gene Set Enrichment Analysis with ClusterProfiler](https://learn.gencore.bio.nyu.edu/rna-seq-analysis/gene-set-enrichment-analysis/)
+Both applications provide searchable result tables and publication-ready plots. KEGG analysis converts the selected identifier type to NCBI Gene IDs. ORA also supports direct online KEGG pathway viewing and downloadable local Pathview PNG/PDF output.
 
-<a href="/ClusterProfShinyGSEA/" target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
-  Launch ClusterProfShinyGSEA
-</a>
+For complete method details, see the [clusterProfiler documentation](https://yulab-smu.top/biomedical-knowledge-mining-book/).
 
----
+### Citation
 
-### ClusterProfShinyORA (Over-Representation Analysis)
-
-A web-based application to perform Over-Representation Analysis (ORA) using clusterProfiler and shiny R libraries. This is based on clusterProfiler R package.
-
-**Tutorial:** [Over-Representation Analysis with ClusterProfiler](https://learn.gencore.bio.nyu.edu/rna-seq-analysis/over-representation-analysis/)
-
-<a href="/ClusterProfShinyORA/" target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
-  Launch ClusterProfShinyORA
-</a>
-
----
-
-## Citation
-
-When using these gene enrichment tools in your analysis, please cite the following publication:
-
-> **clusterProfiler: an R package for comparing biological themes among gene clusters**
-> 
-> Yu, G., Wang, L.G., Han, Y. & He, Q.Y. clusterProfiler: an R package for comparing biological themes among gene clusters. *OMICS: A Journal of Integrative Biology* 16(5), 284-287 (2012).  
-> https://doi.org/10.1089/omi.2011.0118
+Wu T, Hu E, Xu S, Chen M, Guo P, Dai Z, Feng T, Zhou L, Tang W, Zhan L, Fu X, Liu S, Bo X, Yu G. clusterProfiler 4.0: A universal enrichment tool for interpreting omics data. *The Innovation*. 2021;2(3):100141. doi: [10.1016/j.xinn.2021.100141](https://doi.org/10.1016/j.xinn.2021.100141).

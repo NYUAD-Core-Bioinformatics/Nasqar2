@@ -1,14 +1,19 @@
 ## Gene Count Merger
 
-This is a simple preprocessing tool to merge individual gene count files (e.g., output count files from htseq).
+Gene Count Merger combines individual gene-count files or multiple count
+matrices into one analysis-ready matrix. It supports raw counts from tools such
+as HTSeq and featureCounts, and gene-level estimated counts imported from
+Kallisto.
 
-We provide an interactive web-based application for merging gene count files.
+The merged bulk RNA-seq matrix can be downloaded or continued directly to
+DESeq2Shiny or START. Single-cell matrices should be loaded directly into
+SeuratV5Shiny in their native 10x, H5, or matrix format; Gene Count Merger does
+not offer a single-cell merge route.
 
-**Note**: The first column must contain the genes. If the gene columns do not match in all files, this tool will not work.
+**Input requirement:** the first column of every matrix must contain the same
+gene identifiers. When merging matrices, matching identifiers are joined even
+if their row order differs.
 
-<a href="/GeneCountMerger/" target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
+<a href="/GeneCountMerger/" target="_blank" style={{display: 'inline-block', padding: '8px 16px', backgroundColor: '#2563eb', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
   Launch Gene Count Merger
 </a>
-
-
-

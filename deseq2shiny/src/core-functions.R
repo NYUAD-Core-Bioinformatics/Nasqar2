@@ -107,6 +107,55 @@ validate_count_matrix <- function(count_data) {
   result
 }
 
+align_metadata_to_counts <- function(metadata, count_sample_names) {
+  if (!is.data.frame(metadata)) {
+    metadata <- as.data.frame(metadata)
+  }
+  metadata_names <- rownames(metadata)
+  if (is.null(metadata_names) || any(!nzchar(metadata_names))) {
+    stop("Metadata must have a non-empty row name for every sample.",
+         call. = FALSE)
+  }
+  if (anyDuplicated(metadata_names)) {
+    stop("Metadata sample names must be unique.", call. = FALSE)
+  }
+  if (anyDuplicated(count_sample_names)) {
+    stop("Count-matrix sample names must be unique.", call. = FALSE)
+  }
+
+  missing_metadata <- setdiff(count_sample_names, metadata_names)
+  extra_metadata <- setdiff(metadata_names, count_sample_names)
+  if (length(missing_metadata) > 0L || length(extra_metadata) > 0L) {
+    details <- c(
+      if (length(missing_metadata) > 0L) {
+        paste("Missing metadata:", paste(missing_metadata, collapse = ", "))
+      },
+      if (length(extra_metadata) > 0L) {
+        paste("Not present in counts:", paste(extra_metadata, collapse = ", "))
+      }
+    )
+    stop(
+      paste(
+        "Metadata samples must exactly match count-matrix columns.",
+        paste(details, collapse = " ")
+      ),
+      call. = FALSE
+    )
+  }
+
+  metadata[count_sample_names, , drop = FALSE]
+}
+
+has_gene_alias_column <- function(count_data) {
+  count_frame <- as.data.frame(count_data, check.names = FALSE)
+  if (ncol(count_frame) < 3L) {
+    return(FALSE)
+  }
+
+  normalized_name <- tolower(gsub("[^a-z0-9]", "", names(count_frame)[[2L]]))
+  normalized_name %in% c("genename", "genenames", "genesymbol", "symbol")
+}
+
 is_categorical_factor <- function(factor_data, sample_count) {
   clean_data <- factor_data[!is.na(factor_data)]
   if (length(clean_data) == 0L ||

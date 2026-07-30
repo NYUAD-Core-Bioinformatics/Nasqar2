@@ -233,12 +233,21 @@ ddsInitReactive <- eventReactive(input$init_deseq2, {
         samples <- myValues$DF
         dataCounts <- myValues$dataCounts
 
-        # print('dataCounts...')
-
-        # print(rownames(myValues$dataCounts))
-
-        # Set up sample names properly first
-        rownames(samples) <- rownames(myValues$DF)
+        samples <- tryCatch(
+            align_metadata_to_counts(samples, colnames(dataCounts)),
+            error = function(e) {
+                myValues$status <- paste("Metadata Error:", conditionMessage(e))
+                showNotification(
+                    id = "errorNotify",
+                    myValues$status,
+                    type = "error",
+                    duration = NULL
+                )
+                js$addStatusIcon("conditionsTab", "fail")
+                validate(need(FALSE, myValues$status))
+            }
+        )
+        myValues$DF <- samples
 
         # Exclude selected samples after sample names are properly set
         excludedSamples <- input$samplesToExclude

@@ -4,3 +4,45 @@
 .Ruserdata
 docs/
 hpc/build/
+
+# Downloaded reference archives and generated runtime output
+BSgenome*.tar.gz
+*.zip
+screenlog.*
+*.log
+Rplots.pdf
+*.bak
+.DS_Store
+deseq2shiny/all_plots_export_*/
+ClusterProfShinyORA/src/*.pathview.*
+ClusterProfShinyORA/src/testimage_*.png
+ClusterProfShinyORA/src/dme*.png
+ClusterProfShinyORA/src/dme*.xml
+ClusterProfShinyORA/src/dme*.pdf
+GeneCountMerger/src/www/scripts/ttt.*
+dada2Shiny/src/test.ipynb
+
+# Extracted download bundle; extract_data.sh recreates it from data.zip.
+data/
+
+# Large local sequencing and alignment inputs
+*.fastq
+*.fastq.gz
+*.bam
+*.bai
+dada2Shiny/src/testData/
+
+# Local editor state and one-off implementation reports
+.cursor/
+checklist.txt
+SOURCE_MAP_FIX.md
+BUGFIX_DOCUMENTATION.md
+*_FIX.md
+*_SIMPLIFICATION.md
+*_OPTIMIZATION.md
+*_COMPLETE.txt
+*_SUMMARY.md
+*_CLARIFICATION.md
+*_CLEANUP.md
+*_SPLIT.md
+*.diff

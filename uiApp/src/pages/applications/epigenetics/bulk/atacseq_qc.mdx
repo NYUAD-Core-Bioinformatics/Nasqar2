@@ -10,6 +10,18 @@ For more information about ATACseqQC, visit the [official documentation](https:/
   Launch ATACseqQC
 </a>
 
+## HPC use
+
+In the Slurm deployment, choose **Use HPC scratch directory** to load matching
+BAM and BAI files directly from the configured read-only data root. Browser
+upload and bundled example data remain available.
+
+Core, nucleosome, and footprint results are cached by BAM path, file size,
+modification time, reference genome, chromosome, and motif. The cache persists
+across jobs, while PT, NFR, and TSSE scoring can use allocated Slurm CPUs.
+
+See the [HPC deployment guide](/quickstart/hpc) for storage and tunnel setup.
+
 ## Citation
 
 When using ATACseqQC in your analysis, please cite the following publication:
@@ -18,4 +30,3 @@ When using ATACseqQC in your analysis, please cite the following publication:
 > 
 > Ou, J., Liu, H., Yu, J. et al. ATACseqQC: a Bioconductor package for post-alignment quality assessment of ATAC-seq data. *BMC Genomics* 19, 169 (2018).  
 > https://doi.org/10.1186/s12864-018-4559-3
-

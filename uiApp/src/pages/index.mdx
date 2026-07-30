@@ -37,25 +37,39 @@ Additionally, please remember to include the appropriate citation for the open-s
 
 
 
-## NASQAR2 Updates:
+## NASQAR2 Updates
 
+**Runtime and deployment**
 
-**R version:** 4.2.3
+* **R 4.3.3** across the analytical module images
+* Deploy the complete platform as one Docker image or run individual module images
+* Run NASQAR2 as an unprivileged Singularity container in a Slurm compute job
+* Access approved HPC scratch datasets directly and preserve projects, states, results, and caches across jobs
+* **HPC-aware applications:** ATACseqQC, DESeq2Shiny, DADA2, Seurat v5, and Monocle 3
 
-**New Applications:**
+See the [HPC Deployment Guide](/quickstart/hpc) for image preparation, job submission, storage configuration, and SSH tunnel instructions.
 
-* **Dada2** - DADA2 for microbiome analysis and ASV inference
-* **ATacseqQc** - Quality control and analysis for ATAC-seq data
+**New applications**
+
+* **DADA2** - Amplicon quality filtering, ASV inference, chimera removal, and taxonomy assignment
+* **ATACseqQC** - ATAC-seq quality metrics, nucleosome positioning, and transcription-factor footprint analysis
 * **Animalcules** - Interactive microbiome analysis and visualization
 
-**Updates to Existing Applications:**
+**Connected workflows**
 
-* **Seurat** - Upgraded to Seurat V5 for enhanced single-cell analysis
-* **DEseq2shiny** - Added save state information feature for preserving analysis sessions; Volcano plot; Venn Diagram; Input data now takes gene.id and gene.name together with Gene count data
-* **GeneCountMerger** - Added option to include gene symbol in output
-* **ClusterProfShinyORA** - Selective selection of interested pathways for plotting
+* **Gene Count Merger → DESeq2Shiny or START** for bulk RNA-seq analysis
+* **DESeq2Shiny → ORA or GSEA** with the selected contrast transferred automatically
+* **DADA2 → Animalcules** with ASV and taxonomy results transferred automatically
+* **Seurat v5 → Monocle 3** with a compatible processed single-cell object
 
-These updates bring exciting new features and improvements to NASQAR2, enhancing its capabilities and usability.
+**Major module enhancements**
+
+* **Gene Count Merger** - Merges HTSeq/featureCounts files, Kallisto estimated counts, or existing matrices; supports gene-symbol annotation and custom gene-ID mappings
+* **DESeq2Shiny** - Design metadata, multiple contrasts, PCA, volcano and MA plots, interactive heatmaps, Venn comparisons, portable save/restore states, publication-ready downloads, and reproducible R-code export
+* **ClusterProfShinyGSEA and ClusterProfShinyORA** - GO/KEGG tables and plots, identifier conversion, direct DESeq2 handoff, online KEGG viewing, and downloadable Pathview PNG/PDF output
+* **DADA2** - Persistent projects, parameter-aware caching, taxonomy downloads, publication-ready figures, and direct Animalcules handoff
+* **ATACseqQC** - Cached core QC plus on-demand nucleosome and footprint analyses with publication-ready figure downloads
+* **Seurat v5 and Monocle 3** - Persistent HPC projects, allocated-worker support, and direct trajectory-analysis handoff
 
 
 
@@ -63,5 +77,3 @@ These updates bring exciting new features and improvements to NASQAR2, enhancing
 
 Although data uploaded for analysis on the online instance of 
 NASQAR2 (at http://nasqar2.abudhabi.nyu.edu/) is by default discarded after a users session ends, this does not guarantee total data privacy. In cases where data privacy is a concern (e.g. patient or pilot data), it is recommended that NASQAR2 is deployed on a local intranet for private users, or on a personal computer. A Docker image of NASQAR2 is publicly available through DockerHub and can be used to deploy the application seamlessly on any system with Docker installed, whether a local computer, a public internet server, or a private server (e.g. research institutions intranet).
-
-

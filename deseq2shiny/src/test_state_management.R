@@ -50,6 +50,36 @@ expect_error(validate_count_matrix(data.frame(sample = c(1, 2.5))))
 expect_error(validate_count_matrix(data.frame(sample = c(1, -2))))
 expect_error(validate_count_matrix(data.frame(sample = c(1, "invalid"))))
 
+unordered_metadata <- data.frame(
+  condition = factor(c("B", "A")),
+  row.names = c("sample_b", "sample_a")
+)
+aligned_metadata <- align_metadata_to_counts(
+  unordered_metadata,
+  c("sample_a", "sample_b")
+)
+stopifnot(
+  identical(rownames(aligned_metadata), c("sample_a", "sample_b")),
+  identical(as.character(aligned_metadata$condition), c("A", "B"))
+)
+expect_error(align_metadata_to_counts(
+  unordered_metadata,
+  c("sample_a", "sample_c")
+))
+
+annotated_counts <- data.frame(
+  gene.ids = c("ENSG1", "ENSG2"),
+  gene.names = c("GENE1", "GENE2"),
+  sample_a = c(1L, 2L),
+  sample_b = c(3L, 4L),
+  check.names = FALSE
+)
+plain_counts <- annotated_counts[, c("gene.ids", "sample_a", "sample_b")]
+stopifnot(
+  has_gene_alias_column(annotated_counts),
+  !has_gene_alias_column(plain_counts)
+)
+
 three_level_factor <- factor(c("A", "A", "B", "C", "C"))
 stopifnot(is_categorical_factor(three_level_factor, 5L))
 stopifnot(!is_categorical_factor(seq_len(5), 5L))
