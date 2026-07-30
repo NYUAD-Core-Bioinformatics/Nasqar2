@@ -1,7 +1,9 @@
 
 ## Installation
 
-NASQAR2 can be deployed on any platform using 2 main installation approaches, either through Docker, or Conda.
+NASQAR2 can be deployed through Docker, application-specific Conda
+environments, or an unprivileged Singularity container inside a Slurm compute
+allocation.
 The quick guide below should help you decide, which option best fits your needs/setup.
 
 <div style={{marginTop: '1.5rem'}}>
@@ -39,9 +41,18 @@ The quick guide below should help you decide, which option best fits your needs/
       <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Full control, easy debugging, direct code access</td>
       <td style={{padding: '12px'}}>Manual setup, dependency management per app</td>
     </tr>
+    <tr>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb', fontWeight: '600'}}>Slurm HPC with Singularity</td>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Large datasets, shared compute, private institutional data</td>
+      <td style={{padding: '12px', borderRight: '1px solid #e5e7eb'}}>Compute-node execution, direct scratch access, persistent projects and caches</td>
+      <td style={{padding: '12px'}}>Requires Slurm, Singularity, SSH tunneling, and site-specific paths</td>
+    </tr>
   </tbody>
 </table>
 </div>
+
+For a Slurm deployment, continue to the
+[HPC deployment guide](/quickstart/hpc).
 
 
 

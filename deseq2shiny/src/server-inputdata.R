@@ -100,7 +100,14 @@ inputFileReactive <- reactive({
 
     fileContent <- read.csv(inFile[1], header = TRUE, sep = sep)
 
-    if(input$gene_alias == 'notincluded'){
+    geneAliasMode <- input$gene_alias
+    if (!is.null(query[["countsdata"]]) &&
+        has_gene_alias_column(fileContent)) {
+        geneAliasMode <- "included"
+        updateRadioButtons(session, "gene_alias", selected = geneAliasMode)
+    }
+
+    if(geneAliasMode == 'notincluded'){
         sampleN <- colnames(fileContent)[-1]
     } else {
         sampleN <- colnames(fileContent)[c(-1,-2)]
@@ -216,6 +223,20 @@ observe({
 
 csvDataReactive <- eventReactive(input$submit, {
     fileContent <- inputFileReactive()
+
+    # inputFileReactive() reparses the uploaded file when the user advances.
+    # Reapply the requested prefilter so that "Next" does not silently restore
+    # rows removed with the Filter button.
+    if (isTRUE(input$prefilterCounts > 0)) {
+        fileContent <- fileContent[
+            rowSums(fileContent) >= input$minRowCount,
+            ,
+            drop = FALSE
+        ]
+        myValues$dataCounts <- fileContent
+        myValues$prefilter_applied <- TRUE
+        myValues$prefilter_threshold <- input$minRowCount
+    }
 
     shinyjs::show(selector = "a[data-value=\"conditionsTab\"]")
     updateTabItems(session, "tabs", "conditionsTab")

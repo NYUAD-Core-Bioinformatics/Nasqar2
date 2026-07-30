@@ -10,6 +10,17 @@ For more information about Monocle3, visit the [official documentation](https://
   Launch Monocle3
 </a>
 
+## HPC use
+
+Choose **Use HPC scratch file** to load a Seurat `.rds` or `.RData` object
+inside the configured read-only data root. Monocle 3 validates that the path
+remains inside that root and writes trajectory outputs to a named persistent
+project directory. Worker availability is derived from
+`SLURM_CPUS_PER_TASK`.
+
+See the [HPC deployment guide](/quickstart/hpc) for submission, storage, and
+SSH tunnel instructions.
+
 ## Citation
 
 When using Monocle3 in your analysis, please cite the following publications:

@@ -116,7 +116,11 @@ tabItem(
           column(
             12,
             downloadButton("download_taxonomy_table", "Download Taxonomy Table (csv)", class = "btn-primary", style = "margin-top: 10px;"),
-            downloadButton("download_taxonomy_fasta", "Download Taxonomy Table (fasta)", class = "btn-primary", style = "margin-top: 10px;")
+            downloadButton("download_taxonomy_fasta", "Download Taxonomy Table (fasta)", class = "btn-primary", style = "margin-top: 10px;"),
+            hr(),
+            h4(strong("Continue microbiome analysis")),
+            p("In the all-in-one deployment, transfer the ASV table and taxonomy directly to animalcules."),
+            uiOutput("animalculesTransferUI")
           )
         )
       )

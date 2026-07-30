@@ -10,6 +10,17 @@ For more information about Seurat, visit the [official documentation](https://sa
   Launch Seurat V5
 </a>
 
+## HPC use
+
+The HPC input mode loads supported count matrices or Seurat objects directly
+from the configured read-only data root. Select a persistent project name for
+outputs that must remain available after the Slurm job ends. Worker
+availability is derived from `SLURM_CPUS_PER_TASK`.
+
+Use the direct Seurat v5 to Monocle 3 handoff for compatible processed objects,
+or save the object in persistent project storage. See the
+[HPC deployment guide](/quickstart/hpc).
+
 ## Citation
 
 When using Seurat V5 in your analysis, please cite the following publication:
@@ -18,4 +29,3 @@ When using Seurat V5 in your analysis, please cite the following publication:
 > 
 > Hao, Y., Stuart, T., Kowalski, M.H., Choudhary, S., Hoffman, P., Hartman, A., Srivastava, A., Molla, G., Madad, S., Fernandez-Granda, C. & Satija, R. Dictionary learning for integrative, multimodal and scalable single-cell analysis. *Nature Biotechnology* (2023).  
 > https://doi.org/10.1038/s41587-023-01767-y
-

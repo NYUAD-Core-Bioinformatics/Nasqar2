@@ -143,6 +143,13 @@ tabItem(
                                 )
                             ), choices = c("holm", "hochberg", "hommel", "bonferroni", "BH", "BY", "fdr", "none"), selected = "none")
                         ),
+                        column(
+                            12,
+                            tags$p(
+                                class = "text-muted",
+                                "KEGG analysis uses NCBI Gene IDs after converting the selected input key type."
+                            )
+                        ),
                         tags$div(class = "clearBoth"),
                         column(
                             12,

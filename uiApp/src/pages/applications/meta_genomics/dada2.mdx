@@ -10,6 +10,21 @@ For more information about DADA2, visit the [official documentation](https://ben
   Launch DADA2
 </a>
 
+## HPC use
+
+Choose the HPC scratch input mode to load paired FASTQ files directly from the
+configured read-only data root. Give the run a project name so filtered reads,
+sequence tables, taxonomy results, and downloadable outputs persist under the
+DADA2 project directory.
+
+Filtering and trimming use node-local temporary storage. Parameter-aware
+caches include the input paths and file metadata, DADA2 parameters, and package
+version. Parallel steps derive available workers from
+`SLURM_CPUS_PER_TASK`.
+
+See the [HPC deployment guide](/quickstart/hpc) for storage and submission
+details.
+
 ## Citation
 
 When using DADA2 in your analysis, please cite the following publication:
@@ -18,4 +33,3 @@ When using DADA2 in your analysis, please cite the following publication:
 > 
 > Callahan, B., McMurdie, P., Rosen, M. et al. DADA2: High-resolution sample inference from Illumina amplicon data. *Nat Methods* 13, 581–583 (2016).  
 > https://doi.org/10.1038/nmeth.3869
-

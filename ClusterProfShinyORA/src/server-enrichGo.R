@@ -217,6 +217,8 @@ enrichGoReactive <- eventReactive(input$initGo, {
                                 "org.EcSakai.eg.db" = "ecs"
                             )
 
+                            old_timeout <- getOption("timeout")
+                            options(timeout = min(old_timeout, 20))
                             kegg_enrich <- tryCatch(
                                 enrichKEGG(
                                     gene = kegg_genes,
@@ -237,7 +239,8 @@ enrichGoReactive <- eventReactive(input$initGo, {
                                         type = "warning", duration = NULL
                                     )
                                     NULL
-                                }
+                                },
+                                finally = options(timeout = old_timeout)
                             )
 
                             myValues$organismKegg <- organismsDbKegg[input$organismDb]
@@ -596,17 +599,8 @@ output$browseKEGGLink <- renderUI({
         gene_str   <- kegg_enrich@result$geneID[s[1]]
         genes      <- unlist(strsplit(gene_str, "/"))
         org_code <- myValues$organismKegg   # e.g. "dme", "hsa", "mmu"
-        map_id   <- sub("^[a-z]+", "map", pathway_id)   # dme04080 → map04080
-
-        # ── ENTREZ → KO IDs  (e.g. "38742" → "K08513") ───────────────────
-        ko_map   <- build_ko_map(genes, org_code)
-        ko_genes <- ko_map[as.character(genes)]
-
-        # Drop genes with no KO assignment or empty KO string
-        valid    <- !is.na(ko_genes) & nzchar(ko_genes)
-        ko_genes <- ko_genes[valid]
-        genes_v  <- genes[valid]
-        if (length(genes_v) == 0) return(NULL)   # no KO mappings → hide button
+        genes_v  <- genes
+        kegg_genes <- paste0(org_code, ":", genes_v)
 
         # ── Log2FC → colour (green–lightgrey–red) ─────────────────────────
         lfc <- myValues$kegg_gene_list[genes_v]
@@ -620,9 +614,9 @@ output$browseKEGGLink <- renderUI({
             sprintf("%%23%02x%02x%02x", round(r[1]), round(r[2]), round(r[3]))
         })
 
-        gene_parts <- paste0(ko_genes, "%09", hex_cols)
+        gene_parts <- paste0(kegg_genes, "%09", hex_cols)
         url <- paste0(
-            "https://www.kegg.jp/kegg-bin/show_pathway?", map_id, "/",
+            "https://www.kegg.jp/kegg-bin/show_pathway?", pathway_id, "/",
             paste(gene_parts, collapse = "/")
         )
         tags$a(
@@ -752,21 +746,11 @@ output$enrichKEGGTable <- renderDataTable(
             resultDF <- enrichKEGG$kegg_enrich@result
             org_code  <- myValues$organismKegg
 
-            # Batch-convert all unique ENTREZ IDs → KO IDs (e.g. "38742" → "K08513")
-            all_entrez <- unique(unlist(strsplit(paste(resultDF$geneID, collapse = "/"), "/")))
-            gene_map   <- build_ko_map(all_entrez, org_code)
-
-            # Make ID column clickable: map pathway + KO IDs + log2FC colour coding
+            # Build organism-specific KEGG links without a blocking KO lookup.
             make_kegg_link <- function(pathway_id, gene_ids_str) {
-                map_id   <- sub("^[a-z]+", "map", pathway_id)   # dme04080 → map04080
                 genes    <- unlist(strsplit(gene_ids_str, "/"))
-                ko_genes <- gene_map[as.character(genes)]
-
-                # Drop genes with no KO assignment or empty KO string
-                valid    <- !is.na(ko_genes) & nzchar(ko_genes)
-                ko_genes <- ko_genes[valid]
-                genes_v  <- genes[valid]
-                if (length(genes_v) == 0) return(pathway_id)  # no KO → plain text
+                genes_v  <- genes
+                kegg_genes <- paste0(org_code, ":", genes_v)
 
                 # log2FC → green-lightgrey-red colour per gene
                 lfc      <- myValues$kegg_gene_list[genes_v]
@@ -780,8 +764,8 @@ output$enrichKEGGTable <- renderDataTable(
                     sprintf("%%23%02x%02x%02x", round(r[1]), round(r[2]), round(r[3]))
                 })
 
-                gene_parts <- paste0(ko_genes, "%09", hex_cols)
-                url <- paste0("https://www.kegg.jp/kegg-bin/show_pathway?", map_id, "/",
+                gene_parts <- paste0(kegg_genes, "%09", hex_cols)
+                url <- paste0("https://www.kegg.jp/kegg-bin/show_pathway?", pathway_id, "/",
                               paste(gene_parts, collapse = "/"))
                 paste0('<a href="', url, '" target="_blank">', pathway_id, '</a>')
             }

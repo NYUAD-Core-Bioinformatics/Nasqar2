@@ -49,4 +49,42 @@ docker run --name <specify-name-of-container> -p 80:80 -it <specify-image-name>
 ```
 It can be accessed via http://localhost:80
 
+### Run NASQAR2 on a Slurm HPC system
+
+NASQAR2 includes an unprivileged Singularity deployment for Slurm-based HPC
+systems. The all-in-one image runs on an allocated compute node; users connect
+through an SSH tunnel rather than exposing the service publicly.
+
+The supplied job requests 16 CPU cores, 32 GB memory, and eight hours by
+default. It provides:
+
+- read-only access to an administrator-selected HPC data root;
+- job-specific writable runtime and exchange directories;
+- persistent project directories for DADA2, Seurat v5, and Monocle 3;
+- persistent DESeq2Shiny state files and ATACseqQC caches; and
+- a private writable R library for packages that must persist across jobs.
+
+Build the Singularity image, copy it and the launcher files to the HPC system,
+and submit the supplied Slurm script:
+
+```bash
+docker build -t nasqar2-local:bulk-gcm .
+./hpc/build-sif.sh
+
+rsync -ah hpc/build/nasqar2.sif \
+  USER@LOGIN_HOST:/path/to/nasqar2/images/nasqar2.sif
+rsync -ah hpc/bin/nasqar2-hpc hpc/slurm/nasqar2.sbatch \
+  USER@LOGIN_HOST:/path/to/nasqar2/
+
+ssh USER@LOGIN_HOST \
+  'NASQAR2_SIF=/path/to/nasqar2/images/nasqar2.sif \
+   NASQAR2_LAUNCHER=/path/to/nasqar2/nasqar2-hpc \
+   sbatch /path/to/nasqar2/nasqar2.sbatch'
+```
+
+The job writes `connection.txt` in its runtime directory. Use the SSH tunnel
+shown in that file, then open the reported `http://localhost:<port>` address.
+Do not run the portal on an HPC login node. See
+[`hpc/README.md`](hpc/README.md) for the complete configuration and Jubail
+example.
 

@@ -10,6 +10,17 @@ For more information about DESeq2, visit the [official documentation](https://bi
   Launch DESeq2
 </a>
 
+## Save and restore on HPC
+
+The **Save/Load State & Export** view retains normal browser download and
+upload. In the Slurm deployment it also displays **HPC Scratch** controls for
+saving and restoring `.RData` analysis states in a private persistent
+directory. Saved states remain available after the current job ends.
+
+The HPC state area is enabled only when the deployment supplies a writable
+`NASQAR_DESEQ2_STATE_DIR`. See the
+[HPC deployment guide](/quickstart/hpc).
+
 ## Citation
 
 When using DESeq2 in your analysis, please cite the following publication:
@@ -18,4 +29,3 @@ When using DESeq2 in your analysis, please cite the following publication:
 > 
 > Love, M.I., Huber, W. & Anders, S. Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2. *Genome Biology* 15, 550 (2014).  
 > https://doi.org/10.1186/s13059-014-0550-8
-
