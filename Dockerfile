@@ -42,7 +42,7 @@ RUN conda run -n merged_env R -e "\
     install.packages(c('smplot2', 'GOplot', 'wordcloud2', 'Seurat'), repos='http://cran.rstudio.com/'); \
     remotes::install_github('bnprks/BPCells/r'); \
     devtools::install_github('mahmoudibrahim/genesorteR'); \
-    remotes::install_github('satijalab/seurat-wrappers'); \
+    remotes::install_github('satijalab/seurat-wrappers@ffaf74e306279b1ec16e31c9cb2142ebb2bc4bc1'); \
     remotes::install_github('daqana/dqshiny')"
 
 
@@ -51,7 +51,7 @@ SHELL ["/bin/bash", "-c"]
 
 RUN source activate merged_env && \
     R -e "install.packages('https://cran.r-project.org/src/contrib/Archive/grr/grr_0.9.5.tar.gz', repos = NULL, type = 'source')" && \
-    R -e "devtools::install_github('cole-trapnell-lab/monocle3', force = TRUE)"
+    R -e "devtools::install_github('cole-trapnell-lab/monocle3@4f4239a0afb0dd1941a0359ba6bec95eb0ccf628', force = TRUE)"
 
 # Clean stale data
 RUN mamba clean -a -y
