@@ -1,0 +1,13 @@
+.git
+**/.git
+**/node_modules
+**/.next
+**/out
+**/.RData
+**/.Rhistory
+**/*.log
+**/screenlog.*
+*.zip
+*.tar.gz
+docs
+hpc/build

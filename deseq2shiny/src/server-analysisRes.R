@@ -200,8 +200,9 @@ output$analysisRes_enrichGo <- renderUI({
 
     write.csv(csv, file = fileUrl)
     exchangeToken <- encryptUrlParam(fileUrl)
-    oraPath <- paste0("/ClusterProfShinyORA/?countsdata=", exchangeToken)
-    gseaPath <- paste0("/ClusterProfShinyGSEA/?countsdata=", exchangeToken)
+    basePath <- Sys.getenv("NASQAR_BASE_PATH", unset = "")
+    oraPath <- paste0(basePath, "/ClusterProfShinyORA/?countsdata=", exchangeToken)
+    gseaPath <- paste0(basePath, "/ClusterProfShinyGSEA/?countsdata=", exchangeToken)
     return(tags$div(
         class = "BoxArea3", 
         style = "text-align: center; padding: 10px;",

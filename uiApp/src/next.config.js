@@ -4,6 +4,12 @@ const withNextra = require('nextra')({
 
 })
 
+const basePath = process.env.NASQAR_UI_BASE_PATH || ''
+
+if (basePath && (!basePath.startsWith('/') || basePath.endsWith('/'))) {
+  throw new Error('NASQAR_UI_BASE_PATH must start with / and must not end with /')
+}
+
 
 /**
  * @type {import('next').NextConfig}
@@ -11,6 +17,11 @@ const withNextra = require('nextra')({
 const nextConfig = {
 	//output: "standalone",
 	output: "export",
+  basePath,
+  assetPrefix: basePath || undefined,
+  env: {
+    NEXT_PUBLIC_NASQAR_BASE_PATH: basePath,
+  },
   images: {
     unoptimized: true,
   },

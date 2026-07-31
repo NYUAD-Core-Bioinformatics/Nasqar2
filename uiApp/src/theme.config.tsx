@@ -2,12 +2,13 @@ import React from 'react'
 import { DocsThemeConfig } from 'nextra-theme-docs'
 import { useConfig } from 'nextra-theme-docs'
 
+const basePath = process.env.NEXT_PUBLIC_NASQAR_BASE_PATH || ''
 
 const config: DocsThemeConfig = {
   // logo: <span>Nasqar2</span>,
   logo: (
     <>
-      <img src={'/CGSB-Logo.png'} width="60" />
+      <img src={`${basePath}/CGSB-Logo.png`} width="60" alt="CGSB logo" />
       {/* <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 206 246" fill="none">
         <circle cx="40" cy="40" r="40" fill="currentColor"/>
         <circle cx="40" cy="206" r="40" fill="currentColor"/>
@@ -74,9 +75,9 @@ const config: DocsThemeConfig = {
       <meta property="og:description" content="NASQAR2: Nucleic Acid SeQuence Analysis Resource" />
       <meta property="og:title" content="NASQAR2: Nucleic Acid SeQuence Analysis Resource" />
       <meta name="apple-mobile-web-app-title" content="NASQAR2" />
-      <link rel="icon" href="/CGSB-Logo.png" />
-      <link rel="apple-touch-icon" href="/CGSB-Logo.png" />
-      <link rel="shortcut icon" href="/CGSB-Logo.png" />
+      <link rel="icon" href={`${basePath}/CGSB-Logo.png`} />
+      <link rel="apple-touch-icon" href={`${basePath}/CGSB-Logo.png`} />
+      <link rel="shortcut icon" href={`${basePath}/CGSB-Logo.png`} />
     </>
   ),
 }

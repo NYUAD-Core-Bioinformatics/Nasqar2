@@ -6,7 +6,7 @@ We provide an interactive web-based application for Animalcules analysis.
 
 For more information about Animalcules, visit the [official documentation](https://compbiomed.github.io/animalcules-docs/).
 
-<a href="/animalcules/" target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
+<a href={`${process.env.NEXT_PUBLIC_NASQAR_BASE_PATH || ''}/animalcules/`} target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
   Launch Animalcules
 </a>
 
@@ -18,4 +18,3 @@ When using Animalcules in your analysis, please cite the following publication:
 > 
 > Zhao, Y., Federico, A., Faits, T., Manimaran, S., Segrè, D., Monti, S. & Johnson, W.E. animalcules: interactive microbiome analytics and visualization in R. *Microbiome* 9, 76 (2021).  
 > https://doi.org/10.1186/s40168-021-01013-0
-

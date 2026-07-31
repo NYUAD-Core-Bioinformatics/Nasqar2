@@ -6,9 +6,8 @@ We provide an interactive web-based application for merging FPKM files.
 
 **Note**: The first column must contain the genes. If the gene columns do not match in all files, this tool will not work.
 
-<a href="/mergeFPKMs/" target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
+<a href={`${process.env.NEXT_PUBLIC_NASQAR_BASE_PATH || ''}/mergeFPKMs/`} target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
   Launch Merge FPKMs
 </a>
-
 
 

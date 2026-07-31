@@ -47,8 +47,14 @@ const imageContainerStyle = {
   overflow: 'hidden',
 }
 
+const withBasePath = (path: string) => {
+  const basePath = process.env.NEXT_PUBLIC_NASQAR_BASE_PATH || ''
+  return basePath && path.startsWith('/') ? `${basePath}${path}` : path
+}
+
 export function ImageSample(props) {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const imagePath = withBasePath(props.path)
 
   const openModal = () => setIsModalOpen(true)
   const closeModal = () => setIsModalOpen(false)
@@ -88,7 +94,7 @@ export function ImageSample(props) {
           title="Click to enlarge"
         >
           <Image 
-            src={props.path} 
+            src={imagePath}
             width="1600" 
             height="1600" 
             alt="" 
@@ -107,7 +113,7 @@ export function ImageSample(props) {
               ✕
             </button>
             <Image 
-              src={props.path} 
+              src={imagePath}
               width="1600" 
               height="1600" 
               alt="" 
@@ -128,6 +134,7 @@ export function ImageSample(props) {
 
 export function ImageSample1(props) {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const imagePath = withBasePath(props.path)
 
   const openModal = () => setIsModalOpen(true)
   const closeModal = () => setIsModalOpen(false)
@@ -167,7 +174,7 @@ export function ImageSample1(props) {
           title="Click to enlarge"
         >
           <Image 
-            src={props.path} 
+            src={imagePath}
             width="1600" 
             height="1600" 
             alt="" 
@@ -186,7 +193,7 @@ export function ImageSample1(props) {
               ✕
             </button>
             <Image 
-              src={props.path} 
+              src={imagePath}
               width="1600" 
               height="1600" 
               alt="" 
