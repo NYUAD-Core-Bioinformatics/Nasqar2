@@ -49,6 +49,7 @@ chmod 700 "$r_library" "$atac_cache" "$deseq2_states" \
 singularity exec --cleanenv \
     --env "SLURM_JOB_ID=$SLURM_JOB_ID" \
     --env "SLURM_CPUS_PER_TASK=$SLURM_CPUS_PER_TASK" \
+    --env "NASQAR_BASE_PATH=${NASQAR_BASE_PATH:-}" \
     --env "NASQAR_DATA_ROOT=$data_root" \
     --env "NASQAR_EXCHANGE_DIR=/runtime/exchange" \
     --env "NASQAR_ATAC_CACHE_DIR=/runtime/cache/ATACseqQC" \

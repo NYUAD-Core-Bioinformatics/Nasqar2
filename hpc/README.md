@@ -1,5 +1,9 @@
 # NASQAR2 on Jubail HPC
 
+For Open OnDemand deployment, including prefixed static assets and Shiny
+WebSocket requirements, see [`ood/README.md`](ood/README.md). The OOD mode is
+opt-in and does not change SSH-tunnel or standalone deployments.
+
 This package runs the all-in-one NASQAR2 image as an unprivileged Singularity
 container inside a Slurm compute allocation.
 

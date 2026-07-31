@@ -4,7 +4,10 @@ WORKDIR /app
 COPY uiApp/src/package.json uiApp/src/package-lock.json* ./
 RUN npm install
 COPY uiApp/src/ ./
-RUN npm run build
+RUN npm run build && \
+    mv out /tmp/ui-root && \
+    NASQAR_UI_BASE_PATH=/__NASQAR_OOD_BASE__ npm run build && \
+    mv out /tmp/ui-ood-template
 
 # Stage 2: Main application
 FROM condaforge/mambaforge:24.3.0-0
@@ -35,7 +38,7 @@ COPY environment.yaml /srv/shiny-server/environment.yaml
 RUN mamba env create -f /srv/shiny-server/environment.yaml
 
 # Set the PATH to include the conda environment
-ENV PATH /opt/conda/envs/merged_env/bin:$PATH
+ENV PATH=/opt/conda/envs/merged_env/bin:$PATH
 
 # Combine all R package installations into a single layer
 RUN conda run -n merged_env R -e "\
@@ -51,7 +54,9 @@ SHELL ["/bin/bash", "-c"]
 
 RUN source activate merged_env && \
     R -e "install.packages('https://cran.r-project.org/src/contrib/Archive/grr/grr_0.9.5.tar.gz', repos = NULL, type = 'source')" && \
-    R -e "devtools::install_github('cole-trapnell-lab/monocle3@4f4239a0afb0dd1941a0359ba6bec95eb0ccf628', force = TRUE)" && \
+    R -e "install.packages(c('ggdist', 'pbmcapply', 'pscl', 'rsample', 'RhpcBLASctl', 'slam', 'spdep'), repos = 'https://cloud.r-project.org')" && \
+    R -e "remotes::install_github('cole-trapnell-lab/speedglm', dependencies = FALSE, upgrade = 'never')" && \
+    R -e "remotes::install_github('cole-trapnell-lab/monocle3@4f4239a0afb0dd1941a0359ba6bec95eb0ccf628', dependencies = FALSE, upgrade = 'never', force = TRUE)" && \
     Rscript -e "required <- c('monocle3', 'SeuratWrappers'); missing <- required[!vapply(required, requireNamespace, logical(1), quietly = TRUE)]; if (length(missing)) stop('Missing required Monocle3 packages: ', paste(missing, collapse = ', '))"
 
 # Clean stale data
@@ -82,14 +87,16 @@ RUN wget -q https://bioconductor.org/packages/release/data/annotation/src/contri
 
 # Copy configuration files
 COPY nginx.conf /etc/nginx/nginx.conf
-COPY --from=ui-builder /app/out/ /usr/share/nginx/html
+COPY --from=ui-builder /tmp/ui-root/ /usr/share/nginx/html
+COPY --from=ui-builder /tmp/ui-ood-template/ /usr/share/nginx/html-ood-template
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Update supervisor configuration with correct path
 RUN sed -i 's|/opt/conda/envs/v_[^/]*|/opt/conda/envs/merged_env|g' /etc/supervisor/conf.d/supervisord.conf
 
 # Docker normally starts as root, but HPC containers run as the invoking user.
-RUN chmod -R a+rX /srv/shiny-server /usr/share/nginx/html /etc/nginx
+RUN chmod -R a+rX /srv/shiny-server /usr/share/nginx/html \
+    /usr/share/nginx/html-ood-template /etc/nginx
 
 # Expose the port for the Nginx server
 EXPOSE 80

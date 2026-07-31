@@ -14,6 +14,7 @@ EOF
 port="${NASQAR_PORT:-}"
 runtime_dir="${NASQAR_RUNTIME_DIR:-/runtime}"
 allow_login="${NASQAR_ALLOW_LOGIN_NODE:-0}"
+base_path="${NASQAR_BASE_PATH:-}"
 
 while (($#)); do
     case "$1" in
@@ -60,6 +61,16 @@ if ! [[ "$port" =~ ^[0-9]+$ ]] || ((port < 1024 || port > 65535)); then
     exit 2
 fi
 
+if [[ -n "$base_path" ]]; then
+    base_path="/${base_path#/}"
+    base_path="${base_path%/}"
+    if [[ ! "$base_path" =~ ^/[A-Za-z0-9._/-]+$ ]] || [[ "$base_path" == *".."* ]]; then
+        echo "NASQAR_BASE_PATH must be a URL path without query strings or '..': $base_path" >&2
+        exit 2
+    fi
+fi
+export NASQAR_BASE_PATH="$base_path"
+
 umask 077
 mkdir -p \
     "$runtime_dir"/cache \
@@ -97,6 +108,29 @@ export MKL_NUM_THREADS="${MKL_NUM_THREADS:-${SLURM_CPUS_PER_TASK:-1}}"
 export RCPP_PARALLEL_NUM_THREADS="${RCPP_PARALLEL_NUM_THREADS:-${SLURM_CPUS_PER_TASK:-1}}"
 export PATH="/opt/conda/envs/merged_env/bin:$PATH"
 
+ui_root="/usr/share/nginx/html"
+if [[ -n "$base_path" ]]; then
+    ui_template="/usr/share/nginx/html-ood-template"
+    ui_root="$runtime_dir/ui"
+    if [[ ! -d "$ui_template" ]]; then
+        echo "OOD UI template not found in this image: $ui_template" >&2
+        exit 1
+    fi
+
+    rm -rf "$ui_root"
+    mkdir -p "$ui_root"
+    cp -a "$ui_template"/. "$ui_root"/
+
+    while IFS= read -r -d '' file; do
+        sed -i "s|/__NASQAR_OOD_BASE__|$base_path|g" "$file"
+    done < <(grep -rlZ '/__NASQAR_OOD_BASE__' "$ui_root")
+
+    if grep -Rqs '/__NASQAR_OOD_BASE__' "$ui_root"; then
+        echo "Failed to materialize the OOD UI base path." >&2
+        exit 1
+    fi
+fi
+
 nginx_conf="$runtime_dir/nginx/nginx.conf"
 {
     printf 'pid %s;\n' "$runtime_dir/nginx/nginx.pid"
@@ -105,6 +139,7 @@ nginx_conf="$runtime_dir/nginx/nginx.conf"
         -e '/^[[:space:]]*user[[:space:]].*;[[:space:]]*$/d' \
         -e 's|include[[:space:]]\+mime\.types;|include /etc/nginx/mime.types;|' \
         -e "s/listen[[:space:]]\\+80;/listen 0.0.0.0:$port;/" \
+        -e "s|root[[:space:]]\+/usr/share/nginx/html;|root $ui_root;|" \
         -e "/^[[:space:]]*http[[:space:]]*{/a\\
         access_log $runtime_dir/logs/nginx-access.log;\\
         client_body_temp_path $runtime_dir/nginx/client_body;\\
@@ -201,13 +236,23 @@ nginx_pid=$!
 child_pids+=("$nginx_pid")
 
 node_name="$(hostname -f 2>/dev/null || hostname)"
-cat >"$runtime_dir/connection.txt" <<EOF
+if [[ -n "$base_path" ]]; then
+    cat >"$runtime_dir/connection.txt" <<EOF
 NASQAR2 node: $node_name
 NASQAR2 port: $port
+NASQAR2 browser base path: $base_path
+Open NASQAR2 from the Open OnDemand session page.
+EOF
+else
+    cat >"$runtime_dir/connection.txt" <<EOF
+NASQAR2 node: $node_name
+NASQAR2 port: $port
+NASQAR2 browser base path: /
 Tunnel from your workstation:
 ssh -N -L ${port}:${node_name}:${port} nr83@jubail.abudhabi.nyu.edu
 Then open: http://localhost:${port}
 EOF
+fi
 
 cat "$runtime_dir/connection.txt"
 echo "Runtime directory: $runtime_dir"

@@ -1,0 +1,20 @@
+echo "$(date): waiting for NASQAR2 on ${host}:${app_port}..."
+
+if ! wait_until_port_used "${host}:${app_port}" 300; then
+    echo "$(date): NASQAR2 failed to open application port ${app_port}." >&2
+    echo "Check the NASQAR2 runtime logs under the job runtime directory." >&2
+    pkill -P "${SCRIPT_PID}" 2>/dev/null || true
+    clean_up 1
+fi
+
+if command -v curl >/dev/null 2>&1; then
+    if ! curl --fail --silent --show-error --max-time 15 \
+        "http://127.0.0.1:${app_port}/" >/dev/null
+    then
+        echo "$(date): NASQAR2 port opened, but its HTTP check failed." >&2
+        pkill -P "${SCRIPT_PID}" 2>/dev/null || true
+        clean_up 1
+    fi
+fi
+
+echo "$(date): NASQAR2 startup checks completed successfully."

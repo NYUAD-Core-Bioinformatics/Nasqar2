@@ -750,7 +750,8 @@ server <- function(input, output, session) {
 
 
     handoffLink <- function(label, path, token, style = "width: 100%;") {
-        handoffPath <- paste0(path, "?countsdata=", token)
+        basePath <- Sys.getenv("NASQAR_BASE_PATH", unset = "")
+        handoffPath <- paste0(basePath, path, "?countsdata=", token)
         a(
             label,
             href = handoffPath,

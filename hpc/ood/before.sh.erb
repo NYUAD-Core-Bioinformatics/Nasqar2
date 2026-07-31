@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+# Open OnDemand provides `host` and the find_port helper before this file runs.
+export app_port="$(find_port "${host}")"
+
+# Connect OOD directly to NASQAR2. An HTTP-only intermediary breaks Shiny's
+# WebSocket upgrade and leaves applications covered by the disconnected mask.
+export port="${app_port}"
+export password="$(create_passwd 32)"
+
+# The image uses this only for the OOD session. Root deployments leave it empty.
+export NASQAR_BASE_PATH="/rnode/${host}/${port}"
+
+echo "NASQAR2 application port: ${app_port}"
+echo "NASQAR2 OOD base path: ${NASQAR_BASE_PATH}"
