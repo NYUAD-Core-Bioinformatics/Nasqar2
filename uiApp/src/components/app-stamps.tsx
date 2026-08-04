@@ -7,6 +7,8 @@ interface AppStampProps {
 }
 
 function AppStamp({ title, href }: AppStampProps) {
+  const basePath = process.env.NEXT_PUBLIC_NASQAR_BASE_PATH || '';
+
   return (
     <Card
       sx={{
@@ -23,7 +25,7 @@ function AppStamp({ title, href }: AppStampProps) {
         },
       }}
       component="a"
-      href={href}
+      href={`${basePath}${href}`}
     >
       <CardContent sx={{ textAlign: 'center', p: '8px !important', width: '100%' }}>
         <Typography variant="body2" component="div" sx={{ fontSize: '0.875rem', fontWeight: 500 }}>

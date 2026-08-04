@@ -33,7 +33,7 @@ gseGoReactive <- eventReactive(input$initGo, {
                 df <- prepared$df
                 original_gene_list <- prepared$original_gene_list
                 gene_list <- prepared$gene_list
-                orgDb.obj <- eval(parse(text = input$organismDb, keep.source = FALSE))
+                orgDb.obj <- get(input$organismDb, envir = asNamespace(input$organismDb))
 
                 setProgress(value = 0.3, detail = "Performing GO gene set enrichment analysis ...")
                 go_gse <- tryCatch(
