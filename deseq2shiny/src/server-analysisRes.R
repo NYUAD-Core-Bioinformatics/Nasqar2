@@ -196,9 +196,14 @@ output$factorsStr <- renderText({
 
 output$analysisRes_enrichGo <- renderUI({
     fileUrl <- new_exchange_file(".csv")
-    csv <- myValues$vsResults
+    csv <- as.data.frame(myValues$vsResults)
+    exchange_data <- data.frame(
+        X = rownames(csv),
+        csv,
+        check.names = FALSE
+    )
 
-    write.csv(csv, file = fileUrl)
+    write.csv(exchange_data, file = fileUrl, row.names = FALSE)
     exchangeToken <- encryptUrlParam(fileUrl)
     basePath <- Sys.getenv("NASQAR_BASE_PATH", unset = "")
     oraPath <- paste0(basePath, "/ClusterProfShinyORA/?countsdata=", exchangeToken)

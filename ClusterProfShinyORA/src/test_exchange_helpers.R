@@ -15,4 +15,11 @@ tryCatch(
 stopifnot(failed)
 stopifnot(is.character(installed_organism_choices()))
 
+legacy <- data.frame(gene = c("gene1", "gene2"), value = 1:2,
+                     check.names = FALSE)
+names(legacy)[1L] <- ""
+normalized <- normalize_enrichment_columns(legacy)
+stopifnot(identical(names(normalized), c("X", "value")))
+stopifnot(identical(normalized$X, c("gene1", "gene2")))
+
 cat("ORA exchange helper tests passed\n")

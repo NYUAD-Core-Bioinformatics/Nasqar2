@@ -47,7 +47,9 @@ inputDataReactive <- reactive({
         inFile <- validate_exchange_path(
             decryptUrlParam(query[["gene_names"]])
         )
-        data <- read.csv(inFile, check.names = FALSE)
+        data <- normalize_enrichment_columns(
+            read.csv(inFile, check.names = FALSE)
+        )
         shinyjs::show(selector = "a[data-value=\"datainput\"]")
         # shinyjs::show(selector = "a[data-value=\"iParamsbox\"]")
         shinyjs::disable("datafile")
@@ -75,7 +77,9 @@ inputDataReactive <- reactive({
         inFile <- validate_exchange_path(
             decryptUrlParam(query[["countsdata"]])
         )
-        data <- read.csv(inFile, check.names = FALSE)
+        data <- normalize_enrichment_columns(
+            read.csv(inFile, check.names = FALSE)
+        )
         shinyjs::show(selector = "a[data-value=\"datainput\"]")
 
         shinyjs::show(selector = "a[data-value=\"datainput\"]")
@@ -102,10 +106,14 @@ inputDataReactive <- reactive({
             )
             return(NULL)
         }
-        seqdata <- read.csv(inFile$datapath, header = TRUE, sep = ",")
+        seqdata <- normalize_enrichment_columns(
+            read.csv(inFile$datapath, header = TRUE, sep = ",")
+        )
         print("uploaded seqdata")
         if (ncol(seqdata) == 1) { # if file appears not to work as csv try tsv
-            seqdata <- read.tsv(inFile$datapath, header = TRUE)
+            seqdata <- normalize_enrichment_columns(
+                read.tsv(inFile$datapath, header = TRUE)
+            )
             print("changed to tsv, uploaded seqdata")
         }
         shiny::validate(need(ncol(seqdata) > 1,
@@ -123,7 +131,9 @@ inputDataReactive <- reactive({
 
             # data = read.csv("www/exampleData/SRX003935_vs_SRX003924.csv")
 
-            data <- read.csv("www/exampleData/drosphila_example_de.csv")
+            data <- normalize_enrichment_columns(
+                read.csv("www/exampleData/drosphila_example_de.csv")
+            )
 
 
 
