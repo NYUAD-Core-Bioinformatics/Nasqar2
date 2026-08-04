@@ -56,17 +56,27 @@ observe({
 my_values <- reactiveValues()
 my_values$scratch_dir <- NULL
 
-scratch_root <- normalizePath(
-    Sys.getenv("NASQAR_DATA_ROOT", unset = "/scratch/nr83"),
-    winslash = "/",
-    mustWork = FALSE
-)
+configured_scratch_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
+scratch_root <- if (nzchar(configured_scratch_root)) {
+    normalizePath(configured_scratch_root, winslash = "/", mustWork = FALSE)
+} else {
+    NULL
+}
 
 observeEvent(input$scratch_directory, {
     my_values$scratch_dir <- NULL
 }, ignoreInit = TRUE)
 
 observeEvent(input$load_scratch_directory, {
+    if (!nzchar(trimws(input$scratch_directory))) {
+        showNotification("Enter a directory containing BAM and BAI files.", type = "error")
+        return()
+    }
+    if (is.null(scratch_root)) {
+        showNotification("HPC data-directory access is not configured.", type = "error")
+        return()
+    }
+
     requested_dir <- tryCatch(
         normalizePath(input$scratch_directory, winslash = "/", mustWork = TRUE),
         error = function(error) NULL

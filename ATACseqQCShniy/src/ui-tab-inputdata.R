@@ -20,7 +20,7 @@ tabItem(
                     textInput(
                         "scratch_directory",
                         "Directory containing BAM and BAI files",
-                        value = Sys.getenv("NASQAR_DATA_ROOT", unset = "/scratch/nr83")
+                        value = ""
                     ),
                     actionButton("load_scratch_directory", "Load directory")
                 ),
