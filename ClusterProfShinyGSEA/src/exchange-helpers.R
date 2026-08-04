@@ -38,6 +38,14 @@ validate_exchange_path <- function(path, extension = ".csv") {
     resolved
 }
 
+normalize_enrichment_columns <- function(data) {
+    if (ncol(data) > 0L && (is.na(names(data)[1L]) || !nzchar(names(data)[1L]))) {
+        names(data)[1L] <- "X"
+        names(data) <- make.unique(names(data), sep = ".")
+    }
+    data
+}
+
 installed_organism_choices <- function() {
     choices <- c(
         "Human" = "org.Hs.eg.db",
