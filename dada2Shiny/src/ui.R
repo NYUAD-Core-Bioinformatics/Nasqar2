@@ -8,7 +8,6 @@ library(dplyr)
 library(phyloseq)
 library(Biostrings)
 library(ggplot2)
-library(httr)
 library(rmarkdown)
 
 publication_downloads <- function(id) {

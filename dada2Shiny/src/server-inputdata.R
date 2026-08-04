@@ -14,82 +14,9 @@ observe({
 
 
 my_values <- reactiveValues()
-my_values$mounted_dir <- FALSE
-my_values$downloaded_files <- FALSE
 my_values$work_dir <- NULL
 my_values$local_work_dir <- NULL
 my_values$cache_status <- NULL
-
-# observeEvent(input$connect_remote_server, {
-#     print(input$username)
-#     print(input$hostname)
-#     print(input$mountpoint)
-#     print(input$id_rsa$datapath)
-#     my_values$mounted_dir <- FALSE
-
-
-#     system(paste(
-#         "sh generate_ssh_config.sh ", input$username, " ",
-#         input$hostname, " ", input$mountpoint, " ",
-#         input$id_rsa$datapath
-#     ))
-
-
-#     # Get the list of files in the directory
-#     # files <- list.files(base_dir, full.names = FALSE)
-#     my_values$mounted_dir <- TRUE
-# })
-
-downloadFiles <- function(){
-    output$status <- renderText("Downloading files...")
-    
-    folder_url <- input$folder_url
-
-  
-    
-    # Specify the folder where files will be saved locally
-    download_path <- tempfile() 
-    dir.create(download_path)
-    my_values$download_path <- download_path
-    
-    # Example function to get list of files and download them
-    tryCatch({
-      # Assuming the server provides an index.html with links to files
-      response <- GET(folder_url)
-      page_content <- content(response, "text")
-      
-      # Extract file URLs (using regex or an HTML parser like xml2)
-      file_links <- regmatches(page_content, gregexpr("href=\"(.*?)\"", page_content))[[1]]
-      print(file_links)
-      file_links <- gsub("href=\"|\"", "", file_links) # Clean up URLs
-      
-      # Loop through and download each file
-      for (fname in file_links) {
-        print(fname)
-        print(download_path)
-        file_path <- file.path(download_path, basename(fname))
-        print(file_path)
-        file_url <- paste0(folder_url,'/', fname) 
-        download.file(file_url, file_path, mode = "wb")
-      }
-      my_values$downloaded_files <- TRUE
-      output$status <- renderText("")
-    }, error = function(e) {
-    #   output$status <- renderText(paste("Error downloading files:", e))
-      output$status <- renderText({
-        js$addStatusIcon("input_tab", "done")
-        js$addStatusIcon("input_tab", "next")
-        print('input$folder_url')
-        print(input$folder_url)
-       if (is.null(input$folder_url) | nchar(input$folder_url)  < 3){
-        return ('Please provide ur')
-       } 
-
-       return('Error downloading files from provided url')
-        
-        })
-    })
-  }
 
 qc_done <- reactiveVal(FALSE)
 
@@ -183,20 +110,6 @@ input_files_reactive <- eventReactive(input$initFastq, {
   
     print('load')
 
-
-
-   if(identical(input$data_file_type, "download_remote_server")){
-    downloadFiles()
-    req(my_values$downloaded_files)
-   }  
-
-        
-
-        
-
-     
-
-     
 
 
     if (identical(input$data_file_type, "upload_fastq_file")) {
@@ -304,34 +217,6 @@ input_files_reactive <- eventReactive(input$initFastq, {
                 "No matching paired FASTQ files were found with these patterns."
             ))
         }
-    } else {
-        base_dir <- my_values$download_path
-        print(base_dir)
-        # Get the list of files in the directory
-        files <- list.files(base_dir, full.names = FALSE)
-        print(files)
-
-        print('grepl(input$forward_pattern, files) ..')
-        print(grepl(input$forward_pattern, files))
-        # Filter fastq files
-        fn_Fs <- files[grepl(input$forward_pattern, files)]
-        print('fn_Fs ....')
-        print(fn_Fs)
-
-        if (input$seq_type == "paired") {
-            fn_Rs <- files[grepl(input$reverse_pattern, files)]
-            matching_files <- sapply(fn_Fs, function(fastq_file) {
-                fastq_file <- gsub(paste0(input$forward_pattern, "$"), input$reverse_pattern, fastq_file)
-                fastq_file %in% fn_Rs
-            })
-            fn_Fs <- names(matching_files[matching_files == TRUE])
-            fn_Rs <- stringr::str_replace_all(fn_Fs, input$forward_pattern, input$reverse_pattern)
-            shiny::validate(
-                need(sum(matching_files) == length(fn_Fs) & sum(matching_files) == length(fn_Rs),
-                    message = "Please upload both R1 and R2 fastq files having same base name(ex: <name>_R1_001.fastq and <name>_R2_001.fastq) "
-                )
-            )
-        }
     }
 
 
@@ -408,7 +293,7 @@ input_files_reactive <- eventReactive(input$initFastq, {
   output$result1 <- renderText({
         # Ensure the input is between 1 and 10
         shiny::validate(
-        need(identical(input$data_file_type, "example_fastq_file") | identical(input$data_file_type, "hpc_scratch_directory") | identical(input$data_file_type, "download_remote_server") | (identical(input$data_file_type, "upload_fastq_file") & !is.null(input$fastq_files) & length(input$fastq_files$name) > 1),
+        need(identical(input$data_file_type, "example_fastq_file") | identical(input$data_file_type, "hpc_scratch_directory") | (identical(input$data_file_type, "upload_fastq_file") & !is.null(input$fastq_files) & length(input$fastq_files$name) > 1),
             message = "Please upload both R1 andd R2 fastq files "
         )
     )
@@ -416,8 +301,8 @@ input_files_reactive <- eventReactive(input$initFastq, {
     print('load')
 
     shiny::validate(
-        need(identical(input$data_file_type, "example_fastq_file") | identical(input$data_file_type, "upload_fastq_file") | identical(input$data_file_type, "hpc_scratch_directory") | identical(input$data_file_type, "download_remote_server") & my_values$downloaded_files,
-            message = "Please connect to the server "
+        need(identical(input$data_file_type, "example_fastq_file") | identical(input$data_file_type, "upload_fastq_file") | identical(input$data_file_type, "hpc_scratch_directory"),
+            message = "Please select a FASTQ data source."
         )
     )
         paste("You entered:", input$num)

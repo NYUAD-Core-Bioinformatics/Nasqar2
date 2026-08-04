@@ -11,7 +11,6 @@ tabItem(
                     c(
                         "Upload fastq File" = "upload_fastq_file",
                         "Example fastq file" = "example_fastq_file",
-                        "Download from remote server" = "download_remote_server",
                         "Use HPC scratch directory" = "hpc_scratch_directory"
                     ),
                     selected = "example_fastq_file"
@@ -25,14 +24,6 @@ tabItem(
                     ),
                     textInput("hpc_project_name", "Persistent project name", value = "dada2-project"),
                     helpText("Input FASTQ files are read in place. Filtered reads and results are written to the private DADA2 project directory.")
-                ),
-                conditionalPanel(
-                    condition = "input.data_file_type=='download_remote_server'",
-                    textInput("folder_url", "Enter folder URL:", "")
-                    # actionButton("download_btn", "Download Files")
-                   
-                    
-                    # actionButton("connect_remote_server", "Connect")
                 ),
                 conditionalPanel(
                     condition = "input.data_file_type=='upload_fastq_file'",
