@@ -28,19 +28,56 @@ observeEvent(input$assignTaxonomy, {
         NULL  # No species assignment
     }
 
-    # Assign taxonomy using the selected reference database
-    withProgress(message = "Assigning Taxonomy, please wait...", {
-        shiny::setProgress(value = 0.1, detail = "...assigning taxonomy")
-        taxa <- assignTaxonomy(seqtab.nochim, reference_db, multithread = hpc_workers)
-        
-        # Assign species if a species-level database is selected
-        if (!is.null(species_db)) {
-            shiny::setProgress(value = 0.7, detail = "...assigning species")
-            taxa <- addSpecies(taxa, species_db)
+    # A custom database that has not been uploaded yet (e.g. a restored project)
+    if (is.null(reference_db) || !file.exists(reference_db)) {
+        js$addStatusIcon("taxanomyTab", "next")
+        showNotification("Upload the custom reference database before assigning taxonomy.", type = "error")
+        return()
+    }
+    if (input$species_assignment_choice == "custom_species" && (is.null(species_db) || !file.exists(species_db))) {
+        js$addStatusIcon("taxanomyTab", "next")
+        showNotification("Upload the custom species assignment database before assigning taxonomy.", type = "error")
+        return()
+    }
+
+    # Taxonomy is cached in the project, keyed on the sequence table and the
+    # databases, so a restored project re-assigns instantly.
+    taxonomy_key <- digest::digest(list(
+        seqtab = seqtab.nochim,
+        reference = file.info(reference_db)[c("size", "mtime")],
+        species = if (!is.null(species_db) && file.exists(species_db)) file.info(species_db)[c("size", "mtime")] else species_db,
+        dada2 = as.character(utils::packageVersion("dada2"))
+    ), algo = "xxhash64")
+    taxonomy_cache <- if (!is.null(my_values$work_dir)) {
+        file.path(my_values$work_dir, "cache", paste0("taxonomy-", taxonomy_key, ".rds"))
+    } else {
+        NULL
+    }
+    taxa <- if (!is.null(taxonomy_cache) && file.exists(taxonomy_cache)) {
+        tryCatch(readRDS(taxonomy_cache), error = function(e) NULL)
+    } else {
+        NULL
+    }
+    if (!is.null(taxa)) {
+        my_values$cache_status <- paste("Loaded cached taxonomy:", taxonomy_key)
+    } else {
+        withProgress(message = "Assigning Taxonomy, please wait...", {
+            shiny::setProgress(value = 0.1, detail = "...assigning taxonomy")
+            taxa <- assignTaxonomy(seqtab.nochim, reference_db, multithread = hpc_workers)
+
+            # Assign species if a species-level database is selected
+            if (!is.null(species_db)) {
+                shiny::setProgress(value = 0.7, detail = "...assigning species")
+                taxa <- addSpecies(taxa, species_db)
+            }
+
+            shiny::setProgress(value = 1.0, detail = "...done")
+        })
+        if (!is.null(taxonomy_cache)) {
+            dir.create(dirname(taxonomy_cache), recursive = TRUE, showWarnings = FALSE, mode = "0700")
+            saveRDS(taxa, taxonomy_cache)
         }
-        
-        shiny::setProgress(value = 1.0, detail = "...done")
-    })
+    }
 
     # Store taxonomy and species assignment results
     taxa[is.na(taxa)] <- 'unknown'
@@ -304,7 +341,7 @@ output$numSelectedRows <- renderText({
 })
 
 # Download taxonomy table handler
-output$download_taxonomy_table <- downloadHandler(
+output$download_taxonomy_table <- nasqar_download_handler(
     filename = function() {
         paste("taxonomy_table", Sys.Date(), ".csv", sep = "")
     },
@@ -316,7 +353,7 @@ output$download_taxonomy_table <- downloadHandler(
 )
 
 # Download taxonomy table as FASTA
-output$download_taxonomy_fasta <- downloadHandler(
+output$download_taxonomy_fasta <- nasqar_download_handler(
     filename = function() {
         paste("taxonomy_table", Sys.Date(), ".fasta", sep = "")
     },

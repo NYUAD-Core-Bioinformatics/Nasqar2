@@ -1,5 +1,6 @@
 library(shinydashboard)
 library(shinyjs)
+source("nasqar-project.R")
 library(shinycssloaders)
 library(Rsamtools)
 library(MotifDb)

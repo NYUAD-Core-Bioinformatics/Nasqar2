@@ -10,16 +10,23 @@ For more information about Monocle3, visit the [official documentation](https://
   Launch Monocle3
 </a>
 
-## HPC use
+## Private instance use
 
-Choose **Use HPC scratch file** to load a Seurat `.rds` or `.RData` object
-inside the configured read-only data root. Monocle 3 validates that the path
-remains inside that root and writes trajectory outputs to a named persistent
-project directory. Worker availability is derived from
-`SLURM_CPUS_PER_TASK`.
+In a private instance, choose **Use a file in the private space** to load
+a Seurat `.rds` or `.RData` object from the configured read-only data root.
+Monocle 3 validates that the path remains inside that root and writes
+trajectory outputs to a named persistent project directory. On Slurm, worker
+availability is derived from `SLURM_CPUS_PER_TASK`.
 
-See the [HPC deployment guide](/quickstart/hpc) for submission, storage, and
-SSH tunnel instructions.
+See [Run as a private instance](/quickstart/installation#run-as-a-private-instance-with-your-own-data) for Docker and the [HPC deployment guide](/quickstart/hpc) for Slurm.
+
+## Private-space projects
+
+In a private instance every run belongs to a project, `projects/Monocle3/<name>`,
+holding input object, assay, identity, progenitor gene and the complete run results plus a `state.rds` of the settings and the stage reached.
+**Restore an existing project** on the input tab reopens it without
+recomputing; cached results are reused and the restore is refused if the
+source data changed. Public instances have no private space and no projects.
 
 ## Citation
 

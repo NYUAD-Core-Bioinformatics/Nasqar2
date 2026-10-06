@@ -9,7 +9,7 @@ container inside a Slurm compute allocation.
 
 ## Build the image
 
-The local definition imports the current `nasqar2-local:bulk-gcm` Docker image:
+The local definition imports the current `nasqar2-all:latest` Docker image:
 
 ```bash
 ./hpc/build-sif.sh
@@ -87,8 +87,7 @@ NASQAR2_R_LIBRARY=/scratch/nr83/project/r-library sbatch nasqar2.sbatch
 ## Resource defaults
 
 The supplied job requests one task, 16 CPU cores, 32 GB RAM, and eight
-hours. Adjust these values to the intended dataset. Do not start NASQAR2 on a
-Jubail login node.
+hours. Adjust these values to the intended dataset.
 
 ATACseqQC caches chromosome-specific core, nucleosome, and footprint results
 under `$SCRATCH/nasqar2/cache/ATACseqQC`. Cached results are keyed by the BAM
@@ -109,6 +108,15 @@ DADA2 performs filtering and trimming in node-local temporary storage. Final
 results and parameter-aware caches persist in its project directory. Cache keys
 include FASTQ paths, sizes, modification times, analysis parameters, and the
 DADA2 package version.
+
+Variant Annotation reads VCF files in place from the data root. Files that are
+not bgzip-compressed and tabix-indexed are converted once into
+`$SCRATCH/nasqar2/projects/VariantAnnotation`, where filtered VCFs, annotation
+tables, and caches also persist. Records are streamed in chunks or read by
+tabix region; kept records go to an indexed VCF and are annotated in chunks of
+`NASQAR_VARIANT_ANNOTATION_CHUNK` records (default 50000), so memory is bounded
+whatever the cohort size. Optional dbSNP packages such as
+`SNPlocs.Hsapiens.dbSNP144.GRCh38` can be installed into the private R library.
 
 ## Open OnDemand
 

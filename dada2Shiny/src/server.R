@@ -4,30 +4,49 @@ server <- function(input, output, session) {
     hpc_workers <- suppressWarnings(as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1")))
     if (is.na(hpc_workers) || hpc_workers < 1L) hpc_workers <- 1L
 
+    data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
+    data_root <- if (nzchar(data_root)) normalizePath(data_root, winslash = "/", mustWork = FALSE) else NULL
+
+    # Server-side browser jailed to the private data root; it only fills the path box.
+    if (!is.null(data_root)) {
+        browse_roots <- nasqar_browse_roots()
+        shinyFiles::shinyDirChoose(input, "browse_fastq_directory", roots = browse_roots, session = session)
+        observeEvent(input$browse_fastq_directory, {
+            selected <- tryCatch(shinyFiles::parseDirPath(browse_roots, input$browse_fastq_directory), error = function(e) character(0))
+            if (length(selected) == 1L && nzchar(selected)) {
+                updateTextInput(session, "hpc_fastq_directory", value = as.character(selected))
+            }
+        }, ignoreInit = TRUE)
+    } else {
+        removeUI(selector = "#browse_fastq_directory")
+        shinyjs::runjs("$('input[name=data_file_type][value=hpc_scratch_directory]').closest('.radio').remove()")
+    }
+
     resolve_hpc_path <- function(path) {
-        root <- normalizePath(
-            Sys.getenv("NASQAR_DATA_ROOT", unset = "/scratch/nr83"),
-            mustWork = TRUE
-        )
+        if (is.null(data_root)) stop("This instance has no private space configured.")
+        root <- normalizePath(data_root, mustWork = TRUE)
         resolved <- normalizePath(path, mustWork = TRUE)
-        allowed <- identical(resolved, root) ||
-            startsWith(resolved, paste0(root, .Platform$file.sep))
-        if (!allowed) stop("The directory must be inside the configured HPC data root.")
-        if (!dir.exists(resolved)) stop("The HPC FASTQ path must be a directory.")
+        allowed <- nasqar_path_inside_roots(resolved)
+        if (!allowed) stop("The directory must be in the private space.")
+        if (!dir.exists(resolved)) stop("The FASTQ path must be a directory.")
         resolved
     }
 
+    # Private-space projects: projects/DADA2/<name> (shared convention)
+    source("nasqar-project.R", local = TRUE)
+    project_app <- "DADA2"
+    project_legacy_env <- "NASQAR_DADA2_PROJECT_DIR"
+    private_space <- nasqar_project_available(project_app, project_legacy_env)
     project_directory <- function(name) {
-        root <- Sys.getenv("NASQAR_DADA2_PROJECT_DIR", unset = "")
-        if (!nzchar(root)) return(file.path(tempdir(), "dada2-project"))
-        safe_name <- gsub("[^A-Za-z0-9._-]+", "-", trimws(name))
-        if (!nzchar(safe_name)) safe_name <- "dada2-project"
-        path <- file.path(root, safe_name)
-        dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
+        path <- nasqar_project_dir(project_app, name, project_legacy_env, fallback = "dada2-project")
         if (!dir.exists(path) || file.access(path, 2) != 0) {
-            stop("The DADA2 HPC project directory is not writable.")
+            stop("The DADA2 private space directory is not writable.")
         }
         path
+    }
+    current_project_name <- function() {
+        name <- input$nasqar_project_name
+        if (private_space && !is.null(name) && nzchar(trimws(name))) trimws(name) else paste0("session-", session$token)
     }
 
     local_working_directory <- function(name) {
@@ -56,4 +75,5 @@ server <- function(input, output, session) {
     source("server-trackReads.R", local = TRUE)
     source("server-taxonomy.R", local = TRUE)
     source("server-alphaDiversity.R", local = TRUE)
+    source("server-project.R", local = TRUE)
 }

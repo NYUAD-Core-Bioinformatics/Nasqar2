@@ -10,17 +10,27 @@ For more information about ATACseqQC, visit the [official documentation](https:/
   Launch ATACseqQC
 </a>
 
-## HPC use
+## Private instance use
 
-In the Slurm deployment, choose **Use HPC scratch directory** to load matching
-BAM and BAI files directly from the configured read-only data root. Browser
-upload and bundled example data remain available.
+When NASQAR2 runs as a private instance with a data root configured, choose
+**Use a directory in the private space** to load matching BAM and BAI
+files directly from that read-only directory instead of uploading them.
+Browser upload and bundled example data remain available.
 
 Core, nucleosome, and footprint results are cached by BAM path, file size,
 modification time, reference genome, chromosome, and motif. The cache persists
-across jobs, while PT, NFR, and TSSE scoring can use allocated Slurm CPUs.
+across sessions and jobs; on Slurm, PT, NFR, and TSSE scoring can use the
+allocated CPUs.
 
-See the [HPC deployment guide](/quickstart/hpc) for storage and tunnel setup.
+See [Run as a private instance](/quickstart/installation#run-as-a-private-instance-with-your-own-data) for Docker and the [HPC deployment guide](/quickstart/hpc) for Slurm.
+
+## Private-space projects
+
+In a private instance every run belongs to a project, `projects/ATACseqQC/<name>`,
+holding BAM directory, genome and the per-project result caches plus a `state.rds` of the settings and the stage reached.
+**Restore an existing project** on the input tab reopens it without
+recomputing; cached results are reused and the restore is refused if the
+source data changed. Public instances have no private space and no projects.
 
 ## Citation
 

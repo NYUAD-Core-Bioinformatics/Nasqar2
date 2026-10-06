@@ -11,11 +11,12 @@ dependencies:
 - r-SeuratObject
 - r-base==4.3.3
 - r-biocmanager
-- r-car
 - r-cairo
+- r-car
 - r-clustree
 - r-colourpicker
 - r-devtools
+- r-digest
 - r-dplyr
 - r-dt
 - r-europepmc
@@ -51,6 +52,7 @@ dependencies:
 - r-shinycssloaders
 - r-shinydashboard
 - r-shinyjs
+- r-shinyfiles
 - r-sodium
 - r-stringr
 - r-terra
@@ -61,9 +63,11 @@ dependencies:
 - r-vegan
 - r-vennDiagram
 - bioconductor-animalcules
+- bioconductor-annotationdbi
 - bioconductor-atacseqqc
 - bioconductor-batchelor
 - bioconductor-biocgenerics
+- bioconductor-bsgenome
 - bioconductor-chippeakanno
 - bioconductor-clusterprofiler
 - bioconductor-complexheatmap
@@ -74,7 +78,9 @@ dependencies:
 - bioconductor-deseq2
 - bioconductor-edger
 - bioconductor-enhancedvolcano
+- bioconductor-genomeinfodb
 - bioconductor-genomicalignments
+- bioconductor-genomicfeatures
 - bioconductor-glmgampoi
 - bioconductor-hdf5array
 - bioconductor-interactivecomplexheatmap
@@ -93,8 +99,10 @@ dependencies:
 - bioconductor-singlecellexperiment
 - bioconductor-summarizedexperiment
 - bioconductor-sva
-- bioconductor-tximport
 - bioconductor-txdb.hsapiens.ucsc.hg19.knowngene
+- bioconductor-txdb.hsapiens.ucsc.hg38.knowngene
+- bioconductor-tximport
+- bioconductor-variantannotation
 - binutils
 - biom-format
 - bpp-core

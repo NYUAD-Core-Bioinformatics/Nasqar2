@@ -67,7 +67,7 @@ output$maPlot <- renderPlot({
 })
 
 # Download MA plot with custom size and format
-output$download_ma_plot <- downloadHandler(
+output$download_ma_plot <- nasqar_download_handler(
     filename = function() {
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
         ext <- input$ma_plot_format
@@ -243,7 +243,7 @@ output$analysisRes_enrichGo <- renderUI({
 
 
 
-output$downloadVsCsv <- downloadHandler(
+output$downloadVsCsv <- nasqar_download_handler(
     filename = function() {
         paste0(input$condition1, "_vs_", input$condition2, ".csv")
     },
@@ -255,7 +255,7 @@ output$downloadVsCsv <- downloadHandler(
 )
 
 # Export R code for MA plot
-output$download_code_ma <- downloadHandler(
+output$download_code_ma <- nasqar_download_handler(
     filename = function() {
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
         export_mode <- get_export_mode(input)

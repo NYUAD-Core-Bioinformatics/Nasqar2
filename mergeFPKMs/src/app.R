@@ -1,9 +1,11 @@
 library(shiny)
+source("nasqar-project.R")
 library(parallel)
 
 
 # User Interface stuff
 ui <- tagList(
+    shinyjs::useShinyjs(),
     tags$head(
         tags$style(HTML(" .shiny-output-error-validation {color: darkred; } ")),
         tags$style(".mybuttonclass{background-color:#CD0000;} .mybuttonclass{color: #fff;} .mybuttonclass{border-color: #9E0000;}")
@@ -18,6 +20,20 @@ ui <- tagList(
                 column(4, wellPanel(
                     h4("Upload all FPKM files"),
                     h4("(select at least 2 csv files)"),
+                    radioButtons("counts_source", "Count files",
+                        c("Upload files" = "upload", "Use files in the private space" = "hpc_dir"),
+                        selected = "upload"),
+                    conditionalPanel(
+                        condition = "input.counts_source=='hpc_dir'",
+                        div(
+                            style = "display:flex; gap:8px; align-items:flex-end;",
+                            div(style = "flex:1;",
+                                textAreaInput("hpc_counts_files", "Selected files in the private space (one per line)", value = "", rows = 4)
+                            ),
+                            div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_hpc_fpkm_dir", "Browse...", "Choose the count files in the private space (Shift/Ctrl-click or Ctrl-A for several)", multiple = TRUE))
+                        ),
+                        helpText("Pick the files to merge with Browse (several at once) or paste their paths; files are read in place.")
+                    ),
                     fileInput("datafile", "",
                         accept = c(
                             "text/csv",
@@ -48,6 +64,8 @@ ui <- tagList(
                             selected = "add"
                         )
                     ),
+                    nasqar_project_ui("fpkm-project",
+                        help = "The merged table is kept under this name in the private space, so the project can be restored later."),
                     conditionalPanel(
                         "output.filesUploaded",
                         actionButton("upload_data", "Merge Files",
@@ -186,7 +204,7 @@ server <- function(input, output, session) {
     })
     outputOptions(output, "filesMerged", suspendWhenHidden = FALSE)
 
-    output$downloadData <- downloadHandler(
+    output$downloadData <- nasqar_download_handler(
         filename = function() {
             paste("merged-", Sys.Date(), ".csv", sep = "")
         },
@@ -196,17 +214,83 @@ server <- function(input, output, session) {
     )
 
     inputDataReactive <- reactive({
-        inFile <- input$datafile
+        inFile <- if (identical(input$counts_source, "hpc_dir")) data_root_files() else input$datafile
         if (is.null(inFile)) {
             return(NULL)
         }
-
-
         return(inFile)
     })
 
 
-    dataReactive <-
+    # Private-space projects: projects/mergeFPKMs/<name> (shared convention)
+    source("nasqar-project.R", local = TRUE)
+    project_app <- "mergeFPKMs"
+    private_space <- nasqar_project_available(project_app)
+    current_project_name <- function() {
+        name <- input$nasqar_project_name
+        if (private_space && !is.null(name) && nzchar(trimws(name))) trimws(name) else paste0("session-", session$token)
+    }
+    restored_data <- reactiveVal(NULL)
+
+    # Private data root: input files read in place (private instance only)
+    data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
+    data_root <- if (nzchar(data_root)) normalizePath(data_root, winslash = "/", mustWork = FALSE) else NULL
+    resolve_hpc_path <- function(path, directory = FALSE) {
+        if (is.null(data_root)) stop("This instance has no private space configured.")
+        if (is.null(path) || !nzchar(trimws(path))) stop("Enter a path in the private space.")
+        resolved <- normalizePath(trimws(path), winslash = "/", mustWork = TRUE)
+        inside <- nasqar_path_inside_roots(resolved)
+        if (!inside) stop("The path must be in the private space.")
+        if (directory && !dir.exists(resolved)) stop("Select a directory.")
+        if (!directory && dir.exists(resolved)) stop("Select a file, not a directory.")
+        resolved
+    }
+    if (!is.null(data_root)) {
+        browse_roots <- nasqar_browse_roots()
+        shinyFiles::shinyFileChoose(input, "browse_hpc_fpkm_dir", roots = browse_roots, session = session)
+        observeEvent(input$browse_hpc_fpkm_dir, {
+            selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_hpc_fpkm_dir), error = function(e) NULL)
+            if (!is.null(selected) && nrow(selected)) {
+                updateTextAreaInput(session, "hpc_counts_files", value = paste(as.character(selected$datapath), collapse = "\n"))
+            }
+        }, ignoreInit = TRUE)
+    } else {
+        removeUI(selector = "#browse_hpc_fpkm_dir")
+        shinyjs::runjs("$('input[name=counts_source][value=hpc_dir]').closest('.radio').remove()")
+    }
+    # Selected data-root files, in the same shape as a multi-file upload.
+    data_root_files <- function() {
+        lines <- trimws(unlist(strsplit(input$hpc_counts_files %||% "", "\n", fixed = TRUE)))
+        lines <- lines[nzchar(lines)]
+        shiny::validate(need(length(lines) > 0, "Select at least one file in the private space."))
+        files <- vapply(lines, function(path) {
+            tryCatch(resolve_hpc_path(path), error = function(e) shiny::validate(need(FALSE, conditionMessage(e))))
+        }, character(1), USE.NAMES = FALSE)
+        data.frame(name = basename(files), size = file.info(files)$size, type = "", datapath = files, stringsAsFactors = FALSE)
+    }
+    dataReactive <- reactive({
+        restored <- restored_data()
+        if (!is.null(restored)) restored else mergeReactive()
+    })
+    observeEvent(mergeReactive(), {
+        merged <- mergeReactive()
+        if (!private_space || is.null(merged)) return()
+        restored_data(NULL)
+        dir <- nasqar_project_dir(project_app, current_project_name(), fallback = "fpkm-project")
+        merged_file <- file.path(dir, "merged-fpkm.csv")
+        utils::write.csv(merged$data, merged_file, row.names = FALSE)
+        nasqar_project_state_write(dir, project_app, basename(dir), "merged",
+                                   input_label = sprintf("%d files", nrow(inputDataReactive())), merged_file = merged_file)
+        project_refresh(basename(dir))
+    })
+    project_refresh <- nasqar_project_server(input, output, session, project_app, on_restore = function(state, dir) {
+        if (!identical(state$app, project_app)) return("this project belongs to another application")
+        if (is.null(state$merged_file) || !file.exists(state$merged_file)) return("the project's merged table is missing")
+        restored_data(list(data = utils::read.csv(state$merged_file, check.names = FALSE, stringsAsFactors = FALSE)))
+        NULL
+    })
+
+    mergeReactive <-
         eventReactive(input$upload_data,
             ignoreNULL = FALSE,
             {

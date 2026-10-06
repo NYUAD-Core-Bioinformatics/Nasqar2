@@ -11,12 +11,24 @@ tabItem(
                     c(
                         "Upload Counts File" = "countsFile",
                         "Example Data (single-factor)" = "examplecounts",
-                        "Example Data (multi-factor)" = "examplecountsfactors"
+                        "Example Data (multi-factor)" = "examplecountsfactors",
+                        "Use a counts file in the private space" = "hpcFile"
                     ),
                     selected = "countsFile"
                 ),
 
-                conditionalPanel(condition = "input.data_file_type=='countsFile'",
+                conditionalPanel(condition = "input.data_file_type=='hpcFile'",
+                    div(
+                        style = "display:flex; gap:8px; align-items:flex-end;",
+                        div(style = "flex:1;",
+                            textInput("hpc_counts_path", "Counts file (.csv/.txt) in the private space", value = "")
+                        ),
+                        div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_hpc_counts", "Browse...", "Choose a counts file in the private space", multiple = FALSE))
+                    ),
+                    helpText("The file is read in place; nothing is uploaded.")
+                ),
+
+                conditionalPanel(condition = "input.data_file_type=='countsFile' || input.data_file_type=='hpcFile'",
                     radioButtons("gene_alias", "Raw counts matrix format",
                         c(
                             "My matrix contains GeneIDs and GeneSymbols" = "included",
@@ -54,6 +66,14 @@ tabItem(
                     p(
                         "For details on this data, see ",
                         a(href = "https://doi.org/10.1007/978-3-319-07212-8_3", target = "_blank", "this publication")
+                    )
+                ),
+                nasqar_project_ui(
+                    "deseq2-project",
+                    help = paste(
+                        "The loaded counts, design, DESeq2 results and plot settings are saved under this",
+                        "name in the private space (state.RData), automatically after DESeq2 runs and again",
+                        "whenever you change settings, so the project can be restored later."
                     )
                 )
             ),

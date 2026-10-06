@@ -68,6 +68,12 @@ export function AppStampsGrid() {
       ]
     },
     {
+      name: 'Variant Calling & Annotation',
+      apps: [
+        { title: 'Variant Annotation', href: '/applications/variant_annotation/variant_annotation' },
+      ]
+    },
+    {
       name: 'Data Preprocessing & QC',
       apps: [
         { title: 'GeneCountMerger', href: '/applications/data_preprocessing_and_qc/gene_count_merger' },

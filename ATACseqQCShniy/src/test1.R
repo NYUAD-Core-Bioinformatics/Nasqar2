@@ -21,7 +21,7 @@ server <- function(input, output) {
   to_download <- reactiveValues(dataset1 = iris, dataset2 = airquality, dataset3 = mtcars, dataset4 = NULL)
   blahblah <- iris
   
-  output$download_btn <- downloadHandler(
+  output$download_btn <- nasqar_download_handler(
     filename = function(){
       paste("my_data_", Sys.Date(), ".zip", sep = "")
     },

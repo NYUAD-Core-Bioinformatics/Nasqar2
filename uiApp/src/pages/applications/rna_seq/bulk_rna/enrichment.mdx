@@ -92,6 +92,16 @@ Both applications provide searchable result tables and publication-ready plots. 
 
 For complete method details, see the [clusterProfiler documentation](https://yulab-smu.top/biomedical-knowledge-mining-book/).
 
-### Citation
+#In a private instance, **Use a file in the private space** reads the gene table in place (with a Browse dialog) instead of uploading it.
+
+## Private-space projects
+
+In a private instance every run belongs to a project, `projects/ClusterProfShinyORA` and `ClusterProfShinyGSEA/<name>`,
+holding the input table, every parameter and the cached enrichment results plus a `state.rds` of the settings and the stage reached.
+**Restore an existing project** on the input tab reopens it without
+recomputing; cached results are reused and the restore is refused if the
+source data changed. Public instances have no private space and no projects.
+
+## Citation
 
 Wu T, Hu E, Xu S, Chen M, Guo P, Dai Z, Feng T, Zhou L, Tang W, Zhan L, Fu X, Liu S, Bo X, Yu G. clusterProfiler 4.0: A universal enrichment tool for interpreting omics data. *The Innovation*. 2021;2(3):100141. doi: [10.1016/j.xinn.2021.100141](https://doi.org/10.1016/j.xinn.2021.100141).

@@ -9,6 +9,7 @@ dependencies:
   - r-shiny
   - r-shinydashboard
   - r-shinyjs
+  - r-shinyfiles
   - r-shinyBS
   - r-shinycssloaders
   - r-DT

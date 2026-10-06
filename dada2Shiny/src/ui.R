@@ -8,6 +8,7 @@ library(dplyr)
 library(phyloseq)
 library(Biostrings)
 library(ggplot2)
+source("nasqar-project.R")
 library(rmarkdown)
 
 publication_downloads <- function(id) {

@@ -45,7 +45,7 @@ output$vlnPlotsUI <- renderUI({
       HTML(paste("Number of cells within gene detection thresholds<strong>",numGenes,"</strong>out of<strong>",NROW(dataColumn),"</strong>"))
     })
     
-    output[[paste0(vlnsToPlot[i],"VlnDownloadPlot")]] <- downloadHandler(
+    output[[paste0(vlnsToPlot[i],"VlnDownloadPlot")]] <- nasqar_download_handler(
       filename <- function() {
         paste(input$projectname, "_VlnPlot_", vlnsToPlot[i], input[[paste0(vlnsToPlot[i], "VlnDownloadAs")]], sep="")
       },
@@ -104,7 +104,7 @@ output$featureScatterUI <- renderUI({
       plotFeature()
     })
     
-    output[[paste0(featuresToPlot[i], "DownloadPlot")]] <- downloadHandler(
+    output[[paste0(featuresToPlot[i], "DownloadPlot")]] <- nasqar_download_handler(
       filename <- function() {
         paste(input$projectname, "_FeatureScatterPlot_", featuresToPlot[i], input[[paste0(featuresToPlot[i], "DownloadAs")]], sep="")
       },

@@ -268,7 +268,7 @@ output$curve_plot <- renderPlot(
 )
 
 # Download volcano plot as image with custom size and format
-output$download_volcano_plot <- downloadHandler(
+output$download_volcano_plot <- nasqar_download_handler(
     filename = function() {
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
         ext <- input$volcano_plot_format
@@ -401,7 +401,7 @@ output$download_volcano_plot <- downloadHandler(
 )
 
 # Export R code for volcano plot
-output$download_code_volcano <- downloadHandler(
+output$download_code_volcano <- nasqar_download_handler(
     filename = function() {
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
         export_mode <- get_export_mode(input)

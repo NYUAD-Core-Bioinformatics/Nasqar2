@@ -5,11 +5,19 @@ tx_db_list <- list(
     "BSgenome.Celegans.UCSC.ce11" = "TxDb.Celegans.UCSC.ce11.refGene"
 )
 
-atac_cache_root <- Sys.getenv(
-    "NASQAR_ATAC_CACHE_DIR",
-    unset = file.path(tempdir(check = TRUE), "ATACseqQC-cache")
-)
-dir.create(atac_cache_root, recursive = TRUE, showWarnings = FALSE)
+# Private-space projects: projects/ATACseqQC/<name>/cache (shared convention)
+source("nasqar-project.R", local = TRUE)
+project_app <- "ATACseqQC"
+private_space <- nasqar_project_available(project_app)
+current_project_name <- function() {
+    name <- input$nasqar_project_name
+    if (private_space && !is.null(name) && nzchar(trimws(name))) trimws(name) else paste0("session-", session$token)
+}
+atac_cache_root <- function() {
+    root <- file.path(nasqar_project_dir(project_app, current_project_name(), fallback = "atac-project"), "cache")
+    dir.create(root, recursive = TRUE, showWarnings = FALSE, mode = "0700")
+    root
+}
 
 core_done <- reactiveVal(FALSE)
 nucleosome_done <- reactiveVal(FALSE)
@@ -143,7 +151,7 @@ inputDataReactive <- eventReactive(input$run_qc, {
                 input$bs_genome_input,
                 input$sel_chromosome
             )
-            cache_dir <- file.path(atac_cache_root, key)
+            cache_dir <- file.path(atac_cache_root(), key)
             cache_file <- file.path(cache_dir, "core.rds")
             shifted_bam <- file.path(cache_dir, "shifted.bam")
             shifted_bai <- paste0(shifted_bam, ".bai")
@@ -729,7 +737,7 @@ output$bamfilesTable <- renderDataTable(
     options = list(scrollX = TRUE)
 )
 
-output$download_bamfiles_btn <- downloadHandler(
+output$download_bamfiles_btn <- nasqar_download_handler(
     filename = function() {
         paste("bamfiles_", Sys.Date(), ".zip", sep = "")
     },

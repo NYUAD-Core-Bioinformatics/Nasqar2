@@ -1,5 +1,5 @@
 Bootstrap: docker-daemon
-From: nasqar2-local:bulk-gcm
+From: nasqar2-all:latest
 
 %labels
     Author NASQAR2 developers

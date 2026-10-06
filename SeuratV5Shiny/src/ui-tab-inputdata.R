@@ -10,16 +10,23 @@ tabItem(tabName = "datainput",
                                             'Upload Data (nonUMI)'="uploadNonUmi",
                                             'Upload Data (10X)'="upload10x",
                                             'Example Data (PBMC)'="examplecounts",
-                                            'Use HPC scratch path'="hpcScratch"
+                                            'Use a path in the private space'="hpcScratch"
                                           ),selected = "uploadNonUmi"),
                              conditionalPanel(
                                condition="input.data_file_type=='hpcScratch'",
-                               textInput(
-                                 "hpc_data_path",
-                                 "10X directory or CSV/TSV count matrix inside HPC scratch",
-                                 value = ""
+                               div(
+                                   style = "display:flex; gap:8px; align-items:flex-end;",
+                                   div(style = "flex:1;",
+                                   textInput(
+                                     "hpc_data_path",
+                                     "10X directory or CSV/TSV count matrix in the private space",
+                                     value = ""
+                                   )
+                                   ),
+                                   div(style = "margin-bottom:15px;", shinyFiles::shinyDirButton("browse_hpc_dir", "Browse folder...", "Choose a 10X directory in the private space")),
+                                   div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_hpc_file", "Browse...", "Choose a count matrix in the private space", multiple = FALSE))
                                ),
-                               actionButton("load_hpc_data", "Load HPC Data", class = "btn btn-primary"),
+                               actionButton("load_hpc_data", "Load from Data Root", class = "btn btn-primary"),
                                helpText("The input is read directly; it is not copied through the browser.")
                              ),
                              conditionalPanel(condition="input.data_file_type=='upload10x'",
@@ -36,11 +43,13 @@ tabItem(tabName = "datainput",
                              )
 
                          ),
+                         nasqar_project_ui(NULL, name_input = FALSE),
                          conditionalPanel("output.fileUploaded",
                                           box(title = "Initial Parameters", solidHeader = T, status = "primary", width = 12, collapsible = T,id = "uploadbox",
 
                                               textInput("projectname",
-                                                        value = "Project1", label = "Project Name"),
+                                                        value = "Project1", label = "Persistent project name"),
+                                              helpText("The final Seurat object and outputs are kept under this name in the private space, so the project can be restored later."),
                                               numericInput("mincells",
                                                            label="Minimum number of cells per gene",min=1,max=200,value=3),
                                               numericInput("mingenes",

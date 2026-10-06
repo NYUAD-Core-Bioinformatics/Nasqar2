@@ -10,20 +10,27 @@ For more information about DADA2, visit the [official documentation](https://ben
   Launch DADA2
 </a>
 
-## HPC use
+## Private instance use
 
-Choose the HPC scratch input mode to load paired FASTQ files directly from the
-configured read-only data root. Give the run a project name so filtered reads,
-sequence tables, taxonomy results, and downloadable outputs persist under the
-DADA2 project directory.
+In a private instance, choose **Use a directory in the private space** to
+load paired FASTQ files directly from the configured read-only data root. Give
+the run a project name so filtered reads, sequence tables, taxonomy results,
+and downloadable outputs persist under the DADA2 project directory.
 
-Filtering and trimming use node-local temporary storage. Parameter-aware
-caches include the input paths and file metadata, DADA2 parameters, and package
-version. Parallel steps derive available workers from
-`SLURM_CPUS_PER_TASK`.
+Filtering and trimming use fast local temporary storage when
+`NASQAR_DADA2_WORK_DIR` is set. Parameter-aware caches include the input paths
+and file metadata, DADA2 parameters, and package version. On Slurm, parallel
+steps derive available workers from `SLURM_CPUS_PER_TASK`.
 
-See the [HPC deployment guide](/quickstart/hpc) for storage and submission
-details.
+See [Run as a private instance](/quickstart/installation#run-as-a-private-instance-with-your-own-data) for Docker and the [HPC deployment guide](/quickstart/hpc) for Slurm.
+
+## Private-space projects
+
+In a private instance every run belongs to a project, `projects/DADA2/<name>`,
+holding FASTQ directory, patterns, DADA2 parameters, results and taxonomy caches plus a `state.rds` of the settings and the stage reached.
+**Restore an existing project** on the input tab reopens it without
+recomputing; cached results are reused and the restore is refused if the
+source data changed. Public instances have no private space and no projects.
 
 ## Citation
 

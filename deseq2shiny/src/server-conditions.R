@@ -118,7 +118,7 @@ output$table <- renderRHandsontable({
     table
 })
 
-output$downloadCSV <- downloadHandler(
+output$downloadCSV <- nasqar_download_handler(
     filename = paste0("metadatatable_", format(Sys.time(), "%y-%m-%d_%H-%M-%S"), ".csv"),
     content = function(file) {
         write.csv(hot_to_r(input$table), file, row.names = T)

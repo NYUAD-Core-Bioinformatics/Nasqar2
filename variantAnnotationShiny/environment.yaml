@@ -1,0 +1,32 @@
+name: v_variantannotation
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-base==4.3.3
+  - r-shiny
+  - r-shinydashboard
+  - r-shinyjs
+  - r-shinyfiles
+  - r-shinyBS
+  - r-shinycssloaders
+  - r-DT
+  - r-ggplot2
+  - r-dplyr
+  - r-markdown
+  - r-digest
+  - r-uuid
+  - r-sodium
+  - r-cairo
+  - r-callr
+  - r-biocmanager
+  - bioconductor-variantannotation
+  - bioconductor-genomicfeatures
+  - bioconductor-genomeinfodb
+  - bioconductor-annotationdbi
+  - bioconductor-rsamtools
+  - bioconductor-bsgenome
+  - bioconductor-txdb.hsapiens.ucsc.hg19.knowngene
+  - bioconductor-txdb.hsapiens.ucsc.hg38.knowngene
+  - bioconductor-org.hs.eg.db

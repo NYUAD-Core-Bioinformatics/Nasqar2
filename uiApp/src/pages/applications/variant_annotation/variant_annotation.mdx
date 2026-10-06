@@ -1,0 +1,64 @@
+## Variant Annotation
+
+Variant Annotation filters and annotates variants from a VCF file with the
+Bioconductor [VariantAnnotation](https://bioconductor.org/packages/VariantAnnotation/)
+package. Variants are located on the UCSC knownGene transcript model of the
+selected assembly (human hg38 and hg19 ship in the image; other species can be installed from the app), coding variants receive predicted
+consequences and amino-acid changes, genes are mapped with org.Hs.eg.db, and
+dbSNP rsIDs can be added when a SNPlocs package is installed. Summary figures
+download as PNG, PDF and SVG, and the genes carrying variants can be opened
+directly in ClusterProfShinyORA for enrichment analysis.
+
+<a href={`${process.env.NEXT_PUBLIC_NASQAR_BASE_PATH || ''}/VariantAnnotationShiny/`} target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
+  Launch Variant Annotation
+</a>
+
+## Input
+
+Upload a `.vcf`, `.vcf.gz` or `.vcf.bgz` file (optionally with its `.tbi`
+index), use the bundled 1000 Genomes chr22 example, or point the module at a
+VCF in the private space. Files that are not bgzip-compressed and indexed
+are converted once; the source is never modified.
+
+Large files are never loaded whole. Record counts come from the tabix index,
+filters run over streamed chunks or tabix regions and write the kept records
+to an indexed VCF in the project directory, and annotation streams that file
+in chunks of `NASQAR_VARIANT_ANNOTATION_CHUNK` records (default 50,000),
+appending the result tables to CSV as it goes. Memory use is bounded by the
+chunk size, not by the number of variants; restricting chromosomes, regions or
+genes only makes whole-genome runs faster.
+
+## Other species
+
+**Install another reference genome** in the input tab offers mouse (mm39,
+mm10), rat (rn7, rn6), zebrafish, fruit fly, nematode, yeast, chicken, pig,
+cow, dog, rhesus macaque and chimpanzee. The BSgenome, TxDb and organism
+packages are fetched from Bioconductor in a background R process and
+installed into the writable R library (`R_LIBS_USER`). In a private instance
+that library is a mounted host directory, so an installed genome persists
+across container restarts and Slurm jobs. The server needs internet access to
+install; without it, pre-install the packages into that library.
+
+## Private instance use
+
+In a private instance every run is a persistent project,
+`projects/VariantAnnotation/<name>`, holding the indexed copy, filtered VCF,
+annotation tables, caches and a `state.rds` of the settings and stage reached.
+**Restore an existing project** reopens a project with its filters and
+annotation results in place, without recomputing; it is refused if the source
+VCF changed. Choose **Use a VCF in the private space** to read a VCF
+in place, or upload one, which is copied into the project.
+Annotation caches are keyed on the input file, all filter and annotation
+settings, and package versions, so repeated runs load instantly. On Slurm,
+parallel steps derive available workers from `SLURM_CPUS_PER_TASK`.
+
+See [Run as a private instance](/quickstart/installation#run-as-a-private-instance-with-your-own-data) for Docker and the [HPC deployment guide](/quickstart/hpc) for Slurm.
+
+## Citation
+
+When using Variant Annotation in your analysis, please cite:
+
+> **VariantAnnotation: a Bioconductor package for exploration and annotation of genetic variants**
+>
+> Obenchain V, Lawrence M, Carey V, Gogarten S, Shannon P, Morgan M. *Bioinformatics* 30(14), 2076–2078 (2014).
+> https://doi.org/10.1093/bioinformatics/btu168

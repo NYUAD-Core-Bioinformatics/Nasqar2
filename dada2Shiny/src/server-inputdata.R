@@ -187,7 +187,7 @@ input_files_reactive <- eventReactive(input$initFastq, {
             fn_Rs <- stringr::str_replace_all(fn_Fs, input$forward_pattern, input$reverse_pattern)
         }
     } else if (identical(input$data_file_type, "hpc_scratch_directory")) {
-        shiny::validate(need(nzchar(trimws(input$hpc_fastq_directory)), "Enter an HPC FASTQ directory."))
+        shiny::validate(need(nzchar(trimws(input$hpc_fastq_directory)), "Enter a FASTQ directory in the private space."))
         base_dir <- tryCatch(
             resolve_hpc_path(input$hpc_fastq_directory),
             error = function(e) {
@@ -242,20 +242,21 @@ input_files_reactive <- eventReactive(input$initFastq, {
     }
     my_values$base_dir <- base_dir
     my_values$samples_df <- samples_df
-    my_values$work_dir <- project_directory(
-        if (identical(input$data_file_type, "hpc_scratch_directory")) {
-            input$hpc_project_name
-        } else {
-            paste0("session-", session$token)
-        }
+    # Every session starts with the same default project name: take a free one
+    # rather than overwrite another session's project (restored projects are kept).
+    project_name <- nasqar_project_unique_name(
+        project_app, current_project_name(), project_legacy_env,
+        owned = session$userData$nasqar_project_last_dir, fallback = "dada2-project"
     )
-    my_values$local_work_dir <- local_working_directory(
-        if (identical(input$data_file_type, "hpc_scratch_directory")) {
-            input$hpc_project_name
-        } else {
-            paste0("session-", session$token)
-        }
-    )
+    if (private_space && !identical(project_name, nasqar_project_sanitize(current_project_name(), "dada2-project"))) {
+        updateTextInput(session, "nasqar_project_name", value = project_name)
+        showNotification(
+            sprintf("Project renamed to '%s': the name was already taken by another project.", project_name),
+            type = "warning", duration = 10
+        )
+    }
+    my_values$work_dir <- project_directory(project_name)
+    my_values$local_work_dir <- local_working_directory(project_name)
     my_values$cache_status <- NULL
 
     if(nrow(samples_df) > 0) {

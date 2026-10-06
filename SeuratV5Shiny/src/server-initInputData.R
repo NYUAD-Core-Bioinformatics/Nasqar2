@@ -62,7 +62,7 @@ inputDataReactive <- reactive({
 
       if (identical(input$data_file_type, "hpcScratch")) {
         req(input$load_hpc_data > 0)
-        validate(need(nzchar(trimws(input$hpc_data_path)), "Enter an HPC data path."))
+        validate(need(nzchar(trimws(input$hpc_data_path)), "Enter a path in the private space."))
         hpc_path <- resolve_hpc_path(input$hpc_data_path)
         js$addStatusIcon("datainput", "loading")
         if (dir.exists(hpc_path)) {
@@ -80,7 +80,7 @@ inputDataReactive <- reactive({
             row.names = 1,
             check.names = FALSE
           )
-          validate(need(ncol(seqdata) > 1L, "The HPC count matrix must contain at least two cell columns."))
+          validate(need(ncol(seqdata) > 1L, "The count matrix must contain at least two cell columns."))
           scriptCommands$readCounts <- sprintf(
             "counts.data <- read.csv(%s, header=TRUE, sep=%s, row.names=1)",
             dQuote(hpc_path),
@@ -220,7 +220,7 @@ decryptUrlParam = function (cipher)
   unserialize(orig)
 }
 
-output$example_counts_file <- downloadHandler(filename="examplecounts_short.csv",
+output$example_counts_file <- nasqar_download_handler(filename="examplecounts_short.csv",
                                               content=function(file){
                                                 file.copy("www/examplecounts_short.csv",file)
                                               })

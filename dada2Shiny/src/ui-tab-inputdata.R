@@ -11,19 +11,24 @@ tabItem(
                     c(
                         "Upload fastq File" = "upload_fastq_file",
                         "Example fastq file" = "example_fastq_file",
-                        "Use HPC scratch directory" = "hpc_scratch_directory"
+                        "Use a directory in the private space" = "hpc_scratch_directory"
                     ),
                     selected = "example_fastq_file"
                 ),
                 conditionalPanel(
                     condition = "input.data_file_type=='hpc_scratch_directory'",
-                    textInput(
-                        "hpc_fastq_directory",
-                        "FASTQ directory inside HPC scratch",
-                        value = ""
+                    div(
+                        style = "display:flex; gap:8px; align-items:flex-end;",
+                        div(style = "flex:1;",
+                        textInput(
+                            "hpc_fastq_directory",
+                            "FASTQ directory in the private space",
+                            value = ""
+                        )
+                        ),
+                        div(style = "margin-bottom:15px;", shinyFiles::shinyDirButton("browse_fastq_directory", "Browse folder...", "Choose a FASTQ directory in the private space"))
                     ),
-                    textInput("hpc_project_name", "Persistent project name", value = "dada2-project"),
-                    helpText("Input FASTQ files are read in place. Filtered reads and results are written to the private DADA2 project directory.")
+                    helpText("Input FASTQ files are read in place.")
                 ),
                 conditionalPanel(
                     condition = "input.data_file_type=='upload_fastq_file'",
@@ -39,6 +44,13 @@ tabItem(
                     p(
                         "For details on this data, see ",
                         a(href = "https://mothur.org/wiki/miseq_sop/", target = "_blank", "this publication")
+                    )
+                ),
+                nasqar_project_ui(
+                    "dada2-project",
+                    help = paste(
+                        "Filtered reads, sequence tables, taxonomy and caches are kept under this name in",
+                        "the private space, so the project survives the session and can be restored later."
                     )
                 ),
                  textOutput("status"),

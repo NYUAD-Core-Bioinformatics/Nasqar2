@@ -17,3 +17,13 @@ if their row order differs.
 <a href={`${process.env.NEXT_PUBLIC_NASQAR_BASE_PATH || ''}/GeneCountMerger/`} target="_blank" style={{display: 'inline-block', padding: '8px 16px', backgroundColor: '#2563eb', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
   Launch Gene Count Merger
 </a>
+
+In a private instance, **Use files in the private space** lets you pick the count files to merge in a Browse dialog (several at once, or paste their paths); they are read in place.
+
+## Private-space projects
+
+In a private instance every run belongs to a project, `projects/GeneCountMerger/<name>`,
+holding the merged count table plus a `state.rds` of the settings and the stage reached.
+**Restore an existing project** on the input tab reopens it without
+recomputing; cached results are reused and the restore is refused if the
+source data changed. Public instances have no private space and no projects.

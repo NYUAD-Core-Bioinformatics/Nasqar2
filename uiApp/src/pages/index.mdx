@@ -43,17 +43,20 @@ Additionally, please remember to include the appropriate citation for the open-s
 
 * **R 4.3.3** across the analytical module images
 * Deploy the complete platform as one Docker image or run individual module images
-* Run NASQAR2 as an unprivileged Singularity container in a Slurm compute job
-* Access approved HPC scratch datasets directly and preserve projects, states, and results across jobs
-* **HPC-aware applications:** ATACseqQC, DESeq2Shiny, DADA2, Seurat v5, and Monocle 3
+* Run NASQAR2 as a **private instance**, with Docker on your own machine or as an unprivileged Singularity container in a Slurm compute job
+* Point a private instance at your own data directory: files are read in place without uploading, and results stay permanently on your filesystem
+* **Private-space projects in every NASQAR2 application:** work is kept as `projects/<App>/<name>` with its outputs, caches and settings, and any project can be restored from the app in seconds instead of recomputed (Animalcules, DEBrowser and START are third-party apps and keep their own behaviour)
+* **Private-instance data access in every NASQAR2 application:** each input tab offers *Use a file (or directory) inside the private data root* with a server-side Browse dialog, so counts tables, FASTQ or BAM directories, Seurat objects and VCFs are read in place
+* Public deployments leave the data directory unset, so the host filesystem is never exposed and only browser upload is available
 
-See the [HPC Deployment Guide](/quickstart/hpc) for image preparation, job submission, storage configuration, and SSH tunnel instructions.
+See [Run as a private instance](/quickstart/installation#run-as-a-private-instance-with-your-own-data) for Docker and the [HPC Deployment Guide](/quickstart/hpc) for image preparation, job submission, storage configuration, and SSH tunnel instructions.
 
 **New applications**
 
 * **DADA2** - Amplicon quality filtering, ASV inference, chimera removal, and taxonomy assignment
 * **ATACseqQC** - ATAC-seq quality metrics, nucleosome positioning, and transcription-factor footprint analysis
 * **Animalcules** - Interactive microbiome analysis and visualization
+* **Variant Annotation** - VCF filtering, transcript-level consequence prediction with VariantAnnotation (hg38/hg19), dbSNP rsIDs, and summary figures
 
 **Connected workflows**
 
@@ -61,15 +64,16 @@ See the [HPC Deployment Guide](/quickstart/hpc) for image preparation, job submi
 * **DESeq2Shiny → ORA or GSEA** with the selected contrast transferred automatically
 * **DADA2 → Animalcules** with ASV and taxonomy results transferred automatically
 * **Seurat v5 → Monocle 3** with a compatible processed single-cell object
+* **Variant Annotation → ORA** with the genes carrying variants transferred automatically
 
 **Major module enhancements**
 
 * **Gene Count Merger** - Merges HTSeq/featureCounts files, Kallisto estimated counts, or existing matrices; supports gene-symbol annotation and custom gene-ID mappings
-* **DESeq2Shiny** - Design metadata, multiple contrasts, PCA, volcano and MA plots, interactive heatmaps, Venn comparisons, portable save/restore states, publication-ready downloads, and reproducible R-code export
+* **DESeq2Shiny** - Design metadata, multiple contrasts, PCA, volcano and MA plots, interactive heatmaps, Venn comparisons, publication-ready downloads, and reproducible R-code export
 * **ClusterProfShinyGSEA and ClusterProfShinyORA** - GO/KEGG tables and plots, identifier conversion, direct DESeq2 handoff, online KEGG viewing, and downloadable Pathview PNG/PDF output
-* **DADA2** - Persistent projects, taxonomy downloads, publication-ready figures, and direct Animalcules handoff
+* **DADA2** - Taxonomy downloads, publication-ready figures, and direct Animalcules handoff
 * **ATACseqQC** - Core QC plus on-demand nucleosome and footprint analyses with publication-ready figure downloads
-* **Seurat v5 and Monocle 3** - Persistent HPC projects, allocated-worker support, and direct trajectory-analysis handoff
+* **Seurat v5 and Monocle 3** - Allocated-worker support, and direct trajectory-analysis handoff
 
 
 

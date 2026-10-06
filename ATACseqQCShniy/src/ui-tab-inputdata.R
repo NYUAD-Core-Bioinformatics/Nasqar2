@@ -11,19 +11,27 @@ tabItem(
                     c(
                         "Upload BAM files" = "upload_bam_file",
                         "Example BAM data" = "example_bam_file",
-                        "Use HPC scratch directory" = "hpc_scratch_directory"
+                        "Use a directory in the private space" = "hpc_scratch_directory"
                     ),
                     selected = "upload_bam_file"
                 ),
                 conditionalPanel(
                     condition = "input.data_file_type=='hpc_scratch_directory'",
-                    textInput(
-                        "scratch_directory",
-                        "Directory containing BAM and BAI files",
-                        value = ""
+                    div(
+                        style = "display:flex; gap:8px; align-items:flex-end;",
+                        div(style = "flex:1;",
+                        textInput(
+                            "scratch_directory",
+                            "Directory containing BAM and BAI files",
+                            value = ""
+                        )
+                        ),
+                        div(style = "margin-bottom:15px;", shinyFiles::shinyDirButton("browse_scratch_directory", "Browse folder...", "Choose a directory of BAM and BAI files in the private space"))
                     ),
                     actionButton("load_scratch_directory", "Load directory")
                 ),
+                nasqar_project_ui("atac-project",
+                    help = "Results are cached under this name in the private space, so the project survives the session and can be restored later."),
                 conditionalPanel(
                     condition = "input.data_file_type=='upload_bam_file'",
                     p("File with extensions .bam/.bai"),

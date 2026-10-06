@@ -9,7 +9,7 @@ output$vizPcaPlot <- renderPlot({
   vizPcaPlotFunc()
 })
 
-output$downloadVizPcaPlot <- downloadHandler(
+output$downloadVizPcaPlot <- nasqar_download_handler(
   filename <- function() {
     paste(input$projectname, "_vizPcaPlot", input$vizPcaDownloadAs, sep = "")
   },
@@ -37,7 +37,7 @@ output$pcaPlot <- renderPlot({
   pcaPlotFunc()
 })
 
-output$downloadPcaPlot <- downloadHandler(
+output$downloadPcaPlot <- nasqar_download_handler(
   filename <- function() {
     paste(input$projectname, "_PcaPlot", input$pcaDownloadAs,sep="")
   },
@@ -59,7 +59,7 @@ output$icaPlot <- renderPlot({
   icaPlotFunc()
 })
 
-output$downloadIcaPlot <- downloadHandler(
+output$downloadIcaPlot <- nasqar_download_handler(
   filename <- function() {
     paste(input$projectname, "_IcaPlot", input$icaDownloadAs,sep="")
   },
@@ -79,7 +79,7 @@ output$heatmapPlot <- renderPlot({
   DimHeatmap(object = pbmc, dims = input$pcsToUse1:input$pcsToUse2, cells = input$cellsToUse, balanced = TRUE)
 })
 
-output$downloadHeatmap <- downloadHandler(
+output$downloadHeatmap <- nasqar_download_handler(
   filename <- function() {
     paste(input$projectname, "_PcaHeatMap", input$heatmapDownloadAs,sep="")
   },

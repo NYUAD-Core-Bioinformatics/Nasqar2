@@ -68,7 +68,7 @@ output$clusterMarkers <- renderDataTable({
   
 })
 
-output$downloadClusterMarkersCSV <- downloadHandler(
+output$downloadClusterMarkersCSV <- nasqar_download_handler(
   filename = function() {
     paste0(findClusterMarkersReactive()$clustername,".csv")
   },
@@ -127,7 +127,7 @@ output$clusterMarkersVS <- renderDataTable({
   
 })
 
-output$downloadClusterMarkersVSCSV <- downloadHandler(
+output$downloadClusterMarkersVSCSV <- nasqar_download_handler(
   filename = function() {
     paste0(findClusterMarkersVSReactive()$clustername,".csv")
   },
@@ -195,7 +195,7 @@ output$clusterMarkersAll <- renderDataTable({
   
 })
 
-output$downloadClusterMarkersAllCSV <- downloadHandler(
+output$downloadClusterMarkersAllCSV <- nasqar_download_handler(
   filename =  function() {
     paste0(findClusterMarkersAllReactive()$clustername,".csv")
   },
@@ -234,7 +234,7 @@ output$clusterHeatmap <- renderPlot({
 #   DoHeatmap(object = pbmc, features = selectedGenes$gene)
 # })
 
-output$downloadClusterHeatmap <- downloadHandler(
+output$downloadClusterHeatmap <- nasqar_download_handler(
   filename <- function() {
     paste(input$projectname, "_ClusterHeatMap", input$clusterHeatmapDownloadAs,sep="")
   },
@@ -265,7 +265,7 @@ output$VlnMarkersPlot = renderPlot({
   })
 })
 
-output$downloadVlnPlot <- downloadHandler(
+output$downloadVlnPlot <- nasqar_download_handler(
   filename <- function() {
     paste(input$projectname, "_VlnPlot", input$vlnDownloadAs,sep="")
   },
@@ -308,7 +308,7 @@ output$FeatureMarkersPlot = renderPlot({
 })
 
 
-output$downloadFeaturePlot <- downloadHandler(
+output$downloadFeaturePlot <- nasqar_download_handler(
   filename <- function() {
     paste(input$projectname, "_FeatureMarkersPLot", input$featureDownloadAs,sep="")
   },

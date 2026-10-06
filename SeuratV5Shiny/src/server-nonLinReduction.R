@@ -87,7 +87,7 @@ output$tsnePlot <- renderPlot({
 })
 
 #TSNE Plot Download handler
-output$downloadTsne <- downloadHandler(
+output$downloadTsne <- nasqar_download_handler(
   filename <- function() {
     paste(input$projectname, "_TsnePlot", input$tsneDownloadAs, sep="")
   },
@@ -117,7 +117,7 @@ output$umapPlot <- renderPlot({
 })
 
 #UMAP Plot Download handler
-output$downloadUmap <- downloadHandler(
+output$downloadUmap <- nasqar_download_handler(
   filename <- function() {
     paste(input$projectname, "_UmapPlot", input$UmapDownloadAs, sep="")
   },
@@ -176,7 +176,7 @@ output$cellsInClusters <- renderDataTable({
   
 })
 
-output$downloadClusterCells <- downloadHandler(
+output$downloadClusterCells <- nasqar_download_handler(
   filename = function() {paste0(cellsInClusterReactive()$clustername,".csv")},
   content = function(file) {
     csv = tail(cellsInClusterReactive()$cellsInCluster,-1)

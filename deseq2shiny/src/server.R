@@ -301,59 +301,45 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     )
     dir.create(session_dir, recursive = TRUE, showWarnings = FALSE)
 
-    hpc_state_dir <- Sys.getenv("NASQAR_DESEQ2_STATE_DIR", unset = "")
-    hpc_state_enabled <- nzchar(hpc_state_dir) &&
-        dir.exists(hpc_state_dir) &&
-        file.access(hpc_state_dir, 2) == 0
+    # Private-space projects: projects/DESeq2Shiny/<name>/state.RData (shared convention)
+    source("nasqar-project.R", local = TRUE)
+    project_app <- "DESeq2Shiny"
+    project_legacy_env <- "NASQAR_DESEQ2_STATE_DIR"
+    private_space <- nasqar_project_available(project_app, project_legacy_env)
 
-    list_hpc_states <- function() {
-        if (!hpc_state_enabled) {
-            return(character())
-        }
-        files <- list.files(
-            hpc_state_dir,
-            pattern = "\\.[Rr][Dd]ata$",
-            full.names = FALSE
-        )
-        files[order(
-            file.info(file.path(hpc_state_dir, files))$mtime,
-            decreasing = TRUE
-        )]
+    current_project_name <- function() {
+        name <- input$nasqar_project_name
+        if (!is.null(name) && nzchar(trimws(name))) trimws(name) else "deseq2-project"
+    }
+    project_state_path <- function(name) {
+        name <- trimws(name %||% "")
+        if (!nzchar(name)) stop("Enter a project name.")
+        file.path(nasqar_project_dir(project_app, name, project_legacy_env, fallback = "deseq2-project"), "state.RData")
+    }
+    restoring_project <- reactiveVal(FALSE)
+
+    project_choices_now <- function() {
+        choices <- nasqar_project_choices(nasqar_project_list(project_app, project_legacy_env))
+        if (length(choices)) choices else c("No saved projects yet" = "")
     }
 
-    refresh_hpc_states <- function(selected = NULL) {
-        states <- list_hpc_states()
-        choices <- if (length(states) > 0) {
-            stats::setNames(states, states)
-        } else {
-            c("No saved states" = "")
-        }
-        updateSelectInput(
-            session,
-            "hpcStateFile",
-            choices = choices,
-            selected = if (is.null(selected)) choices[[1]] else selected
-        )
+    dataset_label <- function() {
+        upload <- input$datafile
+        if (!is.null(upload) && !is.null(upload$name)) upload$name[1] else "DESeq2 analysis"
     }
 
-    hpc_state_path <- function(filename) {
-        if (is.null(filename)) {
-            filename <- ""
+    # State files saved flat into the old NASQAR_DESEQ2_STATE_DIR become projects.
+    if (private_space) {
+        legacy_root <- nasqar_project_app_root(project_app, project_legacy_env)
+        for (old_file in list.files(legacy_root, pattern = "\\.[Rr][Dd]ata$", full.names = TRUE)) {
+            name <- nasqar_project_sanitize(sub("\\.[Rr][Dd]ata$", "", basename(old_file)), "deseq2-project")
+            dir <- nasqar_project_dir(project_app, name, project_legacy_env)
+            destination <- file.path(dir, "state.RData")
+            if (!file.exists(destination) && file.rename(old_file, destination)) {
+                nasqar_project_state_write(dir, project_app, name, "saved",
+                                           input_label = "migrated state file", state_file = destination)
+            }
         }
-        filename <- trimws(filename)
-        if (!nzchar(filename)) {
-            stop("Enter a state filename.")
-        }
-        if (!grepl("\\.[Rr][Dd]ata$", filename)) {
-            filename <- paste0(filename, ".RData")
-        }
-        if (
-            !identical(filename, basename(filename)) ||
-            !grepl("^[A-Za-z0-9][A-Za-z0-9._-]*\\.[Rr][Dd]ata$", filename)
-        ) {
-            stop("Use only letters, numbers, periods, underscores, and hyphens.")
-        }
-        file.path(hpc_state_dir, filename)
     }
 
     # Add error handling for client-side communication issues
@@ -537,6 +523,9 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                 )
             ),
             
+            # Every ordinary UI input (plot settings included), restored generically
+            all_inputs = nasqar_input_snapshot(input),
+
             # Metadata for state restoration
             save_timestamp = Sys.time(),
             app_version = "deseq2shiny_v2_portable_state"
@@ -774,23 +763,14 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
         # Use a reactive approach to wait for the data to be loaded
         delayed_restore <- reactiveValues(triggered = FALSE)
         
-        # Create a global restoration state that observers can check
-        if (!exists("restoration_state")) {
-            restoration_state <<- reactiveValues(
-                in_progress = FALSE,
-                saved_sel_gene = NULL,
-                saved_sel_groups = NULL,
-                saved_sel_factors = NULL,
-                boxplot_restoration_done = FALSE
-            )
-        }
-        
-        # Set restoration state
-        restoration_state$in_progress <- TRUE
-        restoration_state$saved_sel_gene <- state_object$saved_inputs$sel_gene
-        restoration_state$saved_sel_groups <- state_object$saved_inputs$sel_groups
-        restoration_state$saved_sel_factors <- state_object$saved_inputs$sel_factors
-        restoration_state$boxplot_restoration_done <- FALSE
+        # Restoration flags live in the per-session shared state (a global
+        # reactiveValues would belong to the first session and break every
+        # later one once that session ends).
+        myValues$restoration_in_progress <- TRUE
+        myValues$restoration_saved_sel_gene <- state_object$saved_inputs$sel_gene
+        myValues$restoration_saved_sel_groups <- state_object$saved_inputs$sel_groups
+        myValues$restoration_saved_sel_factors <- state_object$saved_inputs$sel_factors
+        myValues$restoration_boxplot_done <- FALSE
         
         observe({
             # Check if the required data is available and we haven't triggered restoration yet
@@ -823,8 +803,8 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                                     updateSelectizeInput(session, "sel_factors", selected = sel_factors_safe)
                                 }
                                 # Clear restoration state
-                                restoration_state$in_progress <- FALSE
-                                restoration_state$boxplot_restoration_done <- TRUE
+                                myValues$restoration_in_progress <- FALSE
+                                myValues$restoration_boxplot_done <- TRUE
                                 final_restore$done <- TRUE
                                 cat("DEBUG: Restoration state cleared - observers can now run normally\n")
                             })
@@ -1157,7 +1137,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                                 }
                                 
                                 # Mark as done
-                                restoration_state$boxplot_restoration_done <- TRUE
+                                myValues$restoration_boxplot_done <- TRUE
                                 boxplot_restore_observer$done <- TRUE
                                 cat("DEBUG: Boxplot restoration completed successfully\n")
                                 
@@ -1470,6 +1450,11 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                 envir = state_environment,
                 inherits = FALSE
             )
+            if (is.list(state_object) && !is.null(state_object$all_inputs)) {
+                session$userData$nasqar_generic_inputs <- state_object$all_inputs
+                session$userData$nasqar_generic_skip <- names(state_object$saved_inputs)
+                shinyjs::runjs("setTimeout(function() { Shiny.setInputValue('nasqar_generic_restore', Math.random(), {priority: 'event'}); }, 8000);")
+            }
             if (!is.list(state_object)) {
                 stop("Invalid state file: state_object must be a list.")
             }
@@ -1504,7 +1489,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     }
 
     # Save state handler
-    output$downloadState <- downloadHandler(
+    output$downloadState <- nasqar_download_handler(
         filename = function() {
             paste0("deseq2shiny_state_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".RData")
         },
@@ -1514,24 +1499,97 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
         }
     )
 
-    observeEvent(input$saveStateToHpc, {
-        req(hpc_state_enabled)
+
+    # Stages recorded automatically, like the other applications: the loaded
+    # counts (state.rds only) and, once DESeq2 has run, the full state.RData.
+    observeEvent(myValues$dataCounts, {
+        if (!private_space || is.null(myValues$dataCounts) || isTRUE(restoring_project())) return()
+        # Every session starts as "deseq2-project": never overwrite another session's project.
+        name <- nasqar_project_unique_name(project_app, current_project_name(), project_legacy_env,
+                                           owned = session$userData$nasqar_project_last_dir, fallback = "deseq2-project")
+        if (!identical(name, nasqar_project_sanitize(current_project_name(), "deseq2-project"))) {
+            updateTextInput(session, "nasqar_project_name", value = name)
+            showNotification(sprintf("A project with that name already exists; this analysis is saved as '%s'.", name),
+                             type = "warning", duration = 8)
+        }
+        dir <- nasqar_project_dir(project_app, name, project_legacy_env, fallback = "deseq2-project")
+        nasqar_project_state_write(dir, project_app, basename(dir), "loaded", input_label = dataset_label())
+        project_refresh(basename(dir))
+    }, ignoreInit = TRUE)
+
+    observeEvent(myValues$dds, {
+        if (!private_space || is.null(myValues$dds) || isTRUE(restoring_project())) return()
         tryCatch({
-            state_file <- hpc_state_path(input$hpcStateName)
-            if (file.exists(state_file)) {
-                stop("A state with this filename already exists.")
-            }
+            state_file <- project_state_path(current_project_name())
             save_state_file(state_file)
-            refresh_hpc_states(basename(state_file))
-            showNotification(
-                paste("State saved to HPC scratch as", basename(state_file)),
-                type = "message",
-                duration = 5
-            )
+            nasqar_project_state_write(dirname(state_file), project_app, basename(dirname(state_file)), "analysed",
+                                       input_label = dataset_label(), state_file = state_file)
+            project_refresh(basename(dirname(state_file)))
+            showNotification(sprintf("DESeq2 results saved to project '%s'.", basename(dirname(state_file))),
+                             type = "message", duration = 5)
         }, error = function(error) {
-            showNotification(error$message, type = "error", duration = 6)
+            showNotification(paste("Could not save the project state:", error$message), type = "error", duration = 8)
         })
+    }, ignoreInit = TRUE)
+
+    # The full state is also saved 30 s after settings stop changing once the
+    # analysis exists, so plot settings survive without a manual save.
+    settings_signature <- reactive({
+        snapshot <- nasqar_input_snapshot(input)
+        paste(names(snapshot), vapply(snapshot, function(v) paste(format(v), collapse = ","), character(1)), collapse = ";")
     })
+    settings_settled <- debounce(settings_signature, 30000)
+    observeEvent(settings_settled(), {
+        if (!private_space || is.null(myValues$dds) || isTRUE(restoring_project())) return()
+        tryCatch({
+            state_file <- project_state_path(current_project_name())
+            state_object <- saveAppState()
+            save(state_object, file = state_file)
+            nasqar_project_state_write(dirname(state_file), project_app, basename(dirname(state_file)), "analysed",
+                                       input_label = dataset_label(), state_file = state_file)
+        }, error = function(error) NULL)
+    }, ignoreInit = TRUE)
+
+    # Generic restore of the inputs not handled by the specific restoration
+    # code (e.g. plot settings such as the heatmap gene count).
+    # Inputs on tabs that are built when first opened cannot be set earlier, so
+    # the pending values are re-applied on every tab change until each has taken.
+    apply_generic_restore <- function() {
+        saved <- session$userData$nasqar_generic_inputs
+        if (is.null(saved) || !length(saved)) return()
+        skip <- c(session$userData$nasqar_generic_skip, "tabs", "data_file_type", "hpc_counts_path",
+                  "showStateModal", "nasqar_generic_restore")
+        remaining <- list()
+        for (id in setdiff(names(saved), skip)) {
+            current <- input[[id]]
+            if (!is.null(current) && identical(as.character(current), as.character(saved[[id]]))) next
+            session$sendInputMessage(id, list(value = saved[[id]]))
+            remaining[[id]] <- saved[[id]]
+        }
+        session$userData$nasqar_generic_inputs <- remaining
+    }
+    observeEvent(input$nasqar_generic_restore, apply_generic_restore())
+    observeEvent(input$tabs, {
+        if (!is.null(session$userData$nasqar_generic_inputs)) {
+            shinyjs::runjs("setTimeout(function() { Shiny.setInputValue('nasqar_generic_restore', Math.random(), {priority: 'event'}); }, 1500);")
+        }
+    }, ignoreInit = TRUE)
+
+    # Restore picker (shared convention): loads the project's state.RData.
+    project_refresh <- nasqar_project_server(
+        input, output, session, project_app, project_legacy_env,
+        on_restore = function(state, dir) {
+            state_file <- state$state_file %||% file.path(dir, "state.RData")
+            if (!file.exists(state_file)) {
+                return(if (identical(state$stage, "loaded")) "this project has no saved analysis yet (only the loaded counts); run DESeq2 first" else "the project's state file is missing")
+            }
+            restoring_project(TRUE)
+            # cleared on error too, or the autosave observers stay disabled
+            on.exit(later::later(function() restoring_project(FALSE), 8), add = TRUE)
+            load_state_file(state_file)
+            NULL
+        }
+    )
     
     # Load state handler
     observeEvent(input$loadStateFile, {
@@ -1547,25 +1605,8 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
         })
     })
 
-    observeEvent(input$loadStateFromHpc, {
-        req(hpc_state_enabled, input$hpcStateFile)
-        tryCatch({
-            state_file <- hpc_state_path(input$hpcStateFile)
-            if (!file.exists(state_file)) {
-                stop("The selected HPC state file no longer exists.")
-            }
-            load_state_file(state_file)
-        }, error = function(error) {
-            showNotification(
-                paste("Error loading HPC state:", error$message),
-                type = "error",
-                duration = 6
-            )
-        })
-    })
-    
     # Export All Plots handler
-    output$download_code_all <- downloadHandler(
+    output$download_code_all <- nasqar_download_handler(
         filename = function() {
             timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
             paste0("all_plots_export_", timestamp, ".zip")
@@ -2581,12 +2622,11 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
         }
     )
     
-    # Observer for showing state modal using Shiny's native modal (better nginx support)
+
+    # Save/Load State & Export modal (sidebar entry). Private-space projects are
+    # handled separately on the input tab; this keeps the portable .RData path.
     observeEvent(input$showStateModal, {
         canSave <- !is.null(myValues$dataCounts) || !is.null(myValues$dds)
-        if (hpc_state_enabled) {
-            refresh_hpc_states()
-        }
         
         # Check which plots are available (only show buttons when plots are actually configured/visible)
         hasVolcano <- !is.null(input$select_avo_de_file) && 
@@ -2635,30 +2675,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                             downloadButton("downloadState", 
                                          "💾 Download State File (.RData)", 
                                          class = "btn btn-success", 
-                                         style = "width: 100%; font-weight: bold; font-size: 14px; padding: 10px; border-radius: 6px; box-shadow: 0 2px 6px rgba(40,167,69,0.3);"),
-                            if (hpc_state_enabled) {
-                                tagList(
-                                    hr(),
-                                    h5(icon("server"), " HPC Scratch"),
-                                    textInput(
-                                        "hpcStateName",
-                                        "State filename",
-                                        value = paste0(
-                                            "deseq2shiny_state_",
-                                            format(Sys.time(), "%Y%m%d_%H%M%S"),
-                                            ".RData"
-                                        ),
-                                        width = "100%"
-                                    ),
-                                    actionButton(
-                                        "saveStateToHpc",
-                                        "Save State to HPC Scratch",
-                                        icon = icon("save"),
-                                        class = "btn-primary",
-                                        style = "width: 100%;"
-                                    )
-                                )
-                            }
+                                         style = "width: 100%; font-weight: bold; font-size: 14px; padding: 10px; border-radius: 6px; box-shadow: 0 2px 6px rgba(40,167,69,0.3);")
                         )
                     } else {
                         div(style = "background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 15px; margin-bottom: 20px;",
@@ -2688,33 +2705,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                         ),
                         div(style = "margin-top: 10px; padding: 10px; background-color: #e7f3ff; border-left: 3px solid #0066cc; border-radius: 4px; font-size: 11px; color: #004085;",
                             icon("info-circle"), " Loads all data, results, and plot settings from saved session"
-                        ),
-                        if (hpc_state_enabled) {
-                            tagList(
-                                hr(),
-                                h5(icon("server"), " HPC Scratch"),
-                                selectInput(
-                                    "hpcStateFile",
-                                    "Saved state",
-                                    choices = {
-                                        states <- list_hpc_states()
-                                        if (length(states) > 0) {
-                                            stats::setNames(states, states)
-                                        } else {
-                                            c("No saved states" = "")
-                                        }
-                                    },
-                                    width = "100%"
-                                ),
-                                actionButton(
-                                    "loadStateFromHpc",
-                                    "Load State from HPC Scratch",
-                                    icon = icon("folder-open"),
-                                    class = "btn-primary",
-                                    style = "width: 100%;"
-                                )
-                            )
-                        }
+                        )
                     )
                 ),
                 column(6,
@@ -2867,6 +2858,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
             )
         ))
     })
+
 
     list(
         state = myValues,
