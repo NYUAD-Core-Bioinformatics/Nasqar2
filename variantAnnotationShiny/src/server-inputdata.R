@@ -240,6 +240,22 @@ resolve_input_source <- function() {
     }
 }
 
+vcf_expected <- c(
+    "A VCF file (VCFv4.x): '##fileformat=VCFv4...' meta lines, a '#CHROM POS ID REF ALT QUAL FILTER INFO ...' column line, then one tab-separated variant record per line",
+    "Plain text (.vcf), gzip-compressed (.vcf.gz) or bgzip-compressed (.vcf.bgz)",
+    "Optionally its tabix index (.tbi) uploaded alongside a bgzip-compressed file",
+    "Records sorted by chromosome and position (needed for tabix indexing)"
+)
+
+# A VCF that cannot be compressed, indexed or parsed: explain and show its first
+# lines (readLines decompresses .gz/.bgz on the fly, so the preview works for both).
+vcf_input_problem <- function(path, label, error) {
+    nasqar_input_problem(
+        sprintf("%s could not be read as a VCF: %s", label, conditionMessage(error)),
+        vcf_expected, path = path, label = "VCF file"
+    )
+}
+
 observeEvent(input$loadVcf, {
     js$addStatusIcon("input_tab", "loading")
     vcf_ready(FALSE)
@@ -257,16 +273,22 @@ observeEvent(input$loadVcf, {
             source_info <- resolve_input_source()
             project_dir <- project_directory(source_info$project)
             setProgress(0.15, detail = "Checking compression and index")
-            prepared <- prepare_vcf_input(
-                source_info$path, file.path(project_dir, "input"), source_info$index,
-                copy_indexed = isTRUE(source_info$copy_indexed)
+            prepared <- tryCatch(
+                prepare_vcf_input(
+                    source_info$path, file.path(project_dir, "input"), source_info$index,
+                    copy_indexed = isTRUE(source_info$copy_indexed)
+                ),
+                error = function(error) vcf_input_problem(source_info$path, source_info$label, error)
             )
             if (prepared$converted) {
                 showNotification("The VCF was bgzip-compressed and tabix-indexed once into the project directory.",
                                  type = "message", duration = 8)
             }
             setProgress(0.6, detail = "Reading header and index")
-            overview <- vcf_overview(prepared$path, prepared$index)
+            overview <- tryCatch(
+                vcf_overview(prepared$path, prepared$index),
+                error = function(error) vcf_input_problem(source_info$path, source_info$label, error)
+            )
             setProgress(0.75, detail = paste("Loading", resource$label, "annotation packages"))
             genome <- load_genome_resource(resource, with_snplocs = TRUE)
             setProgress(1)
@@ -278,7 +300,10 @@ observeEvent(input$loadVcf, {
     if (inherits(outcome, "error")) {
         js$addStatusIcon("input_tab", "fail")
         my_values$input_status <- conditionMessage(outcome)
-        showNotification(conditionMessage(outcome), type = "error", duration = 12)
+        # An input problem has already explained itself in a modal.
+        if (!inherits(outcome, "shiny.silent.error")) {
+            showNotification(conditionMessage(outcome), type = "error", duration = 12)
+        }
         return()
     }
 

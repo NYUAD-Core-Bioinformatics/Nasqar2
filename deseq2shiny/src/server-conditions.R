@@ -145,18 +145,30 @@ metadataFileReactive <- reactive({
 
     # print('metadataFileReactive')
     # print(inFile)
-    # select file separator, either tab or comma
-    sep <- "\t"
-    if (length(inFile) > 0) {
-        testSep <- read.csv(inFile[1], header = TRUE, sep = "\t")
-        if (ncol(testSep) < 2) {
-            sep <- ","
-        }
-    } else {
+    if (length(inFile) == 0) {
         return(NULL)
     }
 
-    fileContent <- read.csv(inFile[1], header = TRUE, sep = sep)
+    metadata_expected <- c(
+        "A plain-text table (CSV or tab-delimited) with a header row",
+        "Column 1: sample names, exactly matching the column names of the counts table",
+        "Every following column: one experimental factor (e.g. condition, batch) with its value per sample"
+    )
+    fileContent <- nasqar_read_table(inFile[1], metadata_expected, label = "metadata file",
+        check = function(df) {
+            if (ncol(df) < 2) return("The table has fewer than 2 columns (is the separator a comma or a tab?)")
+            if (!nrow(df)) return("The table has a header but no rows.")
+            if (anyDuplicated(df[[1]])) return("Column 1 must hold unique sample names.")
+            counts <- myValues$dataCounts
+            if (!is.null(counts)) {
+                missing <- setdiff(colnames(counts), as.character(df[[1]]))
+                if (length(missing)) {
+                    return(sprintf("Sample(s) %s%s of the counts table are not in column 1.",
+                                   paste(shQuote(head(missing, 5)), collapse = ", "), if (length(missing) > 5) ", ..." else ""))
+                }
+            }
+            NULL
+        })
 
     sampleN <- colnames(fileContent)[-1]
     print("sampleN")

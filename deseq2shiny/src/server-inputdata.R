@@ -107,24 +107,31 @@ inputFileReactive <- reactive({
     # print(inFile)
 
 
-    # select file separator, either tab or comma
-    sep <- "\t"
-    if (length(inFile) > 0) {
-        testSep <- read.csv(inFile[1], header = TRUE, sep = "\t")
-        if (ncol(testSep) < 2) {
-            sep <- ","
-        }
-    } else {
+    if (length(inFile) == 0) {
         return(NULL)
     }
 
-    fileContent <- read.csv(inFile[1], header = TRUE, sep = sep)
-
+    # A wrong file explains itself (expected layout + first lines received)
+    # instead of crashing the session.
     geneAliasMode <- input$gene_alias
+    counts_expected <- c(
+        "A plain-text table (CSV or tab-delimited) with a header row",
+        "Column 1: gene identifiers, unique, one gene per row",
+        if (identical(geneAliasMode, "included")) "Column 2: gene symbols (choose 'My matrix contains GeneIDs only' if there is no such column)",
+        "Every following column: one sample of raw (integer) read counts, with the sample name in the header",
+        "No normalised values (TPM/FPKM), no blank cells"
+    )
+    fileContent <- nasqar_read_table(inFile[1], counts_expected, label = "counts file",
+                                     check = function(df) if (ncol(df) < 2) "The table has fewer than 2 columns (is the separator a comma or a tab?)")
+
     if (!is.null(query[["countsdata"]]) &&
         has_gene_alias_column(fileContent)) {
         geneAliasMode <- "included"
         updateRadioButtons(session, "gene_alias", selected = geneAliasMode)
+    }
+    counts_problem <- nasqar_check_count_table(fileContent, id_columns = if (identical(geneAliasMode, "included")) 2L else 1L)
+    if (!is.null(counts_problem)) {
+        nasqar_input_problem(counts_problem, counts_expected, inFile[1], "counts file")
     }
 
     if(geneAliasMode == 'notincluded'){
@@ -180,7 +187,8 @@ inputFileReactive <- reactive({
     
     dataCounts <- fileContent[, sampleN, drop = FALSE]
     row.names(dataCounts) <- fileContent[, 1]
-    dataCounts <- validate_count_matrix(dataCounts)
+    dataCounts <- tryCatch(validate_count_matrix(dataCounts),
+                           error = function(e) nasqar_input_problem(conditionMessage(e), counts_expected, inFile[1], "counts file"))
     myValues$fileContent <- fileContent
     myValues$dataCounts <- dataCounts
 

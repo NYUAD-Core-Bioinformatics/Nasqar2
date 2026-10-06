@@ -44,6 +44,17 @@ prepare_gene_lists <- function() {
     tryCatch(
         {
             df <- inputDataReactive()$data
+            # Wrong column choices fail here with a plain message instead of
+            # deep inside abs()/bitr().
+            for (column in c(input$geneColumn, input$log2fcColumn, input$padjColumn)) {
+                if (is.null(df[[column]])) stop(sprintf("Column '%s' is not in the input table; pick the columns again.", column))
+            }
+            if (!is.numeric(df[[input$log2fcColumn]])) {
+                stop(sprintf("Column '%s' is not numeric; choose the log2 fold-change column.", input$log2fcColumn))
+            }
+            if (!is.numeric(df[[input$padjColumn]])) {
+                stop(sprintf("Column '%s' is not numeric; choose the adjusted p-value column.", input$padjColumn))
+            }
             # we want the log2 fold change
             original_gene_list <- df[[input$log2fcColumn]]
 
