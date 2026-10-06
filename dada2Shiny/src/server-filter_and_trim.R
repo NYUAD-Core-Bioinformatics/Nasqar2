@@ -280,7 +280,7 @@ output$filterAndTrim_output_table <- DT::renderDataTable(
     options = list(scrollX = TRUE, pageLength = 10)
 )
 
-output$download_fragments_summary <- downloadHandler(
+output$download_fragments_summary <- nasqar_download_handler(
     filename = function() {
         paste0("dada2-fragments-summary-", Sys.Date(), ".csv")
     },

@@ -10,16 +10,26 @@ For more information about DESeq2, visit the [official documentation](https://bi
   Launch DESeq2
 </a>
 
-## Save and restore on HPC
+## Save and restore in a private instance
 
-The **Save/Load State & Export** view retains normal browser download and
-upload. In the Slurm deployment it also displays **HPC Scratch** controls for
-saving and restoring `.RData` analysis states in a private persistent
-directory. Saved states remain available after the current job ends.
+DESeq2 follows the same project convention as every other NASQAR2 application:
+the Input Data tab carries **Persistent project name**, **Reload a previous
+analysis** and the gallery of saved plots and files. Loading counts records the
+project; once DESeq2 has run, the full application state
+(`projects/DESeq2Shiny/<name>/state.RData`) is saved automatically and saved
+again whenever you change settings, so restoring reloads all data, results and
+plot settings as you left them. **Export R code and all plots (zip)** on the
+same tab bundles the reproducible R script with every figure (and is kept in
+the project like any other download). The former Save/Load State view has been
+removed.
 
-The HPC state area is enabled only when the deployment supplies a writable
-`NASQAR_DESEQ2_STATE_DIR`. See the
-[HPC deployment guide](/quickstart/hpc).
+## Private-space projects
+
+In a private instance every run belongs to a project, `projects/DESeq2Shiny/<name>`,
+holding the full application state (`state.RData`), saved from the Save/Load State view plus a `state.rds` of the settings and the stage reached.
+**Restore an existing project** on the input tab reopens it without
+recomputing; cached results are reused and the restore is refused if the
+source data changed. Public instances have no private space and no projects.
 
 ## Citation
 

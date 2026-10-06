@@ -9,7 +9,8 @@ from collections import defaultdict, OrderedDict
 
 
 applications = ['animalcules', 'ClusterProfShinyGSEA', 'ATACseqQCShniy','ClusterProfShinyORA', 'deseq2shiny','GeneCountMerger',
-        'monocle3',  'dada2Shiny', 'SeuratV5Shiny', 'DEBrowser', 'mergeFPKMs', 'tsar_nasqar']
+        'monocle3',  'dada2Shiny', 'SeuratV5Shiny', 'DEBrowser', 'mergeFPKMs', 'tsar_nasqar',
+        'variantAnnotationShiny']
 
 
 import yaml

@@ -8,12 +8,26 @@ tabItem(
                 title = "Upload Data", solidHeader = T, status = "success", width = 12, collapsible = T, id = "uploadbox",
 
                 # downloadLink("instructionspdf",label="Download Instructions (pdf)"),
+                nasqar_project_ui("gsea-project",
+                    help = "The input table and enrichment results are kept under this name in the private space, so the project can be restored later."),
                 radioButtons("data_file_type", "Use example file or upload your own data",
                     c(
                         "Upload .CSV" = "csvfile",
-                        "Example Data" = "examplecounts"
+                        "Example Data" = "examplecounts",
+                        "Use a file in the private space" = "hpcfile"
                     ),
                     selected = "csvfile"
+                ),
+                conditionalPanel(
+                    condition = "input.data_file_type=='hpcfile'",
+                    div(
+                        style = "display:flex; gap:8px; align-items:flex-end;",
+                        div(style = "flex:1;",
+                            textInput("hpc_file_path", "Table (.csv/.txt) in the private space", value = "")
+                        ),
+                        div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_hpc_file", "Browse...", "Choose a table in the private space", multiple = FALSE))
+                    ),
+                    helpText("The file is read in place; nothing is uploaded.")
                 ),
                 conditionalPanel(
                     condition = "input.data_file_type=='csvfile'",

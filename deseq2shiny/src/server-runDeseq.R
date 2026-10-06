@@ -555,7 +555,7 @@ output$vsdData <- renderDataTable(
     options = list(scrollX = TRUE, pageLength = 5)
 )
 
-output$downloadRlogCsv <- downloadHandler(
+output$downloadRlogCsv <- nasqar_download_handler(
     filename = function() {
         paste0("rlog", ".csv")
     },
@@ -566,7 +566,7 @@ output$downloadRlogCsv <- downloadHandler(
     }
 )
 
-output$downloadVsdCsv <- downloadHandler(
+output$downloadVsdCsv <- nasqar_download_handler(
     filename = function() {
         paste0("vsd", ".csv")
     },
@@ -588,7 +588,7 @@ output$deseqError <- reactive({
 outputOptions(output, "deseqError", suspendWhenHidden = FALSE)
 
 # Export R code for VST PCA plot
-output$download_code_pca_vst <- downloadHandler(
+output$download_code_pca_vst <- nasqar_download_handler(
     filename = function() {
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
         export_mode <- get_export_mode(input)
@@ -690,7 +690,7 @@ output$download_code_pca_vst <- downloadHandler(
 )
 
 # Export R code for RLOG PCA plot
-output$download_code_pca_rlog <- downloadHandler(
+output$download_code_pca_rlog <- nasqar_download_handler(
     filename = function() {
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
         export_mode <- get_export_mode(input)
@@ -791,7 +791,7 @@ output$download_code_pca_rlog <- downloadHandler(
 )
 
 # Export R code for VST Distance Heatmap
-output$download_code_distheat_vst <- downloadHandler(
+output$download_code_distheat_vst <- nasqar_download_handler(
     filename = function() {
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
         export_mode <- get_export_mode(input)
@@ -886,7 +886,7 @@ output$download_code_distheat_vst <- downloadHandler(
 )
 
 # Export R code for RLOG Distance Heatmap
-output$download_code_distheat_rlog <- downloadHandler(
+output$download_code_distheat_rlog <- nasqar_download_handler(
     filename = function() {
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
         export_mode <- get_export_mode(input)

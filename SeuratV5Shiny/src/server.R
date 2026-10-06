@@ -12,27 +12,55 @@ if (is.na(nasqar_seurat_workers) || nasqar_seurat_workers < 1L) {
 plan("multisession", workers = nasqar_seurat_workers)
 
 server <- function(input, output, session) {
+  data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
+  data_root <- if (nzchar(data_root)) normalizePath(data_root, winslash = "/", mustWork = FALSE) else NULL
+
+  # Server-side browser jailed to the private data root; it only fills the path box.
+  if (!is.null(data_root)) {
+      browse_roots <- nasqar_browse_roots()
+      shinyFiles::shinyDirChoose(input, "browse_hpc_dir", roots = browse_roots, session = session)
+      observeEvent(input$browse_hpc_dir, {
+          selected <- tryCatch(shinyFiles::parseDirPath(browse_roots, input$browse_hpc_dir), error = function(e) character(0))
+          if (length(selected) == 1L && nzchar(selected)) {
+              updateTextInput(session, "hpc_data_path", value = as.character(selected))
+          }
+      }, ignoreInit = TRUE)
+      shinyFiles::shinyFileChoose(input, "browse_hpc_file", roots = browse_roots, session = session, filetypes = c("csv", "tsv", "txt", "gz", "rds"))
+      observeEvent(input$browse_hpc_file, {
+          selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_hpc_file), error = function(e) NULL)
+          if (!is.null(selected) && nrow(selected)) {
+              updateTextInput(session, "hpc_data_path", value = as.character(selected$datapath[1]))
+          }
+      }, ignoreInit = TRUE)
+  } else {
+      removeUI(selector = "#browse_hpc_dir")
+      removeUI(selector = "#browse_hpc_file")
+      shinyjs::runjs("$('input[name=data_file_type][value=hpcScratch]').closest('.radio').remove()")
+  }
+
   resolve_hpc_path <- function(path) {
-    root <- normalizePath(
-      Sys.getenv("NASQAR_DATA_ROOT", unset = "/scratch/nr83"),
-      mustWork = TRUE
-    )
+    if (is.null(data_root)) stop("This instance has no private space configured.")
+    root <- normalizePath(data_root, mustWork = TRUE)
     resolved <- normalizePath(path, mustWork = TRUE)
-    allowed <- identical(resolved, root) ||
-      startsWith(resolved, paste0(root, .Platform$file.sep))
-    if (!allowed) stop("The path must be inside the configured HPC data root.")
+    allowed <- nasqar_path_inside_roots(resolved)
+    if (!allowed) stop("The path must be in the private space.")
     resolved
   }
 
+  # Private-space projects: projects/SeuratV5/<name> (shared convention); the
+  # name comes from the app's own "projectname" input.
+  source("nasqar-project.R", local = TRUE)
+  project_app <- "SeuratV5"
+  project_legacy_env <- "NASQAR_SEURAT_PROJECT_DIR"
+  private_space <- nasqar_project_available(project_app, project_legacy_env)
+  current_project_name <- function() {
+    name <- input$projectname
+    if (private_space && !is.null(name) && nzchar(trimws(name))) trimws(name) else paste0("session-", session$token)
+  }
   seurat_project_directory <- function(name) {
-    root <- Sys.getenv("NASQAR_SEURAT_PROJECT_DIR", unset = "")
-    if (!nzchar(root)) return(tempdir())
-    safe_name <- gsub("[^A-Za-z0-9._-]+", "-", trimws(name))
-    if (!nzchar(safe_name)) safe_name <- "seurat-project"
-    path <- file.path(root, safe_name)
-    dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
+    path <- nasqar_project_dir(project_app, name, project_legacy_env, fallback = "seurat-project")
     if (!dir.exists(path) || file.access(path, 2) != 0) {
-      stop("The Seurat HPC project directory is not writable.")
+      stop("The Seurat private space directory is not writable.")
     }
     path
   }
@@ -60,6 +88,7 @@ server <- function(input, output, session) {
   source("server-download.R",local = TRUE)
 
   source("server-findMarkers.R",local = TRUE)
+  source("server-project.R", local = TRUE)
 
   GotoTab <- function(name){
     

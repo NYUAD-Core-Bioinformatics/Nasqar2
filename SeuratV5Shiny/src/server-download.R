@@ -3,6 +3,10 @@ observe({
 
   if(input$generateSeuratFile)
   {
+    if (is.null(myValues$finalData$pbmc)) {
+      showNotification("There is no Seurat object to save yet.", type = "error")
+      return()
+    }
     withProgress(message = "Generating Seurat Object, please wait",{
       print("Saving Seurat Object")
 
@@ -11,7 +15,7 @@ observe({
       pbmc <- myValues$finalData$pbmc
       filename = paste0(input$projectname,"_seuratObj_",session$token,"_", format(Sys.time(), "%y-%m-%d_%H-%M-%S"), '.rds')
 
-      output_dir <- seurat_project_directory(input$projectname)
+      output_dir <- seurat_project_directory(current_project_name())
       filepath = file.path(output_dir, filename)
       cat(filepath)
       shiny::setProgress(value = 0.3, detail = "might take some time for large datasets ...")
@@ -21,10 +25,13 @@ observe({
       #v3
       saveRDS(pbmc, file = filepath)
       myValues$filepath <- filepath
-      myValues$hpcOutputPath <- if (nzchar(Sys.getenv("NASQAR_SEURAT_PROJECT_DIR", ""))) {
-        filepath
-      } else {
-        NULL
+      myValues$hpcOutputPath <- if (private_space) filepath else NULL
+      if (private_space) {
+        nasqar_project_state_write(
+          output_dir, project_app, basename(output_dir), "seurat",
+          object_file = filepath, projectname = input$projectname
+        )
+        project_refresh(basename(output_dir))
       }
 
       js$addStatusIcon("finishTab","done")
@@ -45,12 +52,12 @@ outputOptions(output, 'seuratFileExists', suspendWhenHidden=FALSE)
 
 output$hpcSeuratPath <- renderText({
   req(myValues$hpcOutputPath)
-  paste("Saved persistently on HPC:", myValues$hpcOutputPath)
+  paste("Saved persistently in the private space:", myValues$hpcOutputPath)
 })
 
 
 
-output$downloadRObj <- downloadHandler(
+output$downloadRObj <- nasqar_download_handler(
   filename = function() {
 
     paste(input$projectname,"_seuratObj_", format(Sys.time(), "%y-%m-%d_%H-%M-%S"), '.rds', sep='')
@@ -163,7 +170,7 @@ outputOptions(output, 'seuratScriptExists', suspendWhenHidden=F)
 
 
 
-output$downloadScript <- downloadHandler(
+output$downloadScript <- nasqar_download_handler(
   filename = function() {
     
     paste0(input$projectname,"_seuratScript_", format(Sys.time(), "%y-%m-%d_%H-%M-%S"), '.R')

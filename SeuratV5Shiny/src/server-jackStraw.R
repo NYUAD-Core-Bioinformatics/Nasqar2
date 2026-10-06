@@ -67,7 +67,7 @@ output$pcElbowPlot <- renderPlot({
   }
 })
 
-output$downloadElbowPlot <- downloadHandler(
+output$downloadElbowPlot <- nasqar_download_handler(
   filename <- function() {
     paste(input$projectname, "_ElbowPlot", input$elbowDownloadAs,sep="")
   },
@@ -96,7 +96,7 @@ output$jackStrawPlotAvailable <- reactive({
 })
 outputOptions(output, 'jackStrawPlotAvailable', suspendWhenHidden=FALSE)
 
-output$downloadJackStrawPlot <- downloadHandler(
+output$downloadJackStrawPlot <- nasqar_download_handler(
   filename <- function() {
     paste(input$projectname, "_JackStrawPlot", input$jackStrawDownloadAs,sep="")
   },

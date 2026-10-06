@@ -10,6 +10,8 @@ options(shiny.sanitize.errors = TRUE)
 
 # Load pure validation and persistence helpers.
 source("core-functions.R", local = FALSE)
+source("nasqar-project.R", local = FALSE)
+source("data-root.R", local = FALSE)
 source("server-export-code.R", local = FALSE)
 source("server-modules.R", local = FALSE)
 

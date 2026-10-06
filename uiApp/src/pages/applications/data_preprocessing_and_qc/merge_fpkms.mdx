@@ -10,4 +10,12 @@ We provide an interactive web-based application for merging FPKM files.
   Launch Merge FPKMs
 </a>
 
+In a private instance, **Use files in the private space** lets you pick the FPKM files to merge in a Browse dialog (several at once, or paste their paths); they are read in place.
 
+## Private-space projects
+
+In a private instance every run belongs to a project, `projects/mergeFPKMs/<name>`,
+holding the merged table plus a `state.rds` of the settings and the stage reached.
+**Restore an existing project** on the input tab reopens it without
+recomputing; cached results are reused and the restore is refused if the
+source data changed. Public instances have no private space and no projects.

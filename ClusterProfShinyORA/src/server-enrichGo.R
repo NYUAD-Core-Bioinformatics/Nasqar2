@@ -1,311 +1,325 @@
 myValues <- reactiveValues()
 
+organismsDbKegg <- c(
+    "org.Hs.eg.db" = "hsa", "org.Mm.eg.db" = "mmu", "org.Rn.eg.db" = "rno",
+    "org.Sc.sgd.db" = "sce", "org.Dm.eg.db" = "dme", "org.At.tair.db" = "ath",
+    "org.Dr.eg.db" = "dre", "org.Bt.eg.db" = "bta", "org.Ce.eg.db" = "cel",
+    "org.Gg.eg.db" = "gga", "org.Cf.eg.db" = "cfa", "org.Ss.eg.db" = "ssc",
+    "org.Mmu.eg.db" = "mcc", "org.EcK12.eg.db" = "eck", "org.Xl.eg.db" = "xla",
+    "org.Pt.eg.db" = "ptr", "org.Ag.eg.db" = "aga", "org.Pf.plasmo.db" = "pfa",
+    "org.EcSakai.eg.db" = "ecs"
+)
+
 observe({
     enrichGoReactive()
 })
 
-enrichGoReactive <- eventReactive(input$initGo, {
+notify_enrichment_error <- function(e) {
+    myValues$status <- paste("Error: ", e$message)
+
+    showNotification(id = "errorNotify", myValues$status, type = "error", duration = NULL)
+    showNotification(id = "errorNotify1", "Make sure the right organism was selected", type = "error", duration = NULL)
+    showNotification(id = "errorNotify2", "Make sure the corresponding required columns are correctly selected", type = "error", duration = NULL)
+}
+
+# Gene lists and the ENTREZ conversion the plots need. This runs whether the
+# enrichment is computed or served from the project cache. Returns NULL (after
+# notifying) when the input table cannot be read with the selected columns.
+prepare_gene_lists <- function() {
     query <- parseQueryString(session$clientData$url_search)
 
+    # remove notifications if they exist
+    removeNotification("errorNotify")
+    removeNotification("errorNotify1")
+    removeNotification("errorNotify2")
+    removeNotification("warnNotify")
+    removeNotification("warnNotify2")
+    removeNotification("keggEnrichError")
+
+    # A gene list handed over by another app: GO only, no universe.
+    if (!is.null(query[["gene_names"]])) {
+        return(list(genes = inputDataReactive()$data$x))
+    }
+
+    tryCatch(
+        {
+            df <- inputDataReactive()$data
+            # we want the log2 fold change
+            original_gene_list <- df[[input$log2fcColumn]]
+
+            # name the vector
+            names(original_gene_list) <- df[[input$geneColumn]]
+
+            # omit any NA values
+            gene_list <- na.omit(original_gene_list)
+
+            # sort the list in decreasing order (required for clusterProfiler)
+            gene_list <- sort(gene_list, decreasing = TRUE)
+
+            myValues$gene_list <- gene_list
+
+            # Exctract significant results
+            # ALLOW USERS TO EDIT 0.05 AS A PARAMETER
+            # sig_genes_df = subset(df, padj < input$padjCutoff)
+            sig_genes_df <- df[df[, input$padjColumn] < input$padjCutoff, ]
+            sig_genes_df <- na.omit(sig_genes_df)
+
+            # From significant results, we want to filter on log2fold change
+            genes <- sig_genes_df[[input$log2fcColumn]]
+
+            # Name the vector
+            names(genes) <- sig_genes_df[[input$geneColumn]]
+
+            # omit NA values
+            genes <- na.omit(genes)
+
+            # filter on min log2fold change (PARAMETER)
+            genes <- names(genes)[abs(genes) > input$logfcCuttoff]
+
+            # Optionally intersect with preferred gene list
+            preferred <- NULL
+            if (isTRUE(input$usePreferredGenes) && nchar(trimws(input$preferredGeneList)) > 0) {
+                preferred <- unique(trimws(strsplit(input$preferredGeneList, "[\n,;\t]+")[[1]]))
+                preferred <- preferred[nchar(preferred) > 0]
+                genes_before <- length(genes)
+                genes <- intersect(genes, preferred)
+                showNotification(
+                    ui = paste0("Preferred gene list applied: ", length(genes), " of ", genes_before,
+                                " threshold-filtered genes retained."),
+                    type = "message", duration = 8
+                )
+            }
+
+            # Convert gene IDs for enrichKEGG function
+            # We will lose some genes here because not all IDs will be converted
+            myValues$convWarningMessage <- capture.output(ids <- bitr(names(original_gene_list), fromType = input$keytype, toType = "ENTREZID", OrgDb = input$organismDb), type = "message")
+
+            # remove duplicate IDS (here I use "ENSEMBL", but it should be whatever was selected as keyType)
+            dedup_ids <- ids[!duplicated(ids[c(input$keytype)]), ]
+            myValues$dedup_ids <- dedup_ids  # store for ENTREZ → original ID reverse lookup
+
+            # Match by the selected identifier. Filtering and assigning by
+            # position can attach an ENTREZ ID to the wrong input row.
+            mapped_entrez <- dedup_ids$ENTREZID[
+                match(df[[input$geneColumn]], dedup_ids[[input$keytype]])
+            ]
+            mapped <- !is.na(mapped_entrez)
+            df2 <- df[mapped, , drop = FALSE]
+            df2$Y <- mapped_entrez[mapped]
+
+            # Create a vector of the gene unuiverse
+            kegg_gene_list <- df2[[input$log2fcColumn]]
+
+            # Name vector with ENTREZ ids
+            names(kegg_gene_list) <- df2$Y
+
+            # omit any NA values
+            kegg_gene_list <- na.omit(kegg_gene_list)
+
+            # sort the list in decreasing order (required for clusterProfiler)
+            kegg_gene_list <- sort(kegg_gene_list, decreasing = TRUE)
+
+            myValues$kegg_gene_list <- kegg_gene_list
+
+            # Exctract significant results from df2
+            # ALLOW USERS TO EDIT 0.05 AS A PARAMETER
+            # kegg_sig_genes_df = subset(df2, padj < input$padjCutoff)
+            kegg_sig_genes_df <- df2[df2[, input$padjColumn] < input$padjCutoff, ]
+            kegg_sig_genes_df <- na.omit(kegg_sig_genes_df)
+
+            # From significant results, we want to filter on log2fold change
+            kegg_genes <- kegg_sig_genes_df[[input$log2fcColumn]]
+
+            # Name the vector with the CONVERTED ID!
+            names(kegg_genes) <- kegg_sig_genes_df$Y
+
+            # omit NA values
+            kegg_genes <- na.omit(kegg_genes)
+
+            # filter on log2fold change (PARAMETER)
+            kegg_genes <- names(kegg_genes)[abs(kegg_genes) > input$logfcCuttoff]
+
+            # Optionally intersect with preferred gene list (using ENTREZ IDs mapped from preferred names)
+            if (!is.null(preferred)) {
+                # Map preferred names to ENTREZ IDs via dedup_ids
+                preferred_entrez <- dedup_ids$ENTREZID[dedup_ids[[input$keytype]] %in% preferred]
+                kegg_genes <- intersect(kegg_genes, preferred_entrez)
+            }
+
+            myValues$organismKegg <- organismsDbKegg[input$organismDb]
+
+            list(genes = genes, gene_list = gene_list,
+                 kegg_genes = kegg_genes, kegg_gene_list = kegg_gene_list)
+        },
+        error = function(e) {
+            notify_enrichment_error(e)
+            NULL
+        }
+    )
+}
+
+compute_enrichment <- function(prepared) {
     withProgress(message = "Processing , please wait", {
         isolate({
-            if (!is.null(query[["gene_names"]])) {
-                print(inputDataReactive()$data)
-                genes <- inputDataReactive()$data
-                go_enrich <- enrichGO(
-                    gene = genes$x,
-                    OrgDb = input$organismDb,
-                    keyType = input$keytype,
-                    minGSSize = input$minGSSize,
-                    maxGSSize = input$maxGSSize,
-                    readable = T,
-                    ont = input$ontology,
-                    pool = isTRUE(input$poolGo),
-                    pvalueCutoff = input$pvalCuttoff,
-                    qvalueCutoff = input$qvalCuttoff,
-                    pAdjustMethod = input$pAdjustMethod
+            go_enrich <- NULL
+            kegg_enrich <- NULL
+
+            setProgress(value = 0.3, detail = "Performing Go enrichment analysis, please wait ...")
+
+            go_enrich <- enrichGO(
+                gene = prepared$genes,
+                universe = names(prepared$gene_list),
+                OrgDb = input$organismDb,
+                keyType = input$keytype,
+                minGSSize = input$minGSSize,
+                maxGSSize = input$maxGSSize,
+                readable = T,
+                ont = input$ontology,
+                pool = isTRUE(input$poolGo),
+                pvalueCutoff = input$pvalCuttoff,
+                qvalueCutoff = input$qvalCuttoff,
+                pAdjustMethod = input$pAdjustMethod
+            )
+
+            if (isTRUE(input$simplifyGo) && nrow(go_enrich) > 0) {
+                go_enrich <- tryCatch(
+                    simplify(go_enrich, cutoff = input$simplifyCutoff),
+                    error = function(e) go_enrich
+                )
+            }
+
+            if (nrow(go_enrich) < 1) {
+                showNotification(id = "warnNotify", "No gene can be mapped ...", type = "warning", duration = NULL)
+                showNotification(id = "warnNotify2", "Tune the parameters and try again.", type = "warning", duration = NULL)
+                return(NULL)
+            }
+
+            ## KEGG enrich
+            if (!is.null(prepared$kegg_gene_list)) {
+                setProgress(value = 0.6, detail = "Performing KEGG enrichment analysis, please wait ...")
+
+                old_timeout <- getOption("timeout")
+                options(timeout = min(old_timeout, 20))
+                kegg_enrich <- tryCatch(
+                    enrichKEGG(
+                        gene = prepared$kegg_genes,
+                        universe = names(prepared$kegg_gene_list),
+                        organism = organismsDbKegg[input$organismDb],
+                        pvalueCutoff = input$pvalCuttoff,
+                        qvalueCutoff = input$qvalCuttoff,
+                        pAdjustMethod = input$pAdjustMethod,
+                        keyType = "ncbi-geneid",
+                        minGSSize = input$minGSSize,
+                        maxGSSize = input$maxGSSize
+                    ),
+                    error = function(e) {
+                        showNotification(
+                            id = "keggEnrichError",
+                            paste("KEGG enrichment failed:", conditionMessage(e),
+                                  "GO results remain available."),
+                            type = "warning", duration = NULL
+                        )
+                        NULL
+                    },
+                    finally = options(timeout = old_timeout)
                 )
 
-                if (isTRUE(input$simplifyGo) && nrow(go_enrich) > 0) {
-                    go_enrich <- tryCatch(
-                        simplify(go_enrich, cutoff = input$simplifyCutoff),
-                        error = function(e) go_enrich
+                if (is.null(kegg_enrich) || nrow(kegg_enrich@result) == 0) {
+                    kegg_enrich <- NULL
+                    showNotification(
+                        "KEGG enrichment returned no pathways. GO results remain available.",
+                        type = "warning", duration = 10
                     )
                 }
-
-                if (nrow(go_enrich) < 1) {
-                    showNotification(id = "warnNotify", "No gene can be mapped ...", type = "warning", duration = NULL)
-                    showNotification(id = "warnNotify2", "Tune the parameters and try again.", type = "warning", duration = NULL)
-                    return(NULL)
-                }
-                n <- nrow(go_enrich@result)
-                updateNumericInput(session, "showCategory_bar", max = n, min = 0, value = ifelse(n > 0, 5, 0))
-                updateNumericInput(session, "showCategory_dot", max = n, min = 0, value = ifelse(n > 0, 5, 0))
-                updateNumericInput(session, "showCategory_enrichmap", max = n, min = 0, value = ifelse(n > 0, 5, 0))
-                updateNumericInput(session, "showCategory_goplot", max = n, min = 0, value = ifelse(n > 0, 5, 0))
-                updateNumericInput(session, "showCategory_cnet", max = n, min = 0, value = ifelse(n > 0, 5, 0))
-                updateNumericInput(session, "showCategory_tree", max = n, min = 0, value = ifelse(n > 0, min(30, n), 0))
-                updateNumericInput(session, "showCategory_heat", max = n, min = 0, value = ifelse(n > 0, min(10, n), 0))
-
-                shinyjs::show(selector = "a[data-value=\"goplotsTab\"]")
-                shinyjs::show(selector = "a[data-value=\"enrichGoTab\"]")
-
-                return(list("go_enrich" = go_enrich, "kegg_enrich" = NULL))
-            } else {
-                # remove notifications if they exist
-                removeNotification("errorNotify")
-                removeNotification("errorNotify1")
-                removeNotification("errorNotify2")
-                removeNotification("warnNotify")
-                removeNotification("warnNotify2")
-                removeNotification("keggEnrichError")
-
-                go_enrich <- NULL
-                kegg_enrich <- NULL
-
-                validate(need(
-                    tryCatch(
-                        {
-                            df <- inputDataReactive()$data
-                            # we want the log2 fold change
-                            original_gene_list <- df[[input$log2fcColumn]]
-
-                            # name the vector
-                            names(original_gene_list) <- df[[input$geneColumn]]
-
-                            # omit any NA values
-                            gene_list <- na.omit(original_gene_list)
-
-                            # sort the list in decreasing order (required for clusterProfiler)
-                            gene_list <- sort(gene_list, decreasing = TRUE)
-
-                            myValues$gene_list <- gene_list
-
-                            # Exctract significant results
-                            # ALLOW USERS TO EDIT 0.05 AS A PARAMETER
-                            # sig_genes_df = subset(df, padj < input$padjCutoff)
-                            sig_genes_df <- df[df[, input$padjColumn] < input$padjCutoff, ]
-                            sig_genes_df <- na.omit(sig_genes_df)
-
-                            # From significant results, we want to filter on log2fold change
-                            genes <- sig_genes_df[[input$log2fcColumn]]
-
-                            # Name the vector
-                            names(genes) <- sig_genes_df[[input$geneColumn]]
-
-                            # omit NA values
-                            genes <- na.omit(genes)
-
-                            # filter on min log2fold change (PARAMETER)
-                            genes <- names(genes)[abs(genes) > input$logfcCuttoff]
-
-                            # Optionally intersect with preferred gene list
-                            if (isTRUE(input$usePreferredGenes) && nchar(trimws(input$preferredGeneList)) > 0) {
-                                preferred <- unique(trimws(strsplit(input$preferredGeneList, "[\n,;\t]+")[[1]]))
-                                preferred <- preferred[nchar(preferred) > 0]
-                                genes_before <- length(genes)
-                                genes <- intersect(genes, preferred)
-                                showNotification(
-                                    ui = paste0("Preferred gene list applied: ", length(genes), " of ", genes_before,
-                                                " threshold-filtered genes retained."),
-                                    type = "message", duration = 8
-                                )
-                            }
-
-                            setProgress(value = 0.3, detail = "Performing Go enrichment analysis, please wait ...")
-
-                            go_enrich <- enrichGO(
-                                gene = genes,
-                                universe = names(gene_list),
-                                OrgDb = input$organismDb,
-                                keyType = input$keytype,
-                                minGSSize = input$minGSSize,
-                                maxGSSize = input$maxGSSize,
-                                readable = T,
-                                ont = input$ontology,
-                                pool = isTRUE(input$poolGo),
-                                pvalueCutoff = input$pvalCuttoff,
-                                qvalueCutoff = input$qvalCuttoff,
-                                pAdjustMethod = input$pAdjustMethod
-                            )
-
-                            if (isTRUE(input$simplifyGo) && nrow(go_enrich) > 0) {
-                                go_enrich <- tryCatch(
-                                    simplify(go_enrich, cutoff = input$simplifyCutoff),
-                                    error = function(e) go_enrich
-                                )
-                            }
-
-                            if (nrow(go_enrich) < 1) {
-                                showNotification(id = "warnNotify", "No gene can be mapped ...", type = "warning", duration = NULL)
-                                showNotification(id = "warnNotify2", "Tune the parameters and try again.", type = "warning", duration = NULL)
-                                return(NULL)
-                            }
-
-                            nGo <- nrow(go_enrich@result)
-                            updateNumericInput(session, "showCategory_go_global", max = nGo, value = min(5, nGo))
-
-                            ## KEGG enrich
-
-                            # Convert gene IDs for enrichKEGG function
-                            # We will lose some genes here because not all IDs will be converted
-                            myValues$convWarningMessage <- capture.output(ids <- bitr(names(original_gene_list), fromType = input$keytype, toType = "ENTREZID", OrgDb = input$organismDb), type = "message")
-
-                            # remove duplicate IDS (here I use "ENSEMBL", but it should be whatever was selected as keyType)
-                            dedup_ids <- ids[!duplicated(ids[c(input$keytype)]), ]
-                            myValues$dedup_ids <- dedup_ids  # store for ENTREZ → original ID reverse lookup
-
-                            # Match by the selected identifier. Filtering and assigning by
-                            # position can attach an ENTREZ ID to the wrong input row.
-                            mapped_entrez <- dedup_ids$ENTREZID[
-                                match(df[[input$geneColumn]], dedup_ids[[input$keytype]])
-                            ]
-                            mapped <- !is.na(mapped_entrez)
-                            df2 <- df[mapped, , drop = FALSE]
-                            df2$Y <- mapped_entrez[mapped]
-
-                            # Create a vector of the gene unuiverse
-                            kegg_gene_list <- df2[[input$log2fcColumn]]
-
-                            # Name vector with ENTREZ ids
-                            names(kegg_gene_list) <- df2$Y
-
-                            # omit any NA values
-                            kegg_gene_list <- na.omit(kegg_gene_list)
-
-                            # sort the list in decreasing order (required for clusterProfiler)
-                            kegg_gene_list <- sort(kegg_gene_list, decreasing = TRUE)
-
-                            myValues$kegg_gene_list <- kegg_gene_list
-
-                            # Exctract significant results from df2
-                            # ALLOW USERS TO EDIT 0.05 AS A PARAMETER
-                            # kegg_sig_genes_df = subset(df2, padj < input$padjCutoff)
-                            kegg_sig_genes_df <- df2[df2[, input$padjColumn] < input$padjCutoff, ]
-                            kegg_sig_genes_df <- na.omit(kegg_sig_genes_df)
-
-                            # From significant results, we want to filter on log2fold change
-                            kegg_genes <- kegg_sig_genes_df[[input$log2fcColumn]]
-
-                            # Name the vector with the CONVERTED ID!
-                            names(kegg_genes) <- kegg_sig_genes_df$Y
-
-                            # omit NA values
-                            kegg_genes <- na.omit(kegg_genes)
-
-                            # filter on log2fold change (PARAMETER)
-                            kegg_genes <- names(kegg_genes)[abs(kegg_genes) > input$logfcCuttoff]
-
-                            # Optionally intersect with preferred gene list (using ENTREZ IDs mapped from preferred names)
-                            if (isTRUE(input$usePreferredGenes) && nchar(trimws(input$preferredGeneList)) > 0) {
-                                preferred <- unique(trimws(strsplit(input$preferredGeneList, "[\n,;\t]+")[[1]]))
-                                preferred <- preferred[nchar(preferred) > 0]
-                                # Map preferred names to ENTREZ IDs via dedup_ids
-                                preferred_entrez <- dedup_ids$ENTREZID[dedup_ids[[input$keytype]] %in% preferred]
-                                kegg_genes <- intersect(kegg_genes, preferred_entrez)
-                            }
-
-                            setProgress(value = 0.6, detail = "Performing KEGG enrichment analysis, please wait ...")
-
-                            organismsDbKegg <- c(
-                                "org.Hs.eg.db" = "hsa", "org.Mm.eg.db" = "mmu", "org.Rn.eg.db" = "rno",
-                                "org.Sc.sgd.db" = "sce", "org.Dm.eg.db" = "dme", "org.At.tair.db" = "ath",
-                                "org.Dr.eg.db" = "dre", "org.Bt.eg.db" = "bta", "org.Ce.eg.db" = "cel",
-                                "org.Gg.eg.db" = "gga", "org.Cf.eg.db" = "cfa", "org.Ss.eg.db" = "ssc",
-                                "org.Mmu.eg.db" = "mcc", "org.EcK12.eg.db" = "eck", "org.Xl.eg.db" = "xla",
-                                "org.Pt.eg.db" = "ptr", "org.Ag.eg.db" = "aga", "org.Pf.plasmo.db" = "pfa",
-                                "org.EcSakai.eg.db" = "ecs"
-                            )
-
-                            old_timeout <- getOption("timeout")
-                            options(timeout = min(old_timeout, 20))
-                            kegg_enrich <- tryCatch(
-                                enrichKEGG(
-                                    gene = kegg_genes,
-                                    universe = names(kegg_gene_list),
-                                    organism = organismsDbKegg[input$organismDb],
-                                    pvalueCutoff = input$pvalCuttoff,
-                                    qvalueCutoff = input$qvalCuttoff,
-                                    pAdjustMethod = input$pAdjustMethod,
-                                    keyType = "ncbi-geneid",
-                                    minGSSize = input$minGSSize,
-                                    maxGSSize = input$maxGSSize
-                                ),
-                                error = function(e) {
-                                    showNotification(
-                                        id = "keggEnrichError",
-                                        paste("KEGG enrichment failed:", conditionMessage(e),
-                                              "GO results remain available."),
-                                        type = "warning", duration = NULL
-                                    )
-                                    NULL
-                                },
-                                finally = options(timeout = old_timeout)
-                            )
-
-                            myValues$organismKegg <- organismsDbKegg[input$organismDb]
-
-
-                            if (!is.null(kegg_enrich) && nrow(kegg_enrich@result) > 0) {
-                                nKegg <- nrow(kegg_enrich@result)
-                                updateNumericInput(session, "showCategory_kegg_global",
-                                                   max = nKegg, value = min(5, nKegg))
-                                pathway_choices <- setNames(
-                                    kegg_enrich@result$ID,
-                                    paste0(kegg_enrich@result$ID, " \u2014 ",
-                                           kegg_enrich@result$Description)
-                                )
-                                updateSelectizeInput(session, "pathwayIds", choices = pathway_choices)
-                            } else {
-                                kegg_enrich <- NULL
-                                updateSelectizeInput(session, "pathwayIds", choices = character(0))
-                                showNotification(
-                                    "KEGG enrichment returned no pathways. GO results remain available.",
-                                    type = "warning", duration = 10
-                                )
-                            }
-                        },
-                        error = function(e) {
-                            myValues$status <- paste("Error: ", e$message)
-
-                            showNotification(id = "errorNotify", myValues$status, type = "error", duration = NULL)
-                            showNotification(id = "errorNotify1", "Make sure the right organism was selected", type = "error", duration = NULL)
-                            showNotification(id = "errorNotify2", "Make sure the corresponding required columns are correctly selected", type = "error", duration = NULL)
-                            return(NULL)
-                        }
-                    ),
-                    "Error. Check!"
-                ))
             }
         })
 
-        # if()
-
-
-        if (!is.null(go_enrich)) {
-            shinyjs::show(selector = "a[data-value=\"goplotsTab\"]")
-            shinyjs::show(selector = "a[data-value=\"enrichGoTab\"]")
-        } else {
-            shinyjs::hide(selector = "a[data-value=\"goplotsTab\"]")
-            shinyjs::hide(selector = "a[data-value=\"enrichGoTab\"]")
-        }
-        if (!is.null(kegg_enrich)) {
-            shinyjs::show(selector = "a[data-value=\"pathviewTab\"]")
-            shinyjs::show(selector = "a[data-value=\"keggPlotsTab\"]")
-            shinyjs::show(selector = "a[data-value=\"enrichKeggTab\"]")
-        } else {
-            shinyjs::hide(selector = "a[data-value=\"pathviewTab\"]")
-            shinyjs::hide(selector = "a[data-value=\"keggPlotsTab\"]")
-            shinyjs::hide(selector = "a[data-value=\"enrichKeggTab\"]")
-        }
-        if (!is.null(go_enrich) || !is.null(kegg_enrich)) {
-            shinyjs::show(selector = "a[data-value=\"wordcloudTab\"]")
-        } else {
-            shinyjs::hide(selector = "a[data-value=\"wordcloudTab\"]")
-        }
-
         return(list("go_enrich" = go_enrich, "kegg_enrich" = kegg_enrich))
     })
+}
+
+# Result tabs and the inputs that depend on the result tables, for both
+# freshly computed and cached results.
+publish_results <- function(result) {
+    go_enrich <- result$go_enrich
+    kegg_enrich <- result$kegg_enrich
+
+    if (!is.null(go_enrich)) {
+        nGo <- nrow(go_enrich@result)
+        updateNumericInput(session, "showCategory_go_global", max = nGo, value = min(5, nGo))
+        shinyjs::show(selector = "a[data-value=\"goplotsTab\"]")
+        shinyjs::show(selector = "a[data-value=\"enrichGoTab\"]")
+    } else {
+        shinyjs::hide(selector = "a[data-value=\"goplotsTab\"]")
+        shinyjs::hide(selector = "a[data-value=\"enrichGoTab\"]")
+    }
+    if (!is.null(kegg_enrich)) {
+        nKegg <- nrow(kegg_enrich@result)
+        updateNumericInput(session, "showCategory_kegg_global",
+                           max = nKegg, value = min(5, nKegg))
+        pathway_choices <- setNames(
+            kegg_enrich@result$ID,
+            paste0(kegg_enrich@result$ID, " — ",
+                   kegg_enrich@result$Description)
+        )
+        updateSelectizeInput(session, "pathwayIds", choices = pathway_choices)
+        shinyjs::show(selector = "a[data-value=\"pathviewTab\"]")
+        shinyjs::show(selector = "a[data-value=\"keggPlotsTab\"]")
+        shinyjs::show(selector = "a[data-value=\"enrichKeggTab\"]")
+    } else {
+        updateSelectizeInput(session, "pathwayIds", choices = character(0))
+        shinyjs::hide(selector = "a[data-value=\"pathviewTab\"]")
+        shinyjs::hide(selector = "a[data-value=\"keggPlotsTab\"]")
+        shinyjs::hide(selector = "a[data-value=\"enrichKeggTab\"]")
+    }
+    if (!is.null(go_enrich) || !is.null(kegg_enrich)) {
+        shinyjs::show(selector = "a[data-value=\"wordcloudTab\"]")
+    } else {
+        shinyjs::hide(selector = "a[data-value=\"wordcloudTab\"]")
+    }
+}
+
+enrichment_params <- function() {
+    ids <- c("geneColumn", "log2fcColumn", "padjColumn", "padjCutoff", "logfcCuttoff", "organismDb", "keytype", "ontology", "minGSSize", "maxGSSize", "pvalCuttoff", "qvalCuttoff", "pAdjustMethod", "poolGo", "simplifyGo", "simplifyCutoff", "usePreferredGenes", "preferredGeneList")
+    stats::setNames(lapply(ids, function(id) input[[id]]), ids)
+}
+
+# Results are cached in the project, keyed on the input table and every
+# parameter, so a restored project shows its enrichment without recomputing.
+enrichGoReactive <- eventReactive(input$initGo, {
+    data <- inputDataReactive()
+    req(data)
+    params <- enrichment_params()
+    prepared <- prepare_gene_lists()
+    validate(need(!is.null(prepared), "Error. Check!"))
+    cache_file <- NULL
+    if (private_space) {
+        dir <- nasqar_project_dir(project_app, current_project_name(), fallback = "ora-project")
+        key <- digest::digest(list(data = data$data, params = params,
+                                   clusterProfiler = as.character(utils::packageVersion("clusterProfiler"))),
+                              algo = "xxhash64")
+        cache_file <- file.path(dir, "cache", paste0("enrichment-", key, ".rds"))
+    }
+    result <- if (!is.null(cache_file) && file.exists(cache_file)) {
+        tryCatch(readRDS(cache_file), error = function(error) NULL)
+    } else {
+        NULL
+    }
+    if (is.null(result)) {
+        result <- tryCatch(compute_enrichment(prepared), error = function(e) {
+            notify_enrichment_error(e)
+            validate(need(FALSE, "Error. Check!"))
+        })
+        # Only successful runs are worth caching.
+        if (!is.null(cache_file) && (!is.null(result$go_enrich) || !is.null(result$kegg_enrich))) {
+            dir.create(dirname(cache_file), recursive = TRUE, showWarnings = FALSE, mode = "0700")
+            saveRDS(result, cache_file)
+        }
+    } else {
+        showNotification("Enrichment results loaded from the project cache.", type = "message", duration = 6)
+    }
+    publish_results(result)
+    result
 })
 
 # output$x4 = renderPrint({
@@ -722,7 +736,7 @@ output$enrichGoTable <- renderDataTable(
     }
 )
 
-output$downloadEnrichGoCSV <- downloadHandler(
+output$downloadEnrichGoCSV <- nasqar_download_handler(
     filename = function() {
         paste0("enrichgo", ".csv")
     },
@@ -807,7 +821,7 @@ output$enrichKEGGTable <- renderDataTable(
     }
 )
 
-output$downloadEnrichKEGGCSV <- downloadHandler(
+output$downloadEnrichKEGGCSV <- nasqar_download_handler(
     filename = function() {
         paste0("enrichKEGG", ".csv")
     },

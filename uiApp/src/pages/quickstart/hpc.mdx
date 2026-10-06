@@ -5,7 +5,7 @@ compute allocation. The deployment starts the portal and all analytical
 services on one compute node, stores writable state outside the read-only
 container image, and reports the SSH tunnel needed to open the portal.
 
-> Run NASQAR2 through `sbatch`. Do not start the service on an HPC login node.
+> Run NASQAR2 through `sbatch`.
 
 ## Resource model
 
@@ -23,11 +23,11 @@ local scheduling policy.
 
 ## Build the Singularity image
 
-Build the all-in-one Docker image using the tag referenced by the supplied
-Singularity definition, then create the SIF:
+Build the all-in-one Docker image (the Singularity definition bootstraps from
+the `nasqar2-all:latest` tag), then create the SIF:
 
 ```bash
-docker build -t nasqar2-local:bulk-gcm .
+docker build -t nasqar2-all:latest .
 ./hpc/build-sif.sh
 ```
 
@@ -42,6 +42,26 @@ SINGULARITY_TMPDIR=/data/nasqar2-build/tmp \
 SINGULARITY_CACHEDIR=/data/nasqar2-build/cache \
 ./hpc/build-sif.sh /data/nasqar2-build/nasqar2.sif
 ```
+
+The `docker-daemon` bootstrap exports the image through the Docker daemon,
+which stages it under `/var/lib/docker/tmp`. If that filesystem has less than
+about 15 GB free the build fails with `no space left on device` even when the
+directories above point elsewhere. In that case stream the container
+filesystem into a sandbox directory and build from it instead:
+
+```bash
+mkdir -p /data/nasqar2-build/sandbox
+cid=$(docker create nasqar2-all:latest)
+docker export "$cid" | tar -x -C /data/nasqar2-build/sandbox
+docker rm "$cid"
+sed 's#^Bootstrap: docker-daemon$#Bootstrap: localimage#; s#^From: .*#From: /data/nasqar2-build/sandbox#' \
+  hpc/singularity/nasqar2-local.def > /data/nasqar2-build/nasqar2-sandbox.def
+singularity build --fakeroot --force /data/nasqar2-build/nasqar2.sif /data/nasqar2-build/nasqar2-sandbox.def
+```
+
+Run the `singularity build` from the repository root so the definition's
+`%files` entry resolves. The resulting SIF is identical in content; only the
+Docker metadata (which the definition re-creates) is not carried over.
 
 ## Install in scratch
 
@@ -87,11 +107,7 @@ remain active; it is forwarding traffic until stopped with `Ctrl+C`.
 | Data | Default location |
 | --- | --- |
 | Per-job runtime, logs, uploads, and exchange files | `$SCRATCH/nasqar2/runs/JOB_ID` |
-| ATACseqQC cache | `$SCRATCH/nasqar2/cache/ATACseqQC` |
-| DESeq2Shiny states | `$SCRATCH/nasqar2/states/DESeq2Shiny` |
-| DADA2 projects | `$SCRATCH/nasqar2/projects/DADA2` |
-| Seurat v5 projects | `$SCRATCH/nasqar2/projects/SeuratV5` |
-| Monocle 3 projects | `$SCRATCH/nasqar2/projects/Monocle3` |
+| Private-space projects of every application (`projects/<App>/<name>`, each with its outputs, caches and a `state.rds` for restoring) | `$SCRATCH/nasqar2/projects` (`NASQAR2_PROJECTS`) |
 | Private R library | `$SCRATCH/nasqar2/r-library/R-4.3` |
 
 Input data are mounted read-only from `NASQAR2_DATA_ROOT`, which defaults to
@@ -107,22 +123,66 @@ NASQAR2_R_LIBRARY=/scratch/USER/project/r-library \
 sbatch nasqar2.sbatch
 ```
 
-## HPC-aware applications
+Variant Annotation streams filtered records to disk and annotates them in
+chunks of `NASQAR_VARIANT_ANNOTATION_CHUNK` records (default 50,000), so a
+cohort-sized VCF runs in bounded memory. Raise the chunk size on a node with
+plenty of memory to trade RAM for speed, or lower it on a small allocation:
+`NASQAR_VARIANT_ANNOTATION_CHUNK=100000 sbatch nasqar2.sbatch`.
+
+## Applications with private-instance data access
+
+A Slurm job is one form of NASQAR2 private instance: the portal serves a single
+user, so it can read that user's files in place and keep results permanently on
+the host filesystem instead of round-tripping them through the browser. The job
+script enables this by setting `NASQAR_DATA_ROOT` and the per-application
+project, state, and cache directories listed above. The same mechanism works
+for Docker on a workstation; see
+[Run as a private instance](/quickstart/installation#run-as-a-private-instance-with-your-own-data).
 
 - **ATACseqQC** loads BAM/BAI pairs directly from the allowed data root and
   caches chromosome-, genome-, and motif-specific results.
-- **DESeq2Shiny** saves and restores application `.RData` states in persistent
-  scratch while retaining browser download and upload.
+- **DESeq2Shiny** saves and restores application states as projects in the
+  private space while retaining browser download and upload.
 - **DADA2** loads FASTQ files directly, processes temporary files in node-local
   storage, caches parameter-aware results, and writes persistent projects.
 - **Seurat v5** loads count matrices or Seurat objects from the data root and
   writes project outputs to persistent scratch.
 - **Monocle 3** loads Seurat objects from the data root and writes trajectory
   outputs to persistent scratch.
+- **DESeq2Shiny**, **ClusterProfShinyORA**, **ClusterProfShinyGSEA**, **Gene Count
+  Merger** and **mergeFPKMs** read their count or result tables, or a selection
+  of per-sample count files, in place from the data root.
+- **Variant Annotation** reads VCF files in place from the data root, writes a
+  bgzip-compressed and indexed copy only when needed, and keeps filtered VCFs,
+  annotation tables, and caches in persistent projects.
 
-DADA2, Seurat v5, and Monocle 3 derive worker availability from
-`SLURM_CPUS_PER_TASK`. Other modules remain available in the same all-in-one
-portal but do not require a dedicated HPC input mode.
+DADA2, Seurat v5, Monocle 3, and Variant Annotation derive worker availability
+from `SLURM_CPUS_PER_TASK`. Other modules remain available in the same all-in-one
+portal and take their input through browser upload.
+
+## Install additional reference genomes
+
+Variant Annotation ships human hg38 and hg19 and can install other species
+(mouse, rat, zebrafish, fruit fly, nematode, yeast, chicken, pig, cow, dog,
+rhesus macaque, chimpanzee) into the private R library, `NASQAR2_R_LIBRARY`
+(default `$SCRATCH/nasqar2/r-library/R-4.3`). Compute nodes usually have no
+internet access, so the in-app **Install** button fails there. The app then
+shows a ready-to-run command, with the packages for the chosen genome filled
+in, under **No internet on this server?**. Run it once on a login node; it
+installs into the same library the job mounts, so the genome is available in
+this and every later job. For mouse mm39 it is:
+
+```bash
+module load singularity
+singularity exec --cleanenv \
+  --bind $SCRATCH/nasqar2/r-library/R-4.3:/runtime/R/library \
+  --env R_LIBS_USER=/runtime/R/library \
+  $SCRATCH/nasqar2/images/nasqar2.sif \
+  /opt/conda/envs/merged_env/bin/Rscript -e 'options(timeout = 7200); BiocManager::install(c("BSgenome.Mmusculus.UCSC.mm39", "TxDb.Mmusculus.UCSC.mm39.knownGene", "org.Mm.eg.db"), lib = "/runtime/R/library", update = FALSE, ask = FALSE)'
+```
+
+Installing packages is light enough for a login node. The `timeout` option matters: BSgenome
+tarballs are up to 1 GB and R's default 60-second download limit aborts them.
 
 ## Stop a job
 

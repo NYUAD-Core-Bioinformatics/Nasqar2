@@ -68,7 +68,7 @@ Build the Singularity image, copy it and the launcher files to the HPC system,
 and submit the supplied Slurm script:
 
 ```bash
-docker build -t nasqar2-local:bulk-gcm .
+docker build -t nasqar2-all:latest .
 ./hpc/build-sif.sh
 
 rsync -ah hpc/build/nasqar2.sif \
@@ -84,7 +84,7 @@ ssh USER@LOGIN_HOST \
 
 The job writes `connection.txt` in its runtime directory. Use the SSH tunnel
 shown in that file, then open the reported `http://localhost:<port>` address.
-Do not run the portal on an HPC login node. See
+See
 [`hpc/README.md`](hpc/README.md) for the complete configuration and Jubail
 example.
 

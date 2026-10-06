@@ -23,4 +23,5 @@ server <- function(input, output,session) {
   source("server-librarycomplexity.R", local = TRUE)
   source("server-fragmentsize.R", local = TRUE)
   source("server-nucleosomepositioning.R", local = TRUE)
+  source("server-project.R", local = TRUE)
 }

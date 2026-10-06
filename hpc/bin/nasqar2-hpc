@@ -82,11 +82,8 @@ mkdir -p \
     "$runtime_dir"/nginx/scgi \
     "$runtime_dir"/nginx/uwsgi \
     "$runtime_dir"/R/library \
-    "$runtime_dir"/projects/DADA2 \
-    "$runtime_dir"/projects/SeuratV5 \
-    "$runtime_dir"/projects/Monocle3 \
+    "$runtime_dir"/projects \
     "$runtime_dir"/results \
-    "$runtime_dir"/states/DESeq2Shiny \
     "$runtime_dir"/tmp
 
 export HOME="$runtime_dir/home"
@@ -96,12 +93,8 @@ export TEMP="$TMPDIR"
 export XDG_CACHE_HOME="$runtime_dir/cache"
 export R_USER_CACHE_DIR="$runtime_dir/cache/R"
 export R_LIBS_USER="${R_LIBS_USER:-$runtime_dir/R/library}"
-export NASQAR_ATAC_CACHE_DIR="${NASQAR_ATAC_CACHE_DIR:-$runtime_dir/cache/ATACseqQC}"
-export NASQAR_DESEQ2_STATE_DIR="${NASQAR_DESEQ2_STATE_DIR:-$runtime_dir/states/DESeq2Shiny}"
-export NASQAR_DADA2_PROJECT_DIR="${NASQAR_DADA2_PROJECT_DIR:-$runtime_dir/projects/DADA2}"
 export NASQAR_DADA2_WORK_DIR="${NASQAR_DADA2_WORK_DIR:-$runtime_dir/node-tmp/DADA2}"
-export NASQAR_SEURAT_PROJECT_DIR="${NASQAR_SEURAT_PROJECT_DIR:-$runtime_dir/projects/SeuratV5}"
-export NASQAR_MONOCLE3_PROJECT_DIR="${NASQAR_MONOCLE3_PROJECT_DIR:-$runtime_dir/projects/Monocle3}"
+export NASQAR_PROJECT_ROOT="${NASQAR_PROJECT_ROOT:-$runtime_dir/projects}"
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-${SLURM_CPUS_PER_TASK:-1}}"
 export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-${SLURM_CPUS_PER_TASK:-1}}"
 export MKL_NUM_THREADS="${MKL_NUM_THREADS:-${SLURM_CPUS_PER_TASK:-1}}"
@@ -197,6 +190,7 @@ start_shiny monocle3 4009 /srv/shiny-server/monocle3/src
 start_shiny DEBrowser 4010 /srv/shiny-server/DEBrowser/src/R
 start_shiny mergeFPKMs 4011 /srv/shiny-server/mergeFPKMs/src
 start_shiny tsar_nasqar 4012 /srv/shiny-server/tsar_nasqar/src
+start_shiny variantAnnotationShiny 4013 /srv/shiny-server/variantAnnotationShiny/src
 
 wait_for_port() {
     local name="$1"

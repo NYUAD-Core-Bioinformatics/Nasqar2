@@ -79,7 +79,7 @@ observe({
     cat("DEBUG: First boxplot observer triggered\n")
     
     # Check if restoration is in progress - if so, skip this observer
-    if (exists("restoration_state") && restoration_state$in_progress && !restoration_state$boxplot_restoration_done) {
+    if (isTRUE(myValues$restoration_in_progress) && !isTRUE(myValues$restoration_boxplot_done)) {
         cat("DEBUG: Skipping boxplot observer - restoration in progress\n")
         return()
     }
@@ -157,7 +157,7 @@ observe({
     cat("DEBUG: Second boxplot observer triggered, sel_groups:", if(is.null(sel_groups)) "NULL" else paste(sel_groups, collapse = ", "), "\n")
     
     # Check if restoration is in progress - if so, skip this observer
-    if (exists("restoration_state") && restoration_state$in_progress && !restoration_state$boxplot_restoration_done) {
+    if (isTRUE(myValues$restoration_in_progress) && !isTRUE(myValues$restoration_boxplot_done)) {
         cat("DEBUG: Skipping second boxplot observer - restoration in progress\n")
         return()
     }
@@ -305,7 +305,7 @@ output$boxPlot <- renderPlotly({
 })
 
 # Download boxplot with custom size and format
-output$download_boxplot <- downloadHandler(
+output$download_boxplot <- nasqar_download_handler(
     filename = function() {
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
         ext <- input$boxplot_format
@@ -370,7 +370,7 @@ output$boxplotComputed <- reactive({
 outputOptions(output, "boxplotComputed", suspendWhenHidden = FALSE)
 
 
-output$downloadBoxCsv <- downloadHandler(
+output$downloadBoxCsv <- nasqar_download_handler(
     filename = function() {
         paste0(input$boxplotX, "_", input$boxplotFill, "_boxplotdata.csv")
     },
@@ -382,7 +382,7 @@ output$downloadBoxCsv <- downloadHandler(
 )
 
 # Export R code for boxplot
-output$download_code_boxplot <- downloadHandler(
+output$download_code_boxplot <- nasqar_download_handler(
     filename = function() {
         # Check if data is available - if not, return error filename
         if (is.null(input$sel_gene) || is.null(input$sel_groups)) {

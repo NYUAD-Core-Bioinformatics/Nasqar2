@@ -1,4 +1,5 @@
 library(shiny)
+source("nasqar-project.R")
 library(shinyBS)
 library(parallel)
 library(shinyjs)
@@ -112,6 +113,20 @@ ui <- tagList(
                                     selected = "single"
                                 ),
                                 checkboxInput("hasHeader", "Files have header row", value = FALSE),
+                                radioButtons("counts_source", "Count files",
+                                    c("Upload files" = "upload", "Use files in the private space" = "hpc_dir"),
+                                    selected = "upload"),
+                                conditionalPanel(
+                                    condition = "input.counts_source=='hpc_dir'",
+                                    div(
+                                        style = "display:flex; gap:8px; align-items:flex-end;",
+                                        div(style = "flex:1;",
+                                            textAreaInput("hpc_counts_files", "Selected files in the private space (one per line)", value = "", rows = 4)
+                                        ),
+                                        div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_hpc_counts_dir", "Browse...", "Choose the count files in the private space (Shift/Ctrl-click or Ctrl-A for several)", multiple = TRUE))
+                                    ),
+                                    helpText("Pick the files to merge with Browse (several at once) or paste their paths; files are read in place.")
+                                ),
                                 fileInput("datafile", "",
                                     accept = c(
                                         "text/csv",
@@ -221,6 +236,8 @@ ui <- tagList(
                                     )
                                 )
                             ),
+                            nasqar_project_ui("counts-project",
+                                help = "The merged table is kept under this name in the private space, so the project can be restored later."),
                             conditionalPanel(
                                 "output.filesUploaded",
                                 actionButton("upload_data", "Merge Files", class = "btn-danger")
@@ -572,6 +589,73 @@ server <- function(input, output, session) {
 
     myValues <- reactiveValues()
 
+    # Private-space projects: projects/GeneCountMerger/<name> (shared convention)
+    source("nasqar-project.R", local = TRUE)
+    project_app <- "GeneCountMerger"
+    private_space <- nasqar_project_available(project_app)
+    current_project_name <- function() {
+        name <- input$nasqar_project_name
+        if (private_space && !is.null(name) && nzchar(trimws(name))) trimws(name) else paste0("session-", session$token)
+    }
+    restored_merged <- reactiveVal(NULL)
+
+    # Private data root: input files read in place (private instance only)
+    data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
+    data_root <- if (nzchar(data_root)) normalizePath(data_root, winslash = "/", mustWork = FALSE) else NULL
+    resolve_hpc_path <- function(path, directory = FALSE) {
+        if (is.null(data_root)) stop("This instance has no private space configured.")
+        if (is.null(path) || !nzchar(trimws(path))) stop("Enter a path in the private space.")
+        resolved <- normalizePath(trimws(path), winslash = "/", mustWork = TRUE)
+        inside <- nasqar_path_inside_roots(resolved)
+        if (!inside) stop("The path must be in the private space.")
+        if (directory && !dir.exists(resolved)) stop("Select a directory.")
+        if (!directory && dir.exists(resolved)) stop("Select a file, not a directory.")
+        resolved
+    }
+    if (!is.null(data_root)) {
+        browse_roots <- nasqar_browse_roots()
+        shinyFiles::shinyFileChoose(input, "browse_hpc_counts_dir", roots = browse_roots, session = session)
+        observeEvent(input$browse_hpc_counts_dir, {
+            selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_hpc_counts_dir), error = function(e) NULL)
+            if (!is.null(selected) && nrow(selected)) {
+                updateTextAreaInput(session, "hpc_counts_files", value = paste(as.character(selected$datapath), collapse = "\n"))
+            }
+        }, ignoreInit = TRUE)
+    } else {
+        removeUI(selector = "#browse_hpc_counts_dir")
+        shinyjs::runjs("$('input[name=counts_source][value=hpc_dir]').closest('.radio').remove()")
+    }
+    # Selected data-root files, in the same shape as a multi-file upload.
+    data_root_files <- function() {
+        lines <- trimws(unlist(strsplit(input$hpc_counts_files %||% "", "\n", fixed = TRUE)))
+        lines <- lines[nzchar(lines)]
+        shiny::validate(need(length(lines) > 0, "Select at least one file in the private space."))
+        files <- vapply(lines, function(path) {
+            tryCatch(resolve_hpc_path(path), error = function(e) shiny::validate(need(FALSE, conditionMessage(e))))
+        }, character(1), USE.NAMES = FALSE)
+        data.frame(name = basename(files), size = file.info(files)$size, type = "", datapath = files, stringsAsFactors = FALSE)
+    }
+
+    observeEvent(myValues$mergedData, {
+        if (!private_space || is.null(myValues$mergedData) || isTRUE(restored_merged())) return()
+        dir <- nasqar_project_dir(project_app, current_project_name(), fallback = "counts-project")
+        merged_file <- file.path(dir, "merged-counts.csv")
+        utils::write.csv(myValues$mergedData, merged_file, row.names = FALSE)
+        label <- sprintf("%d samples", ncol(myValues$mergedData) - 1L)
+        nasqar_project_state_write(dir, project_app, basename(dir), "merged", input_label = label, merged_file = merged_file)
+        project_refresh(basename(dir))
+    })
+
+    project_refresh <- nasqar_project_server(input, output, session, project_app, on_restore = function(state, dir) {
+        if (!identical(state$app, project_app)) return("this project belongs to another application")
+        if (is.null(state$merged_file) || !file.exists(state$merged_file)) return("the project's merged table is missing")
+        restored_merged(TRUE)
+        myValues$mergedData <- utils::read.csv(state$merged_file, check.names = FALSE, stringsAsFactors = FALSE)
+        myValues$fileUrl <- file.path(nasqarExchangeDir(), paste0(UUIDgenerate(), ".csv"))
+        updateTabsetPanel(session, "tabs", selected = "Output")
+        NULL
+    })
+
     # ---------------------------------------------------------------------- #
     # tx2gene preview – loads the first 6 rows from whichever source is active
     # ---------------------------------------------------------------------- #
@@ -844,7 +928,7 @@ server <- function(input, output, session) {
         options = list(scrollX = TRUE, pageLength = 10)
     )
 
-    output$downloadData <- downloadHandler(
+    output$downloadData <- nasqar_download_handler(
         filename = function() {
             paste("data-", Sys.Date(), ".csv", sep = "")
         },
@@ -854,7 +938,7 @@ server <- function(input, output, session) {
     )
 
     inputDataReactive <- reactive({
-        inFile <- input$datafile
+        inFile <- if (identical(input$counts_source, "hpc_dir")) data_root_files() else input$datafile
         if (is.null(inFile)) {
             return(NULL)
         }
@@ -1039,6 +1123,7 @@ server <- function(input, output, session) {
                 updateTabsetPanel(session, "tabs", selected = "Output")
 
                 total[, 1] <- as.character(total[, 1])
+                restored_merged(NULL)
                 myValues$mergedData <- total
                 return(list("data" = total))
             }
@@ -1346,7 +1431,7 @@ server <- function(input, output, session) {
     outputOptions(output, "filesUploaded", suspendWhenHidden = FALSE)
 
     output$filesMerged <- reactive({
-        return(!is.null(analyzeDataReactive()))
+        return(isTRUE(restored_merged()) || !is.null(analyzeDataReactive()))
     })
     outputOptions(output, "filesMerged", suspendWhenHidden = FALSE)
 

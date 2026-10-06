@@ -63,6 +63,21 @@ scratch_root <- if (nzchar(configured_scratch_root)) {
     NULL
 }
 
+# Server-side browser jailed to the private data root; it only fills the path box.
+if (!is.null(scratch_root)) {
+    browse_roots <- nasqar_browse_roots()
+    shinyFiles::shinyDirChoose(input, "browse_scratch_directory", roots = browse_roots, session = session)
+    observeEvent(input$browse_scratch_directory, {
+        selected <- tryCatch(shinyFiles::parseDirPath(browse_roots, input$browse_scratch_directory), error = function(e) character(0))
+        if (length(selected) == 1L && nzchar(selected)) {
+            updateTextInput(session, "scratch_directory", value = as.character(selected))
+        }
+    }, ignoreInit = TRUE)
+} else {
+    removeUI(selector = "#browse_scratch_directory")
+    shinyjs::runjs("$('input[name=data_file_type][value=hpc_scratch_directory]').closest('.radio').remove()")
+}
+
 observeEvent(input$scratch_directory, {
     my_values$scratch_dir <- NULL
 }, ignoreInit = TRUE)
@@ -73,7 +88,7 @@ observeEvent(input$load_scratch_directory, {
         return()
     }
     if (is.null(scratch_root)) {
-        showNotification("HPC data-directory access is not configured.", type = "error")
+        showNotification("This instance has no private space configured.", type = "error")
         return()
     }
 
@@ -87,11 +102,10 @@ observeEvent(input$load_scratch_directory, {
         return()
     }
 
-    inside_scratch <- identical(requested_dir, scratch_root) ||
-        startsWith(requested_dir, paste0(scratch_root, "/"))
+    inside_scratch <- nasqar_path_inside_roots(requested_dir)
     if (!inside_scratch) {
         showNotification(
-            paste("Directory must be inside", scratch_root),
+            "Directory must be in the private space.",
             type = "error"
         )
         return()

@@ -62,7 +62,32 @@ RUN source activate merged_env && \
 # Clean stale data
 RUN mamba clean -a -y
 
-# Copy all application directories in one command
+# Gene Count Merger uses this at startup; install it into the immutable image.
+RUN conda run -n merged_env R -e \
+    "install.packages('shinythemes', repos='https://cloud.r-project.org/')"
+
+# Download and install BSgenome package
+RUN wget -q https://bioconductor.org/packages/release/data/annotation/src/contrib/BSgenome.Hsapiens.UCSC.hg19_1.4.3.tar.gz -O /BSgenome.Hsapiens.UCSC.hg19_1.4.3.tar.gz && \
+    conda run -n merged_env R CMD INSTALL /BSgenome.Hsapiens.UCSC.hg19_1.4.3.tar.gz && \
+    rm /BSgenome.Hsapiens.UCSC.hg19_1.4.3.tar.gz
+
+# Variant Annotation uses hg38 as well; the bioconda stub downloads this tarball at
+# environment creation, so install it explicitly like hg19 above.
+RUN wget -q https://bioconductor.org/packages/3.18/data/annotation/src/contrib/BSgenome.Hsapiens.UCSC.hg38_1.4.5.tar.gz -O /BSgenome.Hsapiens.UCSC.hg38_1.4.5.tar.gz && \
+    conda run -n merged_env R CMD INSTALL /BSgenome.Hsapiens.UCSC.hg38_1.4.5.tar.gz && \
+    rm /BSgenome.Hsapiens.UCSC.hg38_1.4.5.tar.gz
+
+# dbSNP positions for rsID annotation (about 0.9 GB per build).
+RUN set -e; \
+    for pkg in SNPlocs.Hsapiens.dbSNP144.GRCh37_0.99.20 SNPlocs.Hsapiens.dbSNP144.GRCh38_0.99.20; do \
+      wget -q --tries=5 --waitretry=30 --continue \
+        https://bioconductor.org/packages/3.18/data/annotation/src/contrib/$pkg.tar.gz -O /tmp/$pkg.tar.gz; \
+      conda run -n merged_env R CMD INSTALL /tmp/$pkg.tar.gz; \
+      rm /tmp/$pkg.tar.gz; \
+    done
+
+# Application sources change far more often than the environments and data
+# packages above, so copy them last to keep those layers cached.
 COPY animalcules /srv/shiny-server/animalcules
 COPY ATACseqQCShniy /srv/shiny-server/ATACseqQCShniy
 COPY ClusterProfShinyGSEA /srv/shiny-server/ClusterProfShinyGSEA
@@ -75,15 +100,7 @@ COPY monocle3 /srv/shiny-server/monocle3
 COPY SeuratV5Shiny /srv/shiny-server/SeuratV5Shiny
 COPY mergeFPKMs /srv/shiny-server/mergeFPKMs
 COPY tsar_nasqar /srv/shiny-server/tsar_nasqar
-
-# Gene Count Merger uses this at startup; install it into the immutable image.
-RUN conda run -n merged_env R -e \
-    "install.packages('shinythemes', repos='https://cloud.r-project.org/')"
-
-# Download and install BSgenome package
-RUN wget -q https://bioconductor.org/packages/release/data/annotation/src/contrib/BSgenome.Hsapiens.UCSC.hg19_1.4.3.tar.gz -O /BSgenome.Hsapiens.UCSC.hg19_1.4.3.tar.gz && \
-    conda run -n merged_env R CMD INSTALL /BSgenome.Hsapiens.UCSC.hg19_1.4.3.tar.gz && \
-    rm /BSgenome.Hsapiens.UCSC.hg19_1.4.3.tar.gz
+COPY variantAnnotationShiny /srv/shiny-server/variantAnnotationShiny
 
 # Copy configuration files
 COPY nginx.conf /etc/nginx/nginx.conf

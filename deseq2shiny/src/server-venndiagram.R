@@ -191,7 +191,7 @@ brush_action <- function(df, output) {
             })
 
             updateTextAreaInput(session, "venn_gene_list", value = paste(genes, collapse = input$venn_input_genes_sep))
-            output$downloadVennMatrix <- downloadHandler(
+            output$downloadVennMatrix <- nasqar_download_handler(
               filename = function() {
                 paste0("Venn_expression" , ".csv")
               },
@@ -413,7 +413,7 @@ output$panelStatus <- reactive({
 outputOptions(output, "panelStatus", suspendWhenHidden = FALSE)
 
 
-#output$downloadVennMatrix <- downloadHandler(
+#output$downloadVennMatrix <- nasqar_download_handler(
 #  filename = function() {
 #    paste0("Venn_expression" , ".csv")
 #  },
@@ -854,7 +854,7 @@ observeEvent(input$plotVenn, {
     })
     
     # Download Venn diagram with custom size and format
-    output$download_venn_plot <- downloadHandler(
+    output$download_venn_plot <- nasqar_download_handler(
         filename = function() {
             timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
             ext <- input$venn_plot_format
@@ -900,7 +900,7 @@ observeEvent(input$plotVenn, {
     )
     
     # Export R code for Venn diagram
-    output$download_code_venn <- downloadHandler(
+    output$download_code_venn <- nasqar_download_handler(
         filename = function() {
             timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
             export_mode <- get_export_mode(input)
@@ -1190,7 +1190,7 @@ observeEvent(input$plotVenn, {
     )
 
 # Export R code for Venn Set Operation Heatmap
-output$download_code_venn_set_heatmap <- downloadHandler(
+output$download_code_venn_set_heatmap <- nasqar_download_handler(
     filename = function() {
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
         export_mode <- get_export_mode(input)
@@ -1329,7 +1329,7 @@ output$download_code_venn_set_heatmap <- downloadHandler(
 )
 
 # Export R code for Brushed Venn Set Heatmap
-output$download_code_brushed_venn_heatmap <- downloadHandler(
+output$download_code_brushed_venn_heatmap <- nasqar_download_handler(
     filename = function() {
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
         export_mode <- get_export_mode(input)

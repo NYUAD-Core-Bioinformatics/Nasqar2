@@ -6,7 +6,7 @@ output$mergerTable <- DT::renderDataTable(
         sample <- input$selSample4margePairedReadsTab
         merger <- if (is.data.frame(mergers)) mergers else mergers[[sample]]
           # Server logic to download the track reads table
-        output$download_merger_table <- downloadHandler(
+        output$download_merger_table <- nasqar_download_handler(
           
           filename = function() {
             paste("abundance_estimation_table", Sys.Date(), ".csv", sep = "")

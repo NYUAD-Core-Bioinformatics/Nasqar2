@@ -1,119 +1,129 @@
 myValues <- reactiveValues()
 
+organismsDbKegg <- c(
+    "org.Hs.eg.db" = "hsa", "org.Mm.eg.db" = "mmu", "org.Rn.eg.db" = "rno",
+    "org.Sc.sgd.db" = "sce", "org.Dm.eg.db" = "dme", "org.At.tair.db" = "ath",
+    "org.Dr.eg.db" = "dre", "org.Bt.eg.db" = "bta", "org.Ce.eg.db" = "cel",
+    "org.Gg.eg.db" = "gga", "org.Cf.eg.db" = "cfa", "org.Ss.eg.db" = "ssc",
+    "org.Mmu.eg.db" = "mcc", "org.EcK12.eg.db" = "eck", "org.Xl.eg.db" = "xla",
+    "org.Pt.eg.db" = "ptr", "org.Ag.eg.db" = "aga", "org.Pf.plasmo.db" = "pfa",
+    "org.EcSakai.eg.db" = "ecs"
+)
+
 observe({
     gseGoReactive()
 })
 
-gseGoReactive <- eventReactive(input$initGo, {
+# Gene lists and the ENTREZ conversion the plots need. This runs whether the
+# enrichment is computed or served from the project cache.
+prepare_gene_lists <- function() {
+    lapply(c("errorNotify", "errorNotify1", "errorNotify2", "warnNotify",
+             "warnNotify2", "goGseError", "keggGseError"), removeNotification)
+
+    prepared <- tryCatch({
+        df <- inputDataReactive()$data
+        original_gene_list <- df[[input$log2fcColumn]]
+        names(original_gene_list) <- df[[input$geneColumn]]
+        gene_list <- sort(na.omit(original_gene_list), decreasing = TRUE)
+        list(df = df, original_gene_list = original_gene_list, gene_list = gene_list)
+    }, error = function(e) {
+        showNotification(
+            id = "errorNotify",
+            paste("Input data error:", conditionMessage(e)),
+            type = "error", duration = NULL
+        )
+        NULL
+    })
+    if (is.null(prepared)) return(NULL)
+
+    myValues$gene_list <- prepared$gene_list
+    myValues$organismKegg <- unname(organismsDbKegg[input$organismDb])
+
+    df <- prepared$df
+    prepared$kegg_gene_list <- tryCatch({
+        ids <- NULL
+        myValues$convWarningMessage <- capture.output(
+            ids <- bitr(names(prepared$original_gene_list), fromType = input$keytype,
+                        toType = "ENTREZID", OrgDb = input$organismDb),
+            type = "message"
+        )
+        dedup_ids <- ids[!duplicated(ids[[input$keytype]]), , drop = FALSE]
+        mapped_entrez <- dedup_ids$ENTREZID[
+            match(df[[input$geneColumn]], dedup_ids[[input$keytype]])
+        ]
+        mapped <- !is.na(mapped_entrez)
+        df2 <- df[mapped, , drop = FALSE]
+        df2$Y <- mapped_entrez[mapped]
+
+        kegg_gene_list <- df2[[input$log2fcColumn]]
+        names(kegg_gene_list) <- df2$Y
+        sort(na.omit(kegg_gene_list), decreasing = TRUE)
+    }, error = function(e) {
+        showNotification(
+            id = "keggGseError",
+            paste("KEGG GSEA failed:", conditionMessage(e)),
+            type = "error", duration = NULL
+        )
+        NULL
+    })
+    myValues$kegg_gene_list <- prepared$kegg_gene_list
+    prepared
+}
+
+compute_enrichment <- function(prepared) {
     withProgress(message = "Processing , please wait", {
         isolate({
-            lapply(c("errorNotify", "errorNotify1", "errorNotify2", "warnNotify",
-                     "warnNotify2", "goGseError", "keggGseError"), removeNotification)
-
             go_gse <- NULL
             kegg_gse <- NULL
+            orgDb.obj <- get(input$organismDb, envir = asNamespace(input$organismDb))
 
-            prepared <- tryCatch({
-                df <- inputDataReactive()$data
-                original_gene_list <- df[[input$log2fcColumn]]
-                names(original_gene_list) <- df[[input$geneColumn]]
-                gene_list <- sort(na.omit(original_gene_list), decreasing = TRUE)
-                myValues$gene_list <- gene_list
-                list(df = df, original_gene_list = original_gene_list, gene_list = gene_list)
-            }, error = function(e) {
-                showNotification(
-                    id = "errorNotify",
-                    paste("Input data error:", conditionMessage(e)),
-                    type = "error", duration = NULL
-                )
-                NULL
-            })
-
-            if (!is.null(prepared)) {
-                df <- prepared$df
-                original_gene_list <- prepared$original_gene_list
-                gene_list <- prepared$gene_list
-                orgDb.obj <- get(input$organismDb, envir = asNamespace(input$organismDb))
-
-                setProgress(value = 0.3, detail = "Performing GO gene set enrichment analysis ...")
-                go_gse <- tryCatch(
-                    gseGO(
-                        geneList = gene_list,
-                        ont = input$ontology,
-                        keyType = input$keytype,
-                        nPerm = input$nPerm,
-                        minGSSize = input$minGSSize,
-                        maxGSSize = input$maxGSSize,
-                        pvalueCutoff = input$pvalCuttoff,
-                        verbose = TRUE,
-                        OrgDb = orgDb.obj,
-                        pAdjustMethod = input$pAdjustMethod
-                    ),
-                    error = function(e) {
-                        showNotification(
-                            id = "goGseError",
-                            paste("GO GSEA failed:", conditionMessage(e)),
-                            type = "error", duration = NULL
-                        )
-                        NULL
-                    }
-                )
-
-                if (!is.null(go_gse) && nrow(go_gse@result) > 0) {
-                    if (isTRUE(input$simplifyGo)) {
-                        go_gse <- tryCatch(
-                            simplify(go_gse, cutoff = input$simplifyCutoff),
-                            error = function(e) {
-                                showNotification(
-                                    paste("GO simplification was skipped:", conditionMessage(e)),
-                                    type = "warning", duration = 10
-                                )
-                                go_gse
-                            }
-                        )
-                    }
-                    n_go <- nrow(go_gse@result)
-                    updateNumericInput(session, "showCategory_go_global", max = n_go, value = min(5L, n_go))
-                    updateSelectizeInput(session, "pubmedTerms", choices = go_gse@result$Description)
-                } else {
-                    go_gse <- NULL
-                    showNotification("GO GSEA returned no terms. KEGG GSEA will still be attempted.", type = "warning", duration = 10)
+            setProgress(value = 0.3, detail = "Performing GO gene set enrichment analysis ...")
+            go_gse <- tryCatch(
+                gseGO(
+                    geneList = prepared$gene_list,
+                    ont = input$ontology,
+                    keyType = input$keytype,
+                    nPerm = input$nPerm,
+                    minGSSize = input$minGSSize,
+                    maxGSSize = input$maxGSSize,
+                    pvalueCutoff = input$pvalCuttoff,
+                    verbose = TRUE,
+                    OrgDb = orgDb.obj,
+                    pAdjustMethod = input$pAdjustMethod
+                ),
+                error = function(e) {
+                    showNotification(
+                        id = "goGseError",
+                        paste("GO GSEA failed:", conditionMessage(e)),
+                        type = "error", duration = NULL
+                    )
+                    NULL
                 }
+            )
 
-                setProgress(value = 0.6, detail = "Performing KEGG gene set enrichment analysis ...")
-                kegg_gse <- tryCatch({
-                    ids <- NULL
-                    myValues$convWarningMessage <- capture.output(
-                        ids <- bitr(names(original_gene_list), fromType = input$keytype,
-                                    toType = "ENTREZID", OrgDb = input$organismDb),
-                        type = "message"
+            if (!is.null(go_gse) && nrow(go_gse@result) > 0) {
+                if (isTRUE(input$simplifyGo)) {
+                    go_gse <- tryCatch(
+                        simplify(go_gse, cutoff = input$simplifyCutoff),
+                        error = function(e) {
+                            showNotification(
+                                paste("GO simplification was skipped:", conditionMessage(e)),
+                                type = "warning", duration = 10
+                            )
+                            go_gse
+                        }
                     )
-                    dedup_ids <- ids[!duplicated(ids[[input$keytype]]), , drop = FALSE]
-                    mapped_entrez <- dedup_ids$ENTREZID[
-                        match(df[[input$geneColumn]], dedup_ids[[input$keytype]])
-                    ]
-                    mapped <- !is.na(mapped_entrez)
-                    df2 <- df[mapped, , drop = FALSE]
-                    df2$Y <- mapped_entrez[mapped]
+                }
+            } else {
+                go_gse <- NULL
+                showNotification("GO GSEA returned no terms. KEGG GSEA will still be attempted.", type = "warning", duration = 10)
+            }
 
-                    kegg_gene_list <- df2[[input$log2fcColumn]]
-                    names(kegg_gene_list) <- df2$Y
-                    kegg_gene_list <- sort(na.omit(kegg_gene_list), decreasing = TRUE)
-                    myValues$kegg_gene_list <- kegg_gene_list
-
-                    organismsDbKegg <- c(
-                        "org.Hs.eg.db" = "hsa", "org.Mm.eg.db" = "mmu", "org.Rn.eg.db" = "rno",
-                        "org.Sc.sgd.db" = "sce", "org.Dm.eg.db" = "dme", "org.At.tair.db" = "ath",
-                        "org.Dr.eg.db" = "dre", "org.Bt.eg.db" = "bta", "org.Ce.eg.db" = "cel",
-                        "org.Gg.eg.db" = "gga", "org.Cf.eg.db" = "cfa", "org.Ss.eg.db" = "ssc",
-                        "org.Mmu.eg.db" = "mcc", "org.EcK12.eg.db" = "eck", "org.Xl.eg.db" = "xla",
-                        "org.Pt.eg.db" = "ptr", "org.Ag.eg.db" = "aga", "org.Pf.plasmo.db" = "pfa",
-                        "org.EcSakai.eg.db" = "ecs"
-                    )
-                    myValues$organismKegg <- unname(organismsDbKegg[input$organismDb])
-
+            setProgress(value = 0.6, detail = "Performing KEGG gene set enrichment analysis ...")
+            if (!is.null(prepared$kegg_gene_list)) {
+                kegg_gse <- tryCatch(
                     gseKEGG(
-                        geneList = kegg_gene_list,
+                        geneList = prepared$kegg_gene_list,
                         organism = myValues$organismKegg,
                         nPerm = input$nPerm,
                         minGSSize = input$minGSSize,
@@ -121,53 +131,106 @@ gseGoReactive <- eventReactive(input$initGo, {
                         pvalueCutoff = input$pvalCuttoff,
                         pAdjustMethod = input$pAdjustMethod,
                         keyType = "ncbi-geneid"
-                    )
-                }, error = function(e) {
-                    showNotification(
-                        id = "keggGseError",
-                        paste("KEGG GSEA failed:", conditionMessage(e)),
-                        type = "error", duration = NULL
-                    )
-                    NULL
-                })
+                    ),
+                    error = function(e) {
+                        showNotification(
+                            id = "keggGseError",
+                            paste("KEGG GSEA failed:", conditionMessage(e)),
+                            type = "error", duration = NULL
+                        )
+                        NULL
+                    }
+                )
+            }
 
-                if (!is.null(kegg_gse) && nrow(kegg_gse@result) > 0) {
-                    n_kegg <- nrow(kegg_gse@result)
-                    updateNumericInput(session, "showCategory_kegg_global", max = n_kegg, value = min(5L, n_kegg))
-                    pathway_choices <- setNames(
-                        kegg_gse@result$ID,
-                        paste0(kegg_gse@result$ID, " \u2014 ", kegg_gse@result$Description)
-                    )
-                    updateSelectizeInput(session, "pathwayIds", choices = pathway_choices)
-                } else {
-                    kegg_gse <- NULL
-                    updateSelectizeInput(session, "pathwayIds", choices = character(0))
-                    showNotification("KEGG GSEA returned no pathways. GO results remain available.", type = "warning", duration = 10)
-                }
+            if (is.null(kegg_gse) || nrow(kegg_gse@result) == 0) {
+                kegg_gse <- NULL
+                showNotification("KEGG GSEA returned no pathways. GO results remain available.", type = "warning", duration = 10)
             }
         })
 
-        if (!is.null(go_gse)) {
-            shinyjs::show(selector = "a[data-value=\"pubmedTab\"]")
-            shinyjs::show(selector = "a[data-value=\"goplotsTab\"]")
-            shinyjs::show(selector = "a[data-value=\"gseGoTab\"]")
-        } else {
-            shinyjs::hide(selector = "a[data-value=\"pubmedTab\"]")
-            shinyjs::hide(selector = "a[data-value=\"goplotsTab\"]")
-            shinyjs::hide(selector = "a[data-value=\"gseGoTab\"]")
-        }
-        if (!is.null(kegg_gse)) {
-            shinyjs::show(selector = "a[data-value=\"pathviewTab\"]")
-            shinyjs::show(selector = "a[data-value=\"keggPlotsTab\"]")
-            shinyjs::show(selector = "a[data-value=\"gseKeggTab\"]")
-        } else {
-            shinyjs::hide(selector = "a[data-value=\"pathviewTab\"]")
-            shinyjs::hide(selector = "a[data-value=\"keggPlotsTab\"]")
-            shinyjs::hide(selector = "a[data-value=\"gseKeggTab\"]")
-        }
-
-        return(list("go_gse" = go_gse, "kegg_gse" = kegg_gse))
+        list("go_gse" = go_gse, "kegg_gse" = kegg_gse)
     })
+}
+
+# Result tabs and the inputs that depend on the result tables, for both
+# freshly computed and cached results.
+publish_results <- function(result) {
+    go_gse <- result$go_gse
+    kegg_gse <- result$kegg_gse
+
+    if (!is.null(go_gse)) {
+        n_go <- nrow(go_gse@result)
+        updateNumericInput(session, "showCategory_go_global", max = n_go, value = min(5L, n_go))
+        updateSelectizeInput(session, "pubmedTerms", choices = go_gse@result$Description)
+        shinyjs::show(selector = "a[data-value=\"pubmedTab\"]")
+        shinyjs::show(selector = "a[data-value=\"goplotsTab\"]")
+        shinyjs::show(selector = "a[data-value=\"gseGoTab\"]")
+    } else {
+        shinyjs::hide(selector = "a[data-value=\"pubmedTab\"]")
+        shinyjs::hide(selector = "a[data-value=\"goplotsTab\"]")
+        shinyjs::hide(selector = "a[data-value=\"gseGoTab\"]")
+    }
+    if (!is.null(kegg_gse)) {
+        n_kegg <- nrow(kegg_gse@result)
+        updateNumericInput(session, "showCategory_kegg_global", max = n_kegg, value = min(5L, n_kegg))
+        pathway_choices <- setNames(
+            kegg_gse@result$ID,
+            paste0(kegg_gse@result$ID, " — ", kegg_gse@result$Description)
+        )
+        updateSelectizeInput(session, "pathwayIds", choices = pathway_choices)
+        shinyjs::show(selector = "a[data-value=\"pathviewTab\"]")
+        shinyjs::show(selector = "a[data-value=\"keggPlotsTab\"]")
+        shinyjs::show(selector = "a[data-value=\"gseKeggTab\"]")
+    } else {
+        updateSelectizeInput(session, "pathwayIds", choices = character(0))
+        shinyjs::hide(selector = "a[data-value=\"pathviewTab\"]")
+        shinyjs::hide(selector = "a[data-value=\"keggPlotsTab\"]")
+        shinyjs::hide(selector = "a[data-value=\"gseKeggTab\"]")
+    }
+}
+
+enrichment_params <- function() {
+    ids <- c("geneColumn", "log2fcColumn", "organismDb", "keytype", "ontology", "nPerm", "minGSSize", "maxGSSize", "pvalCuttoff", "pAdjustMethod", "simplifyGo", "simplifyCutoff")
+    stats::setNames(lapply(ids, function(id) input[[id]]), ids)
+}
+
+# Results are cached in the project, keyed on the input table and every
+# parameter, so a restored project shows its enrichment without recomputing.
+gseGoReactive <- eventReactive(input$initGo, {
+    data <- inputDataReactive()
+    req(data)
+    params <- enrichment_params()
+    result <- list("go_gse" = NULL, "kegg_gse" = NULL)
+    prepared <- prepare_gene_lists()
+    if (!is.null(prepared)) {
+        cache_file <- NULL
+        if (private_space) {
+            dir <- nasqar_project_dir(project_app, current_project_name(), fallback = "gsea-project")
+            key <- digest::digest(list(data = data$data, params = params,
+                                       clusterProfiler = as.character(utils::packageVersion("clusterProfiler"))),
+                                  algo = "xxhash64")
+            cache_file <- file.path(dir, "cache", paste0("enrichment-", key, ".rds"))
+        }
+        cached <- if (!is.null(cache_file) && file.exists(cache_file)) {
+            tryCatch(readRDS(cache_file), error = function(error) NULL)
+        } else {
+            NULL
+        }
+        if (is.null(cached)) {
+            result <- compute_enrichment(prepared)
+            # Only successful runs are worth caching.
+            if (!is.null(cache_file) && (!is.null(result$go_gse) || !is.null(result$kegg_gse))) {
+                dir.create(dirname(cache_file), recursive = TRUE, showWarnings = FALSE, mode = "0700")
+                saveRDS(result, cache_file)
+            }
+        } else {
+            result <- cached
+            showNotification("Enrichment results loaded from the project cache.", type = "message", duration = 6)
+        }
+    }
+    publish_results(result)
+    result
 })
 
 
@@ -262,7 +325,7 @@ output$gseGoTable <- renderDataTable({
     }
 })
 
-output$downloadgseGoCSV <- downloadHandler(
+output$downloadgseGoCSV <- nasqar_download_handler(
     filename = function() {
         paste0("gsego", ".csv")
     },
@@ -414,7 +477,7 @@ output$gseKEGGTable <- renderDataTable(
     options = list(scrollX = TRUE)
 )
 
-output$downloadgseKEGGCSV <- downloadHandler(
+output$downloadgseKEGGCSV <- nasqar_download_handler(
     filename = function() {
         paste0("gseKEGG", ".csv")
     },

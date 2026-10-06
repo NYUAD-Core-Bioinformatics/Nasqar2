@@ -10,16 +10,24 @@ For more information about Seurat, visit the [official documentation](https://sa
   Launch Seurat V5
 </a>
 
-## HPC use
+## Private instance use
 
-The HPC input mode loads supported count matrices or Seurat objects directly
-from the configured read-only data root. Select a persistent project name for
-outputs that must remain available after the Slurm job ends. Worker
-availability is derived from `SLURM_CPUS_PER_TASK`.
+In a private instance, **Use a path in the private space** loads supported
+count matrices or Seurat objects directly from the configured read-only data
+root. Select a persistent project name for outputs that must remain available
+after the container or Slurm job ends. On Slurm, worker availability is
+derived from `SLURM_CPUS_PER_TASK`.
 
 Use the direct Seurat v5 to Monocle 3 handoff for compatible processed objects,
-or save the object in persistent project storage. See the
-[HPC deployment guide](/quickstart/hpc).
+or save the object in persistent project storage. See [Run as a private instance](/quickstart/installation#run-as-a-private-instance-with-your-own-data) for Docker and the [HPC deployment guide](/quickstart/hpc) for Slurm.
+
+## Private-space projects
+
+In a private instance every run belongs to a project, `projects/SeuratV5/<name>`,
+holding input path, initial parameters and the generated Seurat object plus a `state.rds` of the settings and the stage reached.
+**Restore an existing project** on the input tab reopens it without
+recomputing; cached results are reused and the restore is refused if the
+source data changed. Public instances have no private space and no projects.
 
 ## Citation
 

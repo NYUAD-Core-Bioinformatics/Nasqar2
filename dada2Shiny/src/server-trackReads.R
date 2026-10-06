@@ -44,7 +44,7 @@ output$trackTable <- DT::renderDataTable(
 
 
     # Download handler for denoisedF category
-    output$download_zip_denoisedF <- downloadHandler(
+    output$download_zip_denoisedF <- nasqar_download_handler(
       filename = function() {
         "denoisedF.zip"
       },
@@ -54,7 +54,7 @@ output$trackTable <- DT::renderDataTable(
     )
 
     # Download handler for denoisedR category
-    output$download_zip_denoisedR <- downloadHandler(
+    output$download_zip_denoisedR <- nasqar_download_handler(
       filename = function() {
         "denoisedR.zip"
       },
@@ -64,7 +64,7 @@ output$trackTable <- DT::renderDataTable(
     )
 
     # Download handler for merged category
-    # output$download_zip_merged <- downloadHandler(
+    # output$download_zip_merged <- nasqar_download_handler(
     #   filename = function() { "merged.zip" },
     #   content = function(file) {
     #     createZip("merged", mergers, file)
@@ -72,7 +72,7 @@ output$trackTable <- DT::renderDataTable(
     # )
 
     # Download handler for non-chimeric category
-    output$download_nonchim <- downloadHandler(
+    output$download_nonchim <- nasqar_download_handler(
       filename = function() {
         "nonchim.fasta"
       },
@@ -87,7 +87,7 @@ output$trackTable <- DT::renderDataTable(
     )
 
     # Download handler for non-chimeric category (one FASTA per sample)
-    output$download_zip_nonchim <- downloadHandler(
+    output$download_zip_nonchim <- nasqar_download_handler(
       filename = function() {
         "nonchim.zip"
       },
@@ -134,7 +134,7 @@ output$trackTable <- DT::renderDataTable(
 
 
     # Server logic to download the track reads table
-    output$download_track_table <- downloadHandler(
+    output$download_track_table <- nasqar_download_handler(
       filename = function() {
         paste("track_reads_summary", Sys.Date(), ".csv", sep = "")
       },

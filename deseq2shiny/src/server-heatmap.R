@@ -279,7 +279,7 @@ output$brushed_genes_count <- renderText({
 })
 
 ## Download handler for brushed heatmap data
-output$download_brushed_heatmap_csv <- downloadHandler(
+output$download_brushed_heatmap_csv <- nasqar_download_handler(
     filename = function() {
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
         paste0("brushed_heatmap_data_", timestamp, ".csv")
@@ -291,7 +291,7 @@ output$download_brushed_heatmap_csv <- downloadHandler(
 )
 
 ## Download handler for brushed heatmap R code
-output$download_code_brushed_heatmap <- downloadHandler(
+output$download_code_brushed_heatmap <- nasqar_download_handler(
     filename = function() {
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
         export_mode <- get_export_mode(input)
@@ -445,7 +445,7 @@ generateHeatmapPdf <- function(logNormCounts, Rowv, annLegend, annCol) {
 # })
 # outputOptions(output, 'heatmapHighResAvailable', suspendWhenHidden=FALSE)
 
-output$downloadHighResHeatmap <- downloadHandler(
+output$downloadHighResHeatmap <- nasqar_download_handler(
     filename = c("heatmap_highres.pdf"),
     content = function(file) {
         file.copy(myValues$heatmap_path, file)
@@ -469,7 +469,7 @@ output$heatmapComputed <- reactive({
 outputOptions(output, "heatmapComputed", suspendWhenHidden = FALSE)
 
 
-output$downloadHeatmapCsv <- downloadHandler(
+output$downloadHeatmapCsv <- nasqar_download_handler(
     filename = function() {
         "heatmap_data.csv"
     },
@@ -481,7 +481,7 @@ output$downloadHeatmapCsv <- downloadHandler(
 )
 
 # Export R code for heatmap
-output$download_code_heatmap <- downloadHandler(
+output$download_code_heatmap <- nasqar_download_handler(
     filename = function() {
         # Check if data is available - if not, return error filename
         heatmap_check <- tryCatch(heatmapReactive(), error = function(e) NULL)

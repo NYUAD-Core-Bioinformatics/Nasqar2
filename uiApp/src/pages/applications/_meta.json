@@ -3,6 +3,5 @@
   "rna_seq": "RNA seq",
   "meta_genomics": "Metagenomics",
   "epigenetics": "Epigenetics",
-  "varient_annotation": "Variant calling  and Annotation"
-  
+  "variant_annotation": "Variant calling and Annotation"
 }

@@ -1,3 +1,19 @@
+# Browse dialog for the private data root (private instance only).
+if (!is.null(data_root)) {
+    browse_roots <- nasqar_browse_roots()
+    shinyFiles::shinyFileChoose(input, "browse_hpc_counts", roots = browse_roots, session = session,
+                                filetypes = c("csv", "txt", "tsv", "gz"))
+    observeEvent(input$browse_hpc_counts, {
+        selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_hpc_counts), error = function(e) NULL)
+        if (!is.null(selected) && nrow(selected)) {
+            updateTextInput(session, "hpc_counts_path", value = as.character(selected$datapath[1]))
+        }
+    }, ignoreInit = TRUE)
+} else {
+    removeUI(selector = "#browse_hpc_counts")
+    shinyjs::runjs("$('input[name=data_file_type][value=hpcFile]').closest('.radio').remove()")
+}
+
 observe({
     # Hide the loading message when the rest of the server function has executed
     # hide(id = "loading-content", anim = TRUE, animType = "fade")
@@ -53,7 +69,8 @@ inputFileReactive <- reactive({
     # print(query)
     # Check if example selected, or if not then ask to upload a file.
     shiny::validate(
-        need(identical(input$data_file_type, "examplecounts") | identical(input$data_file_type, "examplecountsfactors") | (!is.null(input$datafile)) | (!is.null(query[["countsdata"]])),
+        need(identical(input$data_file_type, "examplecounts") | identical(input$data_file_type, "examplecountsfactors") | (!is.null(input$datafile)) | (!is.null(query[["countsdata"]])) |
+             (identical(input$data_file_type, "hpcFile") && !is.null(input$hpc_counts_path) && nzchar(trimws(input$hpc_counts_path))),
             message = "Please select a file"
         )
     )
@@ -73,6 +90,9 @@ inputFileReactive <- reactive({
         }
 
         inFile <- inFile$datapath
+    } else if (input$data_file_type == "hpcFile") {
+        inFile <- tryCatch(resolve_hpc_file(input$hpc_counts_path),
+                           error = function(e) shiny::validate(need(FALSE, conditionMessage(e))))
     } else if (input$data_file_type == "examplecounts") {
         inFile <- "www/exampleData/wang_count_table.csv"
         updateCheckboxInput(session, "no_replicates", value = TRUE)
@@ -178,15 +198,16 @@ inputFileReactive <- reactive({
 
 output$contents <- renderDataTable(
     {
-        tmp <- inputFileReactive()
-        
-
+        # A restored project already holds the counts; otherwise the input
+        # reactive supplies them (and asks for a file when there is none).
+        if (is.null(myValues$fileContent) || is.null(myValues$dataCounts)) {
+            tmp <- inputFileReactive()
+            req(!is.null(tmp))
+        }
         df <- myValues$fileContent
+        req(!is.null(df), !is.null(myValues$dataCounts))
         row.names(df) <- df[, 1]
-        
-        # test = myValues$dataCounts
-        if (!is.null(tmp)) df[row.names(myValues$dataCounts),][,-1]
-        # if (!is.null(tmp)) myValues$dataCounts
+        df[row.names(myValues$dataCounts), , drop = FALSE][, -1]
     },
     options = list(scrollX = TRUE)
 )
@@ -244,7 +265,7 @@ csvDataReactive <- eventReactive(input$submit, {
 
     sampleN <- colnames(fileContent)
 
-    if (identical(input$data_file_type, "countsFile")) {
+    if (input$data_file_type %in% c("countsFile", "hpcFile")) {
         if (input$no_replicates) {
             sampleConditions <- sampleN
 
@@ -296,7 +317,7 @@ outputOptions(output, "noreplicates", suspendWhenHidden = FALSE)
 
 
 observe({
-    if (isTRUE(input$data_file_type %in% c("examplecountsfactors", "countsFile"))) {
+    if (isTRUE(input$data_file_type %in% c("examplecountsfactors", "countsFile", "hpcFile"))) {
         updateCheckboxInput(session, "no_replicates", value = F)
         test <- inputFileReactive()
     }

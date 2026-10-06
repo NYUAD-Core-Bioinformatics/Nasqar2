@@ -79,6 +79,19 @@ assert_ids(
     )
 )
 
+variant_ui <- read_sources("variantAnnotationShiny/src", "^ui-tab-.*\\.R$")
+variant_server <- read_sources("variantAnnotationShiny/src", "^server-.*\\.R$")
+assert_ids(
+    "VariantAnnotation",
+    variant_ui,
+    variant_server,
+    c(
+        "download_variant_type", "download_location", "download_consequence",
+        "download_titv", "download_per_chromosome", "download_qual_hist",
+        "download_dp_hist", "download_per_sample"
+    )
+)
+
 for (application in c("ClusterProfShinyORA", "ClusterProfShinyGSEA")) {
     helper <- paste(readLines(
         file.path(application, "src", "plot-helpers.R"),

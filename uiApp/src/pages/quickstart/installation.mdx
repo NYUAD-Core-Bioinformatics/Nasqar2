@@ -95,6 +95,57 @@ docker run -p 8083:80 nyuadcorebio/nasqarall:latest
 
 Access via web browser at `http://localhost/` or `http://localhost:8083/` depending on the port used.
 
+Run this way, NASQAR2 is a **public instance**: every dataset enters through browser upload and nothing on the host filesystem is visible to the applications. That is the right default for a shared server.
+
+### Run as a private instance with your own data
+
+When NASQAR2 serves only you, on a laptop or workstation in Docker, or in a Slurm job on HPC, you can run it as a **private instance**. Mount your data directory and set `NASQAR_DATA_ROOT` to where it appears inside the container; the applications then browse and read files in place instead of uploading them, and projects, states, and results are written back to host directories you choose, so they survive container restarts.
+
+```bash
+docker run -p 127.0.0.1:8083:80 \
+  -v /path/to/nasqar2-private:/private \
+  -v /path/to/nasqar2-private/data:/private/data:ro \
+  -e NASQAR_PRIVATE_ROOT=/private \
+  -e NASQAR_DATA_ROOT=/private/data \
+  -e NASQAR_PROJECT_ROOT=/private/projects \
+  -e R_LIBS_USER=/private/.runtime/R/library \
+  -e NASQAR_DADA2_WORK_DIR=/private/.runtime/work/DADA2 \
+  nyuadcorebio/nasqarall:latest
+```
+
+One folder holds everything: `data/` (mounted read-only on top, so the
+applications can never write into it), `projects/<App>/<name>` for every run,
+and a hidden `.runtime/` for the R library and scratch files. Browse dialogs
+open at the top of that folder and show only `data` and `projects`, so a result saved by one application (a merged count
+matrix, a Seurat object) can be picked as the input of another. Binding to
+`127.0.0.1` keeps the private instance off the network; reach it from another
+machine with `ssh -N -L 8083:localhost:8083 <host>`.
+
+In a private instance the applications with data-root access show a **Browse…**
+button next to the path box. It opens a server-side file browser that is limited
+to the data root and only fills in the path; nothing is copied or uploaded.
+Variant Annotation's **Install another reference genome** panel likewise appears
+only when `R_LIBS_USER` points to a mounted library: a public instance has
+nowhere persistent to install into, so visitors cannot trigger downloads.
+
+The same variables work with an image built from source (`nasqar2-all`). Leave `NASQAR_PROJECT_ROOT` unset and the applications keep their results in temporary storage inside the container, discarded when it stops. Browser upload and download remain available in every mode.
+
+**Projects.** With `NASQAR_PROJECT_ROOT` set, every NASQAR2 application keeps its work as a project, `projects/<App>/<name>`, holding the outputs, the caches, a `state.rds` with the inputs, settings and stage reached, and a human-readable `state.json` with the same settings plus a snapshot of every UI input at that moment, so the choices behind a result can be read without R (for a methods section, or to share with a colleague). Every figure or table you download is also kept in the project (`plots/` and `downloads/`), and the project panel shows a gallery of them. Each app's input tab has the same two controls: **Persistent project name** (or the app's existing project-name box) and **Restore an existing project**, which lists the projects of that app with their input, stage and date. Restoring reopens the project without recomputing: cached results are reused, and a restore is refused when the source data changed since the project was made. The older per-application variables (`NASQAR_DESEQ2_STATE_DIR`, `NASQAR_*_PROJECT_DIR`, `NASQAR_ATAC_CACHE_DIR`) are still honoured as overrides.
+
+| Variable | Application | Purpose |
+| --- | --- | --- |
+| `NASQAR_PRIVATE_ROOT` | All NASQAR2 applications | The private folder as a whole; Browse dialogs start here |
+| `NASQAR_DATA_ROOT` | All NASQAR2 applications | Read-only data directory inside it; input paths must lie under it or under the projects |
+| `NASQAR_PROJECT_ROOT` | All NASQAR2 applications | Private-space projects, one folder per application and project name (`projects/<App>/<name>`), each restorable from the app |
+| `NASQAR_DADA2_WORK_DIR` | DADA2 | Optional fast local scratch for temporary files |
+| `R_LIBS_USER` | All | Writable R library, so packages installed on the fly survive container restarts |
+
+Applications only accept paths under `NASQAR_DATA_ROOT`, so mount the narrowest directory that holds your inputs rather than your home directory.
+
+> **Do not set `NASQAR_DATA_ROOT` or the project directories on a public deployment.** Any user of the portal could then browse and read whatever is mounted there. Leave them unset and the instance stays upload-only.
+
+On HPC the Slurm job script sets all of these for you; see the [HPC Deployment Guide](/quickstart/hpc).
+
 ---
 
 ### Option 2: Build All-in-One Docker from Source

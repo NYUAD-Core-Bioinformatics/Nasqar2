@@ -3,6 +3,46 @@ options(shiny.maxRequestSize = 60 * 1024^2)
 
 # Define server
 server <- function(input, output, session) {
+    # Private-space projects: projects/ClusterProfShinyORA/<name> (shared convention)
+    source("nasqar-project.R", local = TRUE)
+    project_app <- "ClusterProfShinyORA"
+    private_space <- nasqar_project_available(project_app)
+    # A restore names the project before the name box has round-tripped.
+    project_name_override <- reactiveVal(NULL)
+    current_project_name <- function() {
+        name <- project_name_override()
+        if (is.null(name)) name <- input$nasqar_project_name
+        if (private_space && !is.null(name) && nzchar(trimws(name))) trimws(name) else paste0("session-", session$token)
+    }
+    restored_input <- reactiveVal(NULL)
+    restored_file_type <- reactiveVal(NULL)
+
+    # Private data root: input files read in place (private instance only)
+    data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
+    data_root <- if (nzchar(data_root)) normalizePath(data_root, winslash = "/", mustWork = FALSE) else NULL
+    resolve_hpc_path <- function(path, directory = FALSE) {
+        if (is.null(data_root)) stop("This instance has no private space configured.")
+        if (is.null(path) || !nzchar(trimws(path))) stop("Enter a path in the private space.")
+        resolved <- normalizePath(trimws(path), winslash = "/", mustWork = TRUE)
+        inside <- nasqar_path_inside_roots(resolved)
+        if (!inside) stop("The path must be in the private space.")
+        if (directory && !dir.exists(resolved)) stop("Select a directory.")
+        if (!directory && dir.exists(resolved)) stop("Select a file, not a directory.")
+        resolved
+    }
+    if (!is.null(data_root)) {
+        browse_roots <- nasqar_browse_roots()
+        shinyFiles::shinyFileChoose(input, "browse_hpc_file", roots = browse_roots, session = session,
+                                    filetypes = c("csv", "txt", "tsv", "gz"))
+        observeEvent(input$browse_hpc_file, {
+            selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_hpc_file), error = function(e) NULL)
+            if (!is.null(selected) && nrow(selected)) updateTextInput(session, "hpc_file_path", value = as.character(selected$datapath[1]))
+        }, ignoreInit = TRUE)
+    } else {
+        removeUI(selector = "#browse_hpc_file")
+        shinyjs::runjs("$('input[name=data_file_type][value=hpcfile]').closest('.radio').remove()")
+    }
+
     source("exchange-helpers.R", local = TRUE)
     source("plot-helpers.R",    local = TRUE)
     source("server-inputData.R", local = TRUE)
@@ -10,6 +50,7 @@ server <- function(input, output, session) {
     source("server-enrichGo.R", local = TRUE)
     #
     source("server-plots.R", local = TRUE)
+    source("server-project.R", local = TRUE)
 
 
     GotoTab <- function(name) {

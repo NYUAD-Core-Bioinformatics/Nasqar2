@@ -48,7 +48,7 @@ register_publication_downloads <- function(
         local({
             local_format <- format
             local_config <- config
-            output[[paste0(id, "_", local_format)]] <- shiny::downloadHandler(
+            output[[paste0(id, "_", local_format)]] <- nasqar_download_handler(
                 filename = function() paste0(filename(), ".", local_config$extension),
                 contentType = local_config$content_type,
                 content = function(file) {
@@ -62,7 +62,7 @@ register_publication_downloads <- function(
 }
 
 register_publication_png <- function(output, id, filename, source_file) {
-    output[[paste0(id, "_png")]] <- shiny::downloadHandler(
+    output[[paste0(id, "_png")]] <- nasqar_download_handler(
         filename = function() paste0(filename(), ".png"),
         contentType = "image/png",
         content = function(file) {

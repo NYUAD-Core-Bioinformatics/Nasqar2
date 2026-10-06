@@ -13,7 +13,7 @@ make_downloader <- function(output, plot_id, plot_fn, width = 10, height = 7) {
     for (fmt in c("png", "pdf", "svg")) {
         local({
             f <- fmt
-            output[[paste0("dl_", plot_id, "_", f)]] <- downloadHandler(
+            output[[paste0("dl_", plot_id, "_", f)]] <- nasqar_download_handler(
                 filename = function() paste0(plot_id, "_", Sys.Date(), ".", f),
                 content  = function(file) {
                     switch(f,

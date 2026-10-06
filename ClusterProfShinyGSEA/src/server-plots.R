@@ -699,7 +699,7 @@ output$pathviewPlotsAvailable <-
     })
 outputOptions(output, "pathviewPlotsAvailable", suspendWhenHidden = FALSE)
 
-output$downloadPathviewPng <- downloadHandler(
+output$downloadPathviewPng <- nasqar_download_handler(
     filename = function() {
         basename(paste0(myValues$imagePath, "png"))
     },
@@ -708,7 +708,7 @@ output$downloadPathviewPng <- downloadHandler(
     }
 )
 
-output$downloadPathviewPdf <- downloadHandler(
+output$downloadPathviewPdf <- nasqar_download_handler(
     filename = function() {
         basename(paste0(myValues$imagePath, "pdf"))
     },
