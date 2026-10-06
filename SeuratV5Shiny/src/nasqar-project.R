@@ -529,12 +529,12 @@ nasqar_read_table <- function(path, expected, check = NULL, label = "file", head
         nasqar_input_problem("The file is not a plain-text table (it looks like a binary file such as .rds, .xlsx or .bam).",
                              expected, NULL, label)
     }
-    header <- nasqar_file_head(path, n = 1L, width = .Machine$integer.max)
-    if (!length(header) || !nzchar(trimws(header))) {
+    first_line <- nasqar_file_head(path, n = 1L, width = .Machine$integer.max)
+    if (!length(first_line) || !nzchar(trimws(first_line))) {
         nasqar_input_problem("The file is empty.", expected, path, label)
     }
     separators <- c("\t", ",", ";")
-    fields <- vapply(separators, function(sep) length(strsplit(header, sep, fixed = TRUE)[[1]]), integer(1))
+    fields <- vapply(separators, function(sep) length(strsplit(first_line, sep, fixed = TRUE)[[1]]), integer(1))
     sep <- separators[which.max(fields)]
     df <- tryCatch(utils::read.csv(path, sep = sep, header = header, stringsAsFactors = FALSE, ...),
                    error = function(error) error)
