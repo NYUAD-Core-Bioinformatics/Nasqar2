@@ -130,10 +130,17 @@ inputFileReactive <- reactive({
         updateRadioButtons(session, "gene_alias", selected = geneAliasMode)
     }
     counts_problem <- nasqar_check_count_table(fileContent, id_columns = if (identical(geneAliasMode, "included")) 2L else 1L)
+    if (is.null(counts_problem) && identical(geneAliasMode, "included") && is.numeric(fileContent[[2]])) {
+        counts_problem <- sprintf("Column 2 ('%s') holds numbers, not gene symbols. If the matrix has no symbol column choose 'My matrix contains GeneIDs only'.",
+                                  colnames(fileContent)[2])
+    }
     if (!is.null(counts_problem)) {
         nasqar_input_problem(counts_problem, counts_expected, inFile[1], "counts file")
     }
 
+    # Anything the checks above did not foresee is reported the same way
+    # rather than ending the session from an observer.
+    tryCatch({
     if(geneAliasMode == 'notincluded'){
         sampleN <- colnames(fileContent)[-1]
     } else {
@@ -187,8 +194,11 @@ inputFileReactive <- reactive({
     
     dataCounts <- fileContent[, sampleN, drop = FALSE]
     row.names(dataCounts) <- fileContent[, 1]
-    dataCounts <- tryCatch(validate_count_matrix(dataCounts),
-                           error = function(e) nasqar_input_problem(conditionMessage(e), counts_expected, inFile[1], "counts file"))
+    dataCounts <- validate_count_matrix(dataCounts)
+    }, error = function(e) {
+        if (inherits(e, "shiny.silent.error")) stop(e)
+        nasqar_input_problem(conditionMessage(e), counts_expected, inFile[1], "counts file")
+    })
     myValues$fileContent <- fileContent
     myValues$dataCounts <- dataCounts
 
