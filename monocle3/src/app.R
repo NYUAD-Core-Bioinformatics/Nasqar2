@@ -180,17 +180,38 @@ server <- shinyServer(function(input, output, session) {
   monocle_results <- reactiveVal(NULL)
   restore_pending <- reactiveVal(NULL)
 
-  read_seurat_file <- function(path) {
+  seurat_file_expected <- c(
+    "An .rds file containing a Seurat object (saveRDS(seurat_obj, ...)), e.g. as exported by SeuratV5Shiny",
+    "Or an .RData file holding exactly one Seurat object (save(seurat_obj, file = ...))"
+  )
+  # name: how to call the file in messages (the upload name, not the temporary path).
+  read_seurat_file <- function(path, name = basename(path)) {
+    received <- sprintf("%s (%s)", name, format(structure(file.size(path), class = "object_size"), units = "auto"))
+    problem <- function(message) {
+      nasqar_input_problem(message, seurat_file_expected, path = NULL, label = "Seurat object file")
+    }
     if (grepl("\\.rdata$", path, ignore.case = TRUE)) {
       load_env <- new.env(parent = emptyenv())
-      object_names <- load(path, envir = load_env)
+      object_names <- tryCatch(load(path, envir = load_env), error = function(e) {
+        problem(sprintf("%s could not be read as an .RData file: %s", received, conditionMessage(e)))
+      })
       candidates <- object_names[
         vapply(object_names, function(name) inherits(load_env[[name]], "Seurat"), logical(1))
       ]
-      validate(need(length(candidates) == 1L, "The .RData file must contain exactly one Seurat object."))
+      if (length(candidates) != 1L) {
+        problem(sprintf("%s holds %d Seurat object(s) among %s; exactly one is needed.", received,
+                        length(candidates), paste(shQuote(object_names), collapse = ", ")))
+      }
       load_env[[candidates[[1L]]]]
     } else {
-      readRDS(path)
+      object <- tryCatch(readRDS(path), error = function(e) {
+        problem(sprintf("%s could not be read as an .rds file: %s", received, conditionMessage(e)))
+      })
+      if (!inherits(object, "Seurat")) {
+        problem(sprintf("%s contains an object of class %s, not a Seurat object.", received,
+                        paste(class(object), collapse = "/")))
+      }
+      object
     }
   }
 
@@ -236,7 +257,7 @@ server <- shinyServer(function(input, output, session) {
     rdata <- isolate({input$file})
     short <- input$file
     
-    data <- read_seurat_file(rdata$datapath)
+    data <- read_seurat_file(rdata$datapath, rdata$name)
     
     return(data)
   }

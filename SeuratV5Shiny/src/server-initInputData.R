@@ -1,4 +1,51 @@
 
+# What a usable counts input looks like; shown to the user when a file cannot be read.
+counts_matrix_expected <- c(
+  "A comma- or tab-delimited text table (.csv, .tsv, .txt)",
+  "A header row holding the cell barcodes / sample names",
+  "First column: gene names (unique, one gene per row)",
+  "Every other column: numeric counts, one column per cell"
+)
+tenx_expected <- c(
+  "A 10x Genomics (Cell Ranger) matrix directory with exactly three files",
+  "barcodes.tsv or barcodes.tsv.gz: one cell barcode per line",
+  "features.tsv(.gz) (Cell Ranger >= 3) or genes.tsv(.gz) (Cell Ranger < 3): gene ids and names",
+  "matrix.mtx or matrix.mtx.gz: the sparse counts in Matrix Market format"
+)
+
+# Separator of a delimited counts file, detected from its header line (for the script log).
+counts_separator <- function(path) {
+  header <- nasqar_file_head(path, n = 1L, width = .Machine$integer.max)
+  if (!length(header)) return(",")
+  fields <- vapply(c("\t", ",", ";"), function(sep) length(strsplit(header, sep, fixed = TRUE)[[1]]), integer(1))
+  c("\t", ",", ";")[which.max(fields)]
+}
+
+# Read a genes x cells counts table: checked with nasqar_read_table(), then the
+# first column becomes the row names, exactly as read.csv(row.names = 1) produced.
+read_counts_matrix <- function(path, ...) {
+  seqdata <- nasqar_read_table(
+    path, counts_matrix_expected,
+    check = function(df) nasqar_check_count_table(df, id_columns = 1, min_samples = 2),
+    label = "counts matrix", row.names = NULL, ...
+  )
+  rownames(seqdata) <- as.character(seqdata[[1]])
+  seqdata[, -1, drop = FALSE]
+}
+
+# Read a 10x directory; a failure explains which files were found instead.
+read_10x_directory <- function(dir) {
+  tryCatch(Read10X(data.dir = dir), error = function(e) {
+    found <- list.files(dir)
+    nasqar_input_problem(
+      sprintf("The 10x directory could not be read (%s). It contains: %s.",
+              conditionMessage(e),
+              if (length(found)) paste(head(found, 10), collapse = ", ") else "no files"),
+      tenx_expected, path = NULL, label = "10x directory"
+    )
+  })
+}
+
 observe({
 
   shinyjs::hide(selector = "a[data-value=\"qcFilterTab\"]")
@@ -66,21 +113,14 @@ inputDataReactive <- reactive({
         hpc_path <- resolve_hpc_path(input$hpc_data_path)
         js$addStatusIcon("datainput", "loading")
         if (dir.exists(hpc_path)) {
-          seqdata <- Read10X(data.dir = hpc_path)
+          seqdata <- read_10x_directory(hpc_path)
           scriptCommands$readCounts <- sprintf(
             "counts.data <- Read10X(data.dir = %s)",
             dQuote(hpc_path)
           )
         } else {
-          separator <- if (grepl("\\.(tsv|txt)(\\.gz)?$", hpc_path, ignore.case = TRUE)) "\t" else ","
-          seqdata <- read.csv(
-            hpc_path,
-            header = TRUE,
-            sep = separator,
-            row.names = 1,
-            check.names = FALSE
-          )
-          validate(need(ncol(seqdata) > 1L, "The count matrix must contain at least two cell columns."))
+          seqdata <- read_counts_matrix(hpc_path, check.names = FALSE)
+          separator <- counts_separator(hpc_path)
           scriptCommands$readCounts <- sprintf(
             "counts.data <- read.csv(%s, header=TRUE, sep=%s, row.names=1)",
             dQuote(hpc_path),
@@ -95,14 +135,8 @@ inputDataReactive <- reactive({
       
       if (!is.null(inFile) && !is.null(query[['countsdata']])) {
         #js$addStatusIcon("datainput","loading")
-        seqdata <- read.csv(inFile, header=TRUE, sep=",", row.names = 1)
+        seqdata <- read_counts_matrix(inFile)
         print('uploaded seqdata')
-        if(ncol(seqdata)==1) { # if file appears not to work as csv try tsv
-          seqdata <- read.tsv(inFile, header=TRUE, row.names = 1)
-          print('changed to tsv, uploaded seqdata')
-        }
-        shiny::validate(need(ncol(seqdata)>1,
-                             message="File appears to be one column. Check that it is a comma or tab delimited (.csv) file."))
         isolate({
           myValues$scriptCommands$readCounts = paste0('counts.data <- read.csv("/path/to/csv/counts/file.csv", header=TRUE, sep=",", row.names = 1)')
         })
@@ -136,7 +170,7 @@ inputDataReactive <- reactive({
           
           shiny::setProgress(value = 0.8)
           
-          pbmc.data <- Read10X(data.dir = filesdir)
+          pbmc.data <- read_10x_directory(filesdir)
           scriptCommands$readCounts = paste0('counts.data <- Read10X(data.dir = "/path/to/10x/dir/")')
           isolate({
             myValues$scriptCommands = scriptCommands
@@ -153,19 +187,16 @@ inputDataReactive <- reactive({
         
         inFile = inFile$datapath
         
-        seqdata <- read.csv(inFile[1], header=TRUE, sep=",", row.names = 1)
-        
-        scriptCommands$readCounts = paste0('counts.data <- read.csv("/path/to/csv/counts/file.csv", header=TRUE, sep=",", row.names = 1)')
-        
+        seqdata <- read_counts_matrix(inFile[1])
+
+        separator <- counts_separator(inFile[1])
+        scriptCommands$readCounts = sprintf(
+          'counts.data <- read.csv("/path/to/csv/counts/file.csv", header=TRUE, sep="%s", row.names = 1)',
+          if (identical(separator, "\t")) "\\t" else separator
+        )
+
         print('uploaded seqdata')
-        if(ncol(seqdata) < 2) { # if file appears not to work as csv try tsv
-          seqdata <- read.csv(inFile[1], header=TRUE, sep="\t", row.names = 1)
-          
-          scriptCommands$readCounts = paste0('counts.data <- read.csv("/path/to/csv/counts/file.csv", header=TRUE, sep="\\t", row.names = 1)')
-          
-          print('changed to tsv, uploaded seqdata')
-        }
-        
+
         isolate({
           myValues$scriptCommands = scriptCommands
         })
@@ -194,6 +225,12 @@ inputDataReactive <- reactive({
     },
     error = function(e)
     {
+      # An input problem already explained itself (modal); let the validation
+      # error reach the outputs instead of turning it into a generic "Error".
+      if (inherits(e, "shiny.silent.error")) {
+        js$addStatusIcon("datainput","fail")
+        stop(e)
+      }
       myValues$status = paste("Upload File Error: ",e$message)
       
       showNotification(id="errorNotify", myValues$status, type = "error", duration = NULL)

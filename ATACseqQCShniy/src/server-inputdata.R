@@ -375,7 +375,21 @@ observeEvent(input$initQC, {
     # print(record_count)
 
 
-    header <- scanBamHeader(bamfile)
+    # First read of the BAM: a wrong file must explain itself, not end the session.
+    header <- tryCatch(scanBamHeader(bamfile), error = function(error) {
+        js$addStatusIcon("input_tab", "fail")
+        nasqar_input_problem(
+            sprintf("%s (%s) could not be read as a BAM file: %s", basename(bamfile),
+                    format(structure(file.size(bamfile), class = "object_size"), units = "auto"),
+                    conditionMessage(error)),
+            c(
+                "A BAM file (.bam): binary, BGZF-compressed SAM alignments with a valid header (@HD / @SQ lines)",
+                "Coordinate-sorted, with its index next to it (sample.bam.bai or sample.bai)",
+                "Paired-end ATAC-seq alignments; SAM, CRAM, FASTQ or BED files cannot be used"
+            ),
+            path = NULL, label = "BAM file"
+        )
+    })
     print("nucleo header")
 
     # Extract the chromosome names from the header

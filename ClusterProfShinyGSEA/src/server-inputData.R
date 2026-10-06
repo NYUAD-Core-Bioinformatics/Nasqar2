@@ -11,6 +11,27 @@ decryptUrlParam <- function(cipher) {
 
 organismsDbChoices <- installed_organism_choices()
 
+# What a differential-expression table must look like for the column pickers
+# and prepare_gene_lists() to work. A wrong file explains itself (this list +
+# the first lines received) instead of crashing the session.
+de_table_expected <- c(
+    "A plain-text table (CSV or tab-delimited) with a header row, one gene per row",
+    "A gene identifier column (ENSEMBL, SYMBOL, ENTREZID ... matching the key type chosen later); an unnamed first column, as written by DESeq2, is accepted",
+    "A numeric log2 fold-change column (the ranking statistic for GSEA)",
+    "Other columns (baseMean, pvalue, padj, ...) are allowed and ignored"
+)
+
+de_table_check <- function(df) {
+    if (!nrow(df)) return("The table has a header but no rows.")
+    if (ncol(df) < 2) {
+        return(sprintf("Found %d column(s); need at least a gene identifier column and a log2 fold-change column (is the separator a comma or a tab?).", ncol(df)))
+    }
+    if (!any(vapply(df, is.numeric, logical(1)))) {
+        return("No numeric column was found; the log2 fold-change column must hold numbers.")
+    }
+    NULL
+}
+
 observe({
     shinyjs::hide(selector = "a[data-value=\"gseGoTab\"]")
     shinyjs::hide(selector = "a[data-value=\"gseKeggTab\"]")
@@ -37,7 +58,10 @@ inputDataReactive <- reactive({
     # A restored project supplies its saved input table.
     restored <- restored_input()
     if (!is.null(restored) && file.exists(restored)) {
-        data <- normalize_enrichment_columns(read.csv(restored, check.names = FALSE))
+        data <- normalize_enrichment_columns(
+            nasqar_read_table(restored, de_table_expected, check = de_table_check,
+                              label = "restored input table", check.names = FALSE)
+        )
         js$addStatusIcon("datainput", "done")
         js$collapse("uploadbox")
         return(list("data" = data))
@@ -47,8 +71,10 @@ inputDataReactive <- reactive({
     if (identical(input$data_file_type, "hpcfile")) {
         path <- tryCatch(resolve_hpc_path(input$hpc_file_path),
                          error = function(e) shiny::validate(need(FALSE, conditionMessage(e))))
-        data <- normalize_enrichment_columns(read.csv(path, check.names = FALSE))
-        if (ncol(data) == 1) data <- normalize_enrichment_columns(read.delim(path, check.names = FALSE))
+        data <- normalize_enrichment_columns(
+            nasqar_read_table(path, de_table_expected, check = de_table_check,
+                              label = "table", check.names = FALSE)
+        )
         js$addStatusIcon("datainput", "done")
         js$collapse("uploadbox")
         return(list("data" = data))
@@ -67,7 +93,8 @@ inputDataReactive <- reactive({
             decryptUrlParam(query[["countsdata"]])
         )
         data <- normalize_enrichment_columns(
-            read.csv(inFile, check.names = FALSE)
+            nasqar_read_table(inFile, de_table_expected, check = de_table_check,
+                              label = "results table", check.names = FALSE)
         )
         shinyjs::show(selector = "a[data-value=\"datainput\"]")
         shinyjs::disable("data_file_type")
@@ -82,19 +109,19 @@ inputDataReactive <- reactive({
     js$addStatusIcon("datainput", "loading")
 
     if (!is.null(inFile)) {
+        if (!file.exists(inFile$datapath[1])) {
+            showNotification(
+                "The uploaded file is no longer available (session may have restarted). Please re-upload your file.",
+                type = "warning", duration = NULL
+            )
+            return(NULL)
+        }
+        # The separator (comma or tab) is detected from the header line.
         seqdata <- normalize_enrichment_columns(
-            read.csv(inFile$datapath, header = TRUE, sep = ",")
+            nasqar_read_table(inFile$datapath[1], de_table_expected, check = de_table_check,
+                              label = "uploaded file", check.names = FALSE)
         )
         print("uploaded seqdata")
-        if (ncol(seqdata) == 1) { # if file appears not to work as csv try tsv
-            seqdata <- normalize_enrichment_columns(
-                read.tsv(inFile$datapath, header = TRUE)
-            )
-            print("changed to tsv, uploaded seqdata")
-        }
-        shiny::validate(need(ncol(seqdata) > 1,
-            message = "File appears to be one column. Check that it is a comma or tab delimited (.csv) file."
-        ))
 
         js$addStatusIcon("datainput", "done")
         js$collapse("uploadbox")

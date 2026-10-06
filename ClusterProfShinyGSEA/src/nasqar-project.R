@@ -470,6 +470,107 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
     invisible(refresh)
 }
 
+# ---------------------------------------------------------------------------
+# Input checking: a wrong file must explain itself, never crash the application
+# ---------------------------------------------------------------------------
+
+# TRUE when the first bytes (after gzip decompression, which R applies
+# transparently to .gz tables) are not text: NUL bytes or mostly control bytes.
+nasqar_file_is_binary <- function(path) {
+    bytes <- tryCatch({
+        con <- gzfile(path, "rb")
+        on.exit(close(con))
+        readBin(con, "raw", 4096L)
+    }, error = function(error) raw(0))
+    if (!length(bytes)) return(FALSE)
+    values <- as.integer(bytes)
+    any(values == 0L) || mean(values < 32L & !values %in% c(9L, 10L, 13L)) > 0.1
+}
+
+# First lines of a file as text, for the "this is what was received" preview.
+nasqar_file_head <- function(path, n = 6L, width = 160L) {
+    lines <- tryCatch(readLines(path, n = n, warn = FALSE), error = function(error) character(0))
+    lines <- iconv(lines, to = "UTF-8", sub = "?")
+    ifelse(nchar(lines) > width, paste0(substr(lines, 1, width), " ..."), lines)
+}
+
+# Report an unusable input: a modal saying what the application expects and
+# showing the first lines received, then a validation error. A validation
+# error is displayed in outputs and is silent in observers, so the session
+# survives whatever was uploaded.
+nasqar_input_problem <- function(message, expected, path = NULL, label = "file") {
+    preview <- if (!is.null(path) && file.exists(path)) nasqar_file_head(path) else character(0)
+    session <- shiny::getDefaultReactiveDomain()
+    if (!is.null(session)) {
+        shiny::showModal(shiny::modalDialog(
+            title = paste("This", label, "cannot be used"),
+            shiny::p(shiny::strong(message)),
+            shiny::p(sprintf("What the application expects of a %s:", label)),
+            shiny::tags$ul(lapply(expected, shiny::tags$li)),
+            if (length(preview)) shiny::tagList(
+                shiny::p(sprintf("First lines of the %s received:", label)),
+                shiny::tags$pre(style = "max-height:240px; overflow:auto; font-size:11px; white-space:pre;",
+                                paste(preview, collapse = "\n"))
+            ),
+            size = "l", easyClose = TRUE, footer = shiny::modalButton("Close")
+        ))
+    }
+    shiny::validate(shiny::need(FALSE, paste0(message, " Expected: ", paste(expected, collapse = "; "), ".")))
+}
+
+# Read a delimited table (tab, comma or semicolon, detected from the header
+# line) and check it with `check(df)`, which returns NULL or a message.
+# Every failure goes through nasqar_input_problem(). `...` reaches read.csv.
+nasqar_read_table <- function(path, expected, check = NULL, label = "file", header = TRUE, ...) {
+    if (is.null(path) || !file.exists(path)) {
+        nasqar_input_problem("No file was received.", expected, NULL, label)
+    }
+    if (nasqar_file_is_binary(path)) {
+        nasqar_input_problem("The file is not a plain-text table (it looks like a binary file such as .rds, .xlsx or .bam).",
+                             expected, NULL, label)
+    }
+    header <- nasqar_file_head(path, n = 1L, width = .Machine$integer.max)
+    if (!length(header) || !nzchar(trimws(header))) {
+        nasqar_input_problem("The file is empty.", expected, path, label)
+    }
+    separators <- c("\t", ",", ";")
+    fields <- vapply(separators, function(sep) length(strsplit(header, sep, fixed = TRUE)[[1]]), integer(1))
+    sep <- separators[which.max(fields)]
+    df <- tryCatch(utils::read.csv(path, sep = sep, header = header, stringsAsFactors = FALSE, ...),
+                   error = function(error) error)
+    if (inherits(df, "error")) {
+        nasqar_input_problem(paste("The file could not be parsed:", conditionMessage(df)), expected, path, label)
+    }
+    if (!is.null(check)) {
+        problem <- check(df)
+        if (!is.null(problem)) nasqar_input_problem(problem, expected, path, label)
+    }
+    df
+}
+
+# Check for a counts-style table: `id_columns` identifier column(s) followed
+# by numeric sample columns. Returns NULL or a message.
+nasqar_check_count_table <- function(df, id_columns = 1L, min_samples = 1L, unique_ids = TRUE) {
+    if (!nrow(df)) return("The table has a header but no rows.")
+    if (ncol(df) < id_columns + min_samples) {
+        return(sprintf("Found %d column(s); need %d identifier column(s) plus at least %d sample column(s).",
+                       ncol(df), id_columns, min_samples))
+    }
+    samples <- df[, -seq_len(id_columns), drop = FALSE]
+    not_numeric <- names(samples)[!vapply(samples, is.numeric, logical(1))]
+    if (length(not_numeric)) {
+        shown <- head(not_numeric, 5)
+        return(sprintf("Sample column(s) %s%s are not numeric; every column after the identifier(s) must hold counts.",
+                       paste(shQuote(shown), collapse = ", "), if (length(not_numeric) > 5) ", ..." else ""))
+    }
+    if (unique_ids && anyDuplicated(df[[1]])) {
+        dup <- unique(df[[1]][duplicated(df[[1]])])
+        return(sprintf("The first column must hold unique identifiers; %d are repeated (e.g. %s).",
+                       length(dup), paste(shQuote(head(dup, 3)), collapse = ", ")))
+    }
+    NULL
+}
+
 if (!exists("%||%", mode = "function")) {
     `%||%` <- function(x, y) if (is.null(x)) y else x
 }

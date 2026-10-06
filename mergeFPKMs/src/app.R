@@ -306,23 +306,35 @@ server <- function(input, output, session) {
 
                 files <- list()
 
-
-                # select file separator, either tab or comma
-                sep <- "\t"
-                if (length(inFile$datapath) > 0) {
-                    testSep <- read.csv(inFile$datapath[1], header = TRUE, sep = "\t")
-                    if (ncol(testSep) < 2) {
-                        sep <- ","
+                # What a per-sample FPKM file must look like, for the input-problem modal
+                expected <- c(
+                    "A plain-text table, tab- or comma-separated, one file per sample (e.g. a cufflinks genes.fpkm_tracking file); the file name becomes the sample name.",
+                    "A header row naming the columns; the columns 'gene_id' and 'FPKM' must be present (any other column is ignored).",
+                    "'gene_id': one gene identifier per row; 'FPKM': the numeric FPKM value of that gene in this sample.",
+                    "Every file lists the same set of gene_ids, so the FPKM columns can be placed side by side.",
+                    "Files picked in the private space are read in place and must have the same layout as uploaded files."
+                )
+                check_fpkm_file <- function(df) {
+                    missing <- setdiff(c("gene_id", "FPKM"), colnames(df))
+                    if (length(missing)) {
+                        return(sprintf("Column(s) %s not found in the header; the columns found are: %s.",
+                                       paste(shQuote(missing), collapse = ", "),
+                                       paste(shQuote(head(colnames(df), 8)), collapse = ", ")))
                     }
-                } else {
+                    if (!nrow(df)) return("The table has a header but no rows.")
+                    if (!is.numeric(df$FPKM)) return("The FPKM column is not numeric.")
+                    NULL
+                }
+                read_fpkm_file <- function(i) {
+                    nasqar_read_table(inFile$datapath[i], expected, check = check_fpkm_file,
+                                      label = paste("FPKM file", basename(inFile$name[i])))
+                }
+
+                if (length(inFile$datapath) == 0) {
                     return(NULL)
                 }
 
-                # remove zero size files
-                inFile <- inFile[inFile$size != 0, ]
-
-
-                fileContent <- read.csv(inFile$datapath[1], header = TRUE, sep = sep)
+                fileContent <- read_fpkm_file(1)
                 # fileContent = fileContent[!grepl("__", fileContent$V1),] #remove rows containing underscores
 
 
@@ -343,7 +355,7 @@ server <- function(input, output, session) {
 
 
                 # Create first column "gene.ids", and second column for first sample FPKMS
-                total[, 1] <- fileContent$gene_id
+                total[, 1] <- as.character(fileContent$gene_id)
                 total[, 2] <- fileContent$FPKM
 
                 # convert to TPMs if selected
@@ -365,13 +377,22 @@ server <- function(input, output, session) {
                         break
                     }
 
-                    fileContent <- read.csv(inFile$datapath[i], header = TRUE, sep = "\t")
+                    fileContent <- read_fpkm_file(i)
 
                     # Remove all columns except gene_id and FPKM
                     fileContent <- fileContent[, colnames(fileContent) %in% c("gene_id", "FPKM")]
 
                     # Sort by gene_id incase they are not sorted
                     fileContent <- fileContent[order(fileContent$gene_id), ]
+
+                    # The FPKM columns are placed side by side: the gene set must match the first file
+                    if (!identical(as.character(fileContent$gene_id), total[, 1])) {
+                        nasqar_input_problem(
+                            sprintf("The gene_ids differ from those of the first file, %s (%d genes here, %d there); every file must list the same genes.",
+                                    basename(inFile$name[1]), nrow(fileContent), nrow(total)),
+                            expected, inFile$datapath[i], paste("FPKM file", basename(inFile$name[i]))
+                        )
+                    }
 
                     # extract file name
                     samplename <- tools::file_path_sans_ext(inFile$name[i])

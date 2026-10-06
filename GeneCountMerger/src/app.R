@@ -1057,26 +1057,19 @@ server <- function(input, output, session) {
                     on.exit(progress$close())
                     progress$set(message = "Merging files ...")
 
-                    sep <- "\t"
-                    if (length(inFile$datapath) > 0) {
-                        testSep <- read.csv(inFile$datapath[1], header = FALSE, sep = "\t")
-                        if (ncol(testSep) < 2) {
-                            sep <- ","
-                        }
-                    } else {
+                    if (length(inFile$datapath) == 0) {
                         return(NULL)
                     }
-
-                    # remove zero size files
-                    inFile <- inFile[inFile$size != 0, ]
 
                     suppressWarnings(
                         validate(need(
                             tryCatch(
                                 {
-                                    total <- multmerge(inFile, sep, input$mergeType == "multiple")
+                                    total <- multmerge(inFile, input$mergeType == "multiple")
                                 },
                                 error = function(e) {
+                                    # Input problems already explained themselves (modal); let the validation error through
+                                    if (inherits(e, "shiny.silent.error")) stop(e)
                                     myValues$status <- paste("Error: ", e$message, "\nMake sure your file(s) have the same dimensions")
                                     updateTabsetPanel(session, "tabs", selected = "Output")
                                     showNotification(id = "errorNotify", myValues$status, type = "error", duration = 20)
@@ -1212,19 +1205,52 @@ server <- function(input, output, session) {
         )
     })
 
-    multmerge <- function(inFiles, sep, isMultiple) {
+    # What a per-sample count file must look like, for the input-problem modal
+    count_file_expected <- function(isMultiple, useHeader) {
+        c(
+            "A plain-text table, tab- or comma-separated, one file per sample (e.g. htseq-count or featureCounts output); the file name becomes the sample name.",
+            if (isMultiple) {
+                "Matrix layout: the Gene ID column (column 1 by default) holds one gene identifier per row, every other column holds the numeric counts of one sample."
+            } else {
+                "The Gene ID column (column 1 by default) holds one gene identifier per row; the Count column (column 2 by default) holds the raw read counts of this sample, numeric."
+            },
+            if (useHeader) {
+                "A header row with column names ('Files have header row' is ticked)."
+            } else {
+                "No header row: data starts on the first line (tick 'Files have header row' if the files have column names)."
+            },
+            "Gene identifiers are unique within a file and shared across files; htseq-count summary lines (__no_feature, __ambiguous, ...) are ignored.",
+            "Files picked in the private space are read in place and must have the same layout as uploaded files."
+        )
+    }
+
+    # Read one count file: separator detected from the first line, header
+    # optional, every problem explained through nasqar_input_problem()
+    read_count_file <- function(path, expected, label, useHeader) {
+        nasqar_read_table(path, expected, label = label, header = isTRUE(useHeader))
+    }
+
+    multmerge <- function(inFiles, isMultiple) {
         filenames <- inFiles$datapath
 
         idColIdx    <- if (!is.null(input$idColumn))    as.integer(input$idColumn)    else 1
         countColIdx <- if (!is.null(input$countColumn)) as.integer(input$countColumn) else 2
 
         useHeader <- isTRUE(input$hasHeader)
+        expected  <- count_file_expected(isMultiple, useHeader)
 
         datalist <- lapply(seq_along(filenames), function(file_index) {
             x <- filenames[[file_index]]
-            fileContent <- read.csv(file = x, header = useHeader, sep = sep)
+            label <- paste("count file", basename(inFiles$name[[file_index]]))
+            fileContent <- read_count_file(x, expected, label, useHeader)
 
             n <- ncol(fileContent)
+            if (n < 2) {
+                nasqar_input_problem(
+                    "Only one column was found; the file needs a gene identifier column and at least one count column.",
+                    expected, x, label
+                )
+            }
 
             if (!isMultiple) {
                 # Single-sample mode: keep only the chosen ID and count columns
@@ -1248,6 +1274,9 @@ server <- function(input, output, session) {
             }
             # HTSeq summary records are named __no_feature, __ambiguous, etc.
             fileContent <- fileContent[!grepl("^__", fileContent[, 1]), ]
+
+            problem <- nasqar_check_count_table(fileContent)
+            if (!is.null(problem)) nasqar_input_problem(problem, expected, x, label)
 
             # Sort by gene_id incase they are not sorted
             fileContent <- fileContent[order(fileContent[, 1]), ]
