@@ -125,24 +125,7 @@ tabItem(
                             h3(textOutput("sig_genes_header")),
                             hr(),
                             withSpinner(
-                                dataTableOutput("sig_gene_table"),
-
-                                # htmlOutput("enrichGo_volcano")
-                                # ,
-
-                                # conditionalPanel(
-                                #     condition = "input.gene_alias=='included'",
-                                #     wellPanel(
-                                #         radioButtons("volcano_sel_gene_type", "Gene enrichment by",
-                                #             c(
-                                #                 "gene.id" = "gene.id",
-                                #                 "gene.name" = "gene.name"
-                                #             ),
-                                #             selected = "gene.id"
-                                #         ),
-                                #         div(style = "clear:both;")
-                                #     )
-                                # ),
+                                dataTableOutput("sig_gene_table")
                             )
                         ),
                         column(12,hr()),

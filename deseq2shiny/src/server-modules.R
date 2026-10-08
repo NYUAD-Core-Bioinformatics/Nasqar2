@@ -1,3 +1,16 @@
+# Hide the navigation links of every step downstream of `from`, so that a
+# re-run of an earlier step cannot leave stale result tabs reachable.
+reset_downstream_tabs <- function(from = c("input", "conditions", "deseq")) {
+    from <- match.arg(from)
+    tabs <- c("rlogTab", "vstTab", "resultsTab", "volcanoplotTab", "venndiagramTab",
+              "boxplotTab", "heatmapTab")
+    if (from %in% c("input", "conditions")) tabs <- c("svaseqTab", "deseqTab", tabs)
+    if (from == "input") tabs <- c("conditionsTab", tabs)
+    for (tab in tabs) {
+        shinyjs::hide(selector = sprintf("a[data-value=\"%s\"]", tab))
+    }
+}
+
 # Server module boundaries.
 #
 # The current UI uses historical, root-level input/output IDs. Each module

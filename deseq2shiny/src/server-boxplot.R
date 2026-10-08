@@ -4,14 +4,7 @@ custom_colors <- reactiveValues(colors = list())
 # Update the level selection dropdown based on the selected fill variable
 observe({
     req(input$sel_groups)
-    # req(input$boxplotX)
-    filtered <- geneExrReactive()
-    # levels <- unique(filtered[[input$boxplotFill]])
-    print('input$sel_groups')
 
-    
-    
-    # mylevels <- factor(filtered[c(input$boxplotFill)], input$sel_factors)
     isolate({
         if (!is.null(myValues$DF) && !is.null(input$sel_groups)) {
             tmpgroups <- as.vector(input$sel_groups)  # Ensure simple vector
@@ -25,25 +18,20 @@ observe({
             # Remove NULL values and strip attributes
             mylevels <- mylevels[!is.null(mylevels)]
             mylevels <- as.vector(mylevels)  # Ensure simple vector
-            
-            # mylevels <- levels(myValues$DF[, input$boxplotFill])
-        # Generate random colors for each level if not already set
-        # if (length(custom_colors$colors) == 0) {
+
+            # Generate random colors for each level
             if (length(mylevels) > 0) {
                 random_colors <- generate_random_colors(length(mylevels))
                 custom_colors$globalcolors <- setNames(as.list(random_colors), mylevels)
-                
+
                 if (!is.null(input$boxplotFill) && input$boxplotFill %in% colnames(myValues$DF)) {
                     mylevels <- as.vector(levels(myValues$DF[, input$boxplotFill]))
                     custom_colors$colors <- custom_colors$globalcolors[mylevels]
                 }
-                
-                print(custom_colors$colors)
             }
         }
-    # }
     })
-    
+
 })
 
 observe({
@@ -57,17 +45,8 @@ observe({
 
 # Update the custom colors when the user clicks the apply button
   observeEvent(input$applyColor, {
-
-    print('applyColor1')
-    print(custom_colors$colors)
-    print('applyColor2')
-    print(input$levelSelect)
-    print('applyColor3')
-    print(input$levelColor)
-    print('applyColor4')
     req(input$levelSelect, input$levelColor)
     custom_colors$colors[[input$levelSelect]] <- input$levelColor
-    print(custom_colors$colors[[input$levelSelect]])
   })
 
 observe({
@@ -75,22 +54,16 @@ observe({
     myValues$dataCounts
     myValues$DF
     input$box_plot_sel_gene_type
-    
-    cat("DEBUG: First boxplot observer triggered\n")
-    
+
     # Check if restoration is in progress - if so, skip this observer
     if (isTRUE(myValues$restoration_in_progress) && !isTRUE(myValues$restoration_boxplot_done)) {
-        cat("DEBUG: Skipping boxplot observer - restoration in progress\n")
         return()
     }
-    
+
     # Isolate current selections to prevent reactive loops
     current_sel_gene <- isolate(input$sel_gene)
     current_sel_groups <- isolate(input$sel_groups)
-    
-    cat("DEBUG: Current sel_gene:", if(is.null(current_sel_gene)) "NULL" else paste(current_sel_gene, collapse = ", "), "\n")
-    cat("DEBUG: Current sel_groups:", if(is.null(current_sel_groups)) "NULL" else paste(current_sel_groups, collapse = ", "), "\n")
-    
+
     if (identical(input$box_plot_sel_gene_type, "gene.name")) {
         genenames <- myValues$genenames[rownames(myValues$dataCounts), ]
         # CRITICAL: Strip all attributes to ensure it's a simple vector
@@ -102,9 +75,7 @@ observe({
         } else {
             NULL
         }
-        
-        cat("DEBUG: Updating sel_gene choices, preserving selection:", if(is.null(gene_selection)) "NULL" else paste(gene_selection, collapse = ", "), "\n")
-        
+
         updateSelectizeInput(session, "sel_gene",
             choices = genenames,
             selected = gene_selection,
@@ -121,9 +92,7 @@ observe({
         } else {
             NULL
         }
-        
-        cat("DEBUG: Updating sel_gene choices (gene.id), preserving selection:", if(is.null(gene_selection)) "NULL" else paste(gene_selection, collapse = ", "), "\n")
-        
+
         updateSelectizeInput(session, "sel_gene",
             choices = gene_ids,
             selected = gene_selection,
@@ -140,9 +109,7 @@ observe({
     } else {
         NULL
     }
-    
-    cat("DEBUG: Updating sel_groups choices, preserving selection:", if(is.null(group_selection)) "NULL" else paste(group_selection, collapse = ", "), "\n")
-    
+
     updateSelectizeInput(session, "sel_groups",
         choices = df_colnames,
         selected = group_selection,
@@ -153,22 +120,17 @@ observe({
     # Only trigger when data or sel_groups changes, not when other selections change
     myValues$DF
     sel_groups <- input$sel_groups
-    
-    cat("DEBUG: Second boxplot observer triggered, sel_groups:", if(is.null(sel_groups)) "NULL" else paste(sel_groups, collapse = ", "), "\n")
-    
+
     # Check if restoration is in progress - if so, skip this observer
     if (isTRUE(myValues$restoration_in_progress) && !isTRUE(myValues$restoration_boxplot_done)) {
-        cat("DEBUG: Skipping second boxplot observer - restoration in progress\n")
         return()
     }
-    
+
     # Isolate current selections to prevent reactive loops
     current_boxplotX <- isolate(input$boxplotX)
     current_boxplotFill <- isolate(input$boxplotFill)
     current_sel_factors <- isolate(input$sel_factors)
-    
-    cat("DEBUG: Current sel_factors:", if(is.null(current_sel_factors)) "NULL" else paste(current_sel_factors, collapse = ", "), "\n")
-    
+
     # Get column names as simple vector
     df_cols <- as.vector(colnames(myValues$DF))
     
@@ -247,12 +209,6 @@ geneExrReactive <- reactive({
         filtered_new <- cbind(filtered_new, gene.name)
     }
 
-    print(filtered_new)
-
-
-
-   
-
     return(filtered_new)
 })
 
@@ -260,7 +216,6 @@ output$boxPlot <- renderPlotly({
 
     if (!is.null(geneExrReactive())) {
         filtered <- geneExrReactive()
-        print(input$sel_factors)
 
         validate(need(length(input$boxplotX) > 0, "Please select a group."))
         validate(need(length(input$boxplotFill) > 0, "Please select a fill by group."))
@@ -390,8 +345,7 @@ output$download_code_boxplot <- nasqar_download_handler(
         } else {
             timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
             export_mode <- get_export_mode(input)
-            export_format <- get_export_format(input)
-            
+
             filename_val <- if (export_mode == "full") {
                 paste0("boxplot_export_", timestamp, ".zip")
             } else {
@@ -418,12 +372,11 @@ output$download_code_boxplot <- nasqar_download_handler(
             return(invisible(NULL))
         }
         
-        # Safe access to export mode/format with defaults
+        # Safe access to export mode with defaults
         export_mode <- get_export_mode(input)
-        export_format <- get_export_format(input)
-        
+
         # Get current parameters with safe access
-        custom_colors <- tryCatch(myValues$custom_colors_boxplot, error = function(e) NULL)
+        # (custom_colors is this module's reactiveValues, the same one the plot uses)
         gene_type_input <- tryCatch(input$box_plot_sel_gene_type, error = function(e) NULL)
         use_gene_names_val <- if(!is.null(gene_type_input) && length(gene_type_input) > 0) {
             gene_type_input == "gene.name"

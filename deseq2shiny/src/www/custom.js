@@ -3,7 +3,6 @@ shinyjs.addStatusIcon = function(params)
   var tabname = params[0];
   var status = params[1];
 
-  console.log('addStatusIcon')
   
   //var menuitem = $('.sidebar-menu > li > a[data-value="' + tabname +'"]');
   var menuitem = $('ul > li > a[data-value="' + tabname +'"]');
@@ -58,6 +57,5 @@ shinyjs.addStatusIcon = function(params)
 
 
 shinyjs.collapse = function(boxid) {
-  console.log("collpase")
   $('#' + boxid).closest('.box').find('[data-widget=collapse]').click();
 };

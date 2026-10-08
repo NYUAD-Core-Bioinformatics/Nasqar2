@@ -55,11 +55,6 @@ tabItem(
                         "For details on this data, see ",
                         a(href = "https://www.ncbi.nlm.nih.gov/pubmed?term=18978772", target = "_blank", "this publication")
                     )
-                    # fileInput('datafile', '',
-                    #           accept=c('text/csv',
-                    #                    'text/comma-separated-values,text/plain',
-                    #                    '.csv'),multiple = FALSE
-                    # )
                 ),
                 conditionalPanel(
                     condition = "input.data_file_type=='examplecountsfactors'",

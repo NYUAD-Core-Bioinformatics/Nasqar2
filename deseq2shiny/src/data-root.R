@@ -2,7 +2,7 @@
 # instance. Pure helpers, sourced globally so every server module can use them.
 
 data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
-data_root <- if (nzchar(data_root)) normalizePath(data_root, winslash = "/", mustWork = FALSE) else NULL
+data_root <- if (nzchar(data_root) && dir.exists(data_root)) normalizePath(data_root, winslash = "/", mustWork = FALSE) else NULL
 
 resolve_hpc_file <- function(path) {
     if (is.null(data_root)) stop("This instance has no private space configured.")
