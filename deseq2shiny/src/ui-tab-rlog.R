@@ -20,30 +20,6 @@ tabItem(
                 ),
                 h4(p(class = "text-right", downloadButton("downloadRlogCsv", "Download rlog.csv", class = "btn btn-primary btn-sm"))),
                 withSpinner(dataTableOutput("rlogData"))
-
-
-
-                # tabPanel("Var Stabilizing Trans.",
-                #          conditionalPanel("output.ddsComputed",
-                #
-                #                           box(title = "Distance Heatmap", width = 6, solidHeader = T, status = "primary",
-                #                               withSpinner(plotlyOutput(outputId = "vsdPlot"))
-                #                           ),
-                #                           box(title = "PCA Plot", width = 6, solidHeader = T, status = "primary",
-                #                               withSpinner(plotlyOutput(outputId = "vsdPcaPlot"))
-                #                           ),
-                #
-                #                           h4(p(class = "text-right",downloadButton('downloadVsdCsv','Download vsd.csv', class = "btn btn-primary btn-sm"))),
-                #                           withSpinner(dataTableOutput("vsdData"))
-                #          ),
-                #          conditionalPanel("!output.ddsComputed",
-                #                           wellPanel(
-                #                             h4(p(class = "text-center", em("Running DESeq2, Please wait ..."), style = "color:#f56a6a;"))
-                #                           )
-                #
-                #                           )
-                #
-                # )
             )
         )
     ) # fluidrow

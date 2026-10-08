@@ -1,69 +1,3 @@
-source("nasqar-project.R")
-require(shinydashboard)
-require(shinyjs)
-require(shinyBS)
-require(shinycssloaders)
-require(DT)
-require(shiny)
-library(rhandsontable)
-library(readr)
-library(RColorBrewer)
-library(DESeq2)
-library(heatmaply)
-library(ggplot2)
-library(ggthemes)
-library(plotly)
-library(BiocParallel)
-library(sodium)
-library(NMF)
-library(tidyr)
-library(dplyr)
-library(sva)
-library(uuid)
-library(colourpicker)
-
-
-# library(pheatmap)
-library(VennDiagram)
-library(smplot2)
-library(EnhancedVolcano)
-library(rclipboard)
-
-library(ComplexHeatmap)
-library(InteractiveComplexHeatmap)
-library(GetoptLong)
-
-# library(rhandsontable)
-# library(readr)
-# library(RColorBrewer)
-# library(DESeq2)
-# library(heatmaply)
-# library(ggplot2)
-# library(ggthemes)
-
-
-# Venndiagram page
-library(gridExtra)
-
-
-
-
-
-
-appCSS <- "
-#loading-content {
-position: absolute;
-background: #3c79ad;
-opacity: 0.9;
-z-index: 100;
-left: 0;
-right: 0;
-height: 100%;
-text-align: center;
-color: #FFFFFF;
-}
-"
-
 ui <- tagList(
 
 
@@ -89,8 +23,8 @@ ui <- tagList(
                     menuItem("   Rlog", tabName = "rlogTab", icon = icon("bar-chart")),
                     menuItem("   VST", tabName = "vstTab", icon = icon("bar-chart")),
                     menuItem("   DE Results", tabName = "resultsTab", icon = icon("chart-column")),
-                    menuItem("   Vocano Plot", tabName = "volcanoplotTab"),
-                    menuItem("   Venn Digram", tabName = "venndiagramTab"),
+                    menuItem("   Volcano Plot", tabName = "volcanoplotTab"),
+                    menuItem("   Venn Diagram", tabName = "venndiagramTab"),
                     menuItem("   Gene Boxplot", tabName = "boxplotTab", icon = icon("bar-chart")),
                     menuItem("   Heatmap", tabName = "heatmapTab", icon = icon("bar-chart")),
                     tags$li(
@@ -106,7 +40,6 @@ ui <- tagList(
             ),
             dashboardBody(
                 shinyjs::useShinyjs(),
-                # inlineCSS(appCSS),
                 extendShinyjs(script = "custom.js", functions = c("addStatusIcon", "collapse")),
                 #
                 tags$head(
@@ -119,8 +52,6 @@ ui <- tagList(
                         .navbar-nav > li > a { padding: 15px 10px !important; }
                     ")),
                     tags$link(rel = "stylesheet", type = "text/css", href = "custom.css")
-                    # ,
-                    # tags$link(rel = "stylesheet", type = "text/css", href = "loading.css")
                 ),
                 tabItems(
                     source("ui-tab-intro.R", local = TRUE)$value,
@@ -140,29 +71,15 @@ ui <- tagList(
         ),
         tags$footer(
             wellPanel(
-                HTML('
+                HTML(paste0('
                <p align="center" width="4">Core Bioinformatics, Center for Genomics and Systems Biology, NYU Abu Dhabi</p>
       <p align="center" width="4">Github: <a href="https://github.com/nyuad-corebio/Nasqar2/tree/main//deseq2shiny/">https://github.com/nyuad-corebio/Nasqar2/tree/main//deseq2shiny/</a></p>
                <p align="center" width="4">Maintained by: <a href="mailto:nr83@nyu.edu">Nabil Rahiman</a> </p>
                 <p align="center" width="4">Issues / Features requests: <a href="https://github.com/nyuad-corebio/Nasqar2/tree/main//deseq2shiny/issues" target="_blank">https://github.com/nyuad-corebio/Nasqar2/tree/main//deseq2shiny/issues</a></p>
-               <p align="center" width="4">Using <a href="https://bioconductor.org/packages/release/bioc/html/DESeq2.html" target="_blank">DESeq2</a> version 1.24.0</p>
-               <p align="center" width="4">Copyright (C) 2019, code licensed under GPLv3</p>')
+               <p align="center" width="4">Using <a href="https://bioconductor.org/packages/release/bioc/html/DESeq2.html" target="_blank">DESeq2</a> ', paste("version", packageVersion("DESeq2")), '</p>
+               <p align="center" width="4">Copyright (C) 2019, code licensed under GPLv3</p>'))
             ),
             tags$script(src = "imgModal.js")
         )
     )
-    #   ,
-    #   # Loading message
-    #   div(
-    #     id = "loading-content",
-    #
-    #     HTML('<div class="row vertical-center">
-    # <h2>Loading application, please wait ...
-    # <div class="spinner">
-    #   <div class="double-bounce1"></div>
-    #          <div class="double-bounce2"></div>
-    #          </div>
-    #          </h2>
-    #          </div>')
-    #   )
 )

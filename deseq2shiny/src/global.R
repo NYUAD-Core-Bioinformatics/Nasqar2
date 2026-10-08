@@ -17,11 +17,8 @@ source("server-modules.R", local = FALSE)
 
 # Export helpers to avoid NULL input issues in download handlers
 get_export_mode <- function(input) {
-  mode <- tryCatch(input$export_mode_global, error = function(e) NULL)
-  if (is.null(mode) || length(mode) == 0 || !nzchar(as.character(mode))) {
-    return("full")
-  }
-  as.character(mode)
+  # Only the full (code + data) export is supported
+  "full"
 }
 
 get_export_format <- function(input) {

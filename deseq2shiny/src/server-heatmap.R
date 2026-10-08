@@ -22,40 +22,39 @@ observe({
     }
 })
 
+# Force the heatmap to be (re)generated when the button is clicked; report
+# failures instead of letting an observer error take the session down.
 observe({
     req(input$genHeatmap > 0)
-    logNormCounts <- heatmapReactive()$logNormCounts
-     ht <- Heatmap(logNormCounts)
+    tryCatch(heatmapReactive(), error = function(e) {
+        shinyjs::enable("genHeatmap")
+        updateActionButton(session, "genHeatmap", label = "Generate Plot")
+        msg <- conditionMessage(e)
+        if (nzchar(msg)) {
+            showNotification(paste("Heatmap:", msg), type = "error")
+        }
+    })
 })
 
 heatmapReactive <- reactive({
-    cat("DEBUG: heatmapReactive triggered, genHeatmap value:", input$genHeatmap, "\n")
-    if (isTRUE(input$genHeatmap > 0)) {
-        cat("DEBUG: genHeatmap > 0, proceeding with heatmap generation\n")
+    # Read dds outside isolate() so a new DESeq2 run invalidates the heatmap
+    dds <- myValues$dds
+    if (isTRUE(input$genHeatmap > 0) && !is.null(dds)) {
         isolate({
 
         updateActionButton(session, "genHeatmap",
       label = "Generating heatmap...")
-         
+
         shinyjs::disable("genHeatmap")
-        
-
-            logNormCounts <- log2((counts(myValues$dds, normalized = TRUE, replaced = FALSE) + .5))
-            # %>%
-            #   gather(gene, expression, (ncol(.)-length(input$sel_gene)+1):ncol(.))
 
 
-
-            # vst = myValues$vstMat
-
-            # selGroupSamples = row.names(myValues$DF[myValues$DF$Conditions %in% input$heat_group,])
-            # logNormCounts = logNormCounts[,selGroupSamples]
-
-            # vst = vst[,input$heat_group]
-
-            myValues$heatmap_path <- file.path(session_dir, "heatmap-highres.pdf")
+            logNormCounts <- log2((counts(dds, normalized = TRUE, replaced = FALSE) + .5))
 
             if (!input$subsetGenes) {
+                validate(need(
+                    !is.null(input$numGenes) && is.finite(input$numGenes) && input$numGenes >= 2,
+                    "Enter the number of genes (at least 2)"
+                ))
                 tmpsd <- apply(logNormCounts, 1, sd)
 
                 selectGenes <- rownames(logNormCounts)[order(tmpsd, decreasing = TRUE)]
@@ -71,15 +70,11 @@ heatmapReactive <- reactive({
 
                 genes <- genes[genes != ""]
 
-                print("heatmappp")
-                print(genes)
-
                 req(input$gene_alias, input$heatmap_sel_gene_type)
                 if (input$gene_alias == "included" && input$heatmap_sel_gene_type == "gene.name") {
                     # get gene.ids from gene.name (geneids is a data frame)
                     genes <- myValues$geneids[genes, 1]
                 }
-                print(genes)
                 genesNotFound <- genes[!(genes %in% rownames(logNormCounts))]
 
                 genes <- genes[!(genes %in% genesNotFound)]
@@ -89,86 +84,29 @@ heatmapReactive <- reactive({
 
 
 
-            logNormCounts <- logNormCounts[selectGenes, ]
+            logNormCounts <- logNormCounts[selectGenes, , drop = FALSE]
             if (input$gene_alias == "included" && input$heatmap_sel_gene_type == "gene.name") {
                 # get gene.ids from gene.name (genenames is a data frame)
                 rownames(logNormCounts) <- myValues$genenames[selectGenes, 1]
             }
-            # print(logNormCounts)
 
             ht <- Heatmap(logNormCounts)
-            ht <- draw(ht)
-            makeInteractiveComplexHeatmap(input, output, session, ht, 
+            # draw() needs an open graphics device; this runs outside any
+            # render, so use a null device rather than letting R open Rplots.pdf
+            pdf(NULL)
+            ht <- tryCatch(draw(ht), finally = dev.off())
+            makeInteractiveComplexHeatmap(input, output, session, ht,
                 click_action = heat_map_click_action, brush_action = heat_map_brush_action,"ht2"
             )
-           
 
-            #generateHeatmapPdf(logNormCounts, Rowv, annLegend, annCol)
-            #  shinyjs::enable("genHeatmap")
-            cat("DEBUG: Heatmap generation completed successfully\n")
             return(list("logNormCounts" = logNormCounts, "genesNotFound" = genesNotFound))
         })
     } else {
-        cat("DEBUG: genHeatmap <= 0, returning NULL\n")
         return(NULL)
-    }
-
-    #
-})
-
-output$heatmapPlot <- renderPlot({
-    print("heatmapPlot")
-    if (!is.null(heatmapReactive())) {
-        print("logNormCounts")
-        logNormCounts <- heatmapReactive()$logNormCounts
-        genesNotFound <- heatmapReactive()$genesNotFound
-
-        validate(
-            # need( is.null(genesNotFound) || length(genesNotFound) < 1, message = "Some genes were not found!"),
-            need(nrow(logNormCounts) > 1, message = "Need atleast 2 genes to plot!")
-        )
-
-
-        coldata <- colData(myValues$dds)
-        coldata$sizeFactor <- NULL
-        coldata$replaceable <- NULL
-
-        if (input$no_replicates) {
-            annLegend <- F
-            Rowv <- NA
-            annCol <- NULL
-        } else {
-            annLegend <- T
-            Rowv <- NA
-
-            annCols <- colnames(coldata)[!colnames(coldata) %in% c("sizeFactor", "replaceable")]
-            annCol <- as.data.frame(coldata[, annCols])
-        }
-
-       
-        # dev.off()
-
-        print("aheatmap")
-        print(annCol)
-
-        p <- pheatmap(logNormCounts)
-        # p <- aheatmap(logNormCounts,scale = "none",
-        #               revC=TRUE,
-        #               fontsize = 10,
-        #               cexRow = 1.2,
-        #               Rowv = Rowv,
-        #               annLegend = annLegend,
-        #               #color = colorRampPalette( rev(brewer.pal(9, "Blues")) )(255),
-        #               annCol = annCol
-        #  )
-
-        # print(p)
-        return(p)
     }
 })
 
 heat_map_click_action <- function(df, output) {
-    print('heat_map_click_action')
     shinyjs::enable("genHeatmap")
     updateActionButton(session, "genHeatmap",
       label = "Generate Plot")
@@ -180,8 +118,6 @@ heat_map_click_action <- function(df, output) {
 }
 
 heat_map_brush_action <- function(df, output) {
-    input$evaluateExpression
-
     row_index <- unique(unlist(df$row_index))
     column_index <- unique(unlist(df$column_index))
     
@@ -217,48 +153,6 @@ heat_map_brush_action <- function(df, output) {
             cat("Brushed", length(row_index), "genes (stored as gene IDs)\n")
         }
     }
-
-    # if (!is.null(heatmapReactive())) {
-    #     matrix <- heatmapReactive()$logNormCounts
-    #     m <- matrix[row_index, column_index, drop = FALSE]
-    #        output[["heatmap_matrix_table"]] <- DT::renderDataTable(
-    #     {
-    #         gene.id <- rownames(m)
-    #         genes <- gene.id
-
-
-
-    #         if (input$gene_alias == "included") {
-    #             genes <- myValues$genenames[gene.id, ]
-    #             gene.name <- genes
-    #             m <- cbind(m, gene.name)
-    #         }
-
-    #         if (input$venn_sel_gene_type == "gene.id") {
-    #             genes <- gene.id
-    #         }
-    #         isolate({
-    #             myValues$selected_genes <- myValues$selected_genes + 1
-    #             print("myValues$selected_genes")
-    #             print(myValues$selected_genes)
-    #         })
-
-    #         updateTextAreaInput(session, "venn_gene_list", value = paste(genes, collapse = input$venn_input_genes_sep))
-
-    #         return(m)
-    #     },
-    #     options = list(scrollX = TRUE, pageLength = 50)
-    # )
-
-            
-    # }
-
-
-
-   
- 
-
-
 }
 
 
@@ -278,24 +172,11 @@ output$brushed_genes_count <- renderText({
     }
 })
 
-## Download handler for brushed heatmap data
-output$download_brushed_heatmap_csv <- nasqar_download_handler(
-    filename = function() {
-        timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-        paste0("brushed_heatmap_data_", timestamp, ".csv")
-    },
-    content = function(file) {
-        req(myValues$brushed_heatmap_data)
-        write.csv(myValues$brushed_heatmap_data, file, row.names = TRUE)
-    }
-)
-
 ## Download handler for brushed heatmap R code
 output$download_code_brushed_heatmap <- nasqar_download_handler(
     filename = function() {
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
         export_mode <- get_export_mode(input)
-        export_format <- get_export_format(input)
         if (export_mode == "full") {
             paste0("brushed_heatmap_export_", timestamp, ".zip")
         } else {
@@ -305,10 +186,9 @@ output$download_code_brushed_heatmap <- nasqar_download_handler(
     },
     content = function(file) {
         req(myValues$brushed_heatmap_data, myValues$brushed_genes)
-        
+
         export_mode <- get_export_mode(input)
-        export_format <- get_export_format(input)
-        
+
         # Get current parameters
         gene_type <- tryCatch(input$heatmap_sel_gene_type, error = function(e) NULL)
         use_gene_names_val <- (!is.null(gene_type) && gene_type == "gene.name")
@@ -361,7 +241,7 @@ output$download_code_brushed_heatmap <- nasqar_download_handler(
             params <- list(
                 matrix_file = matrix_filename,
                 metadata_file = metadata_filename,
-                fontsize_row = if(!is.null(input$heatmap_fontsize_row)) input$heatmap_fontsize_row else 8,
+                fontsize_row = 8,
                 parent_color_range = parent_range  # Use parent's color range for consistency
             )
             
@@ -412,7 +292,7 @@ output$download_code_brushed_heatmap <- nasqar_download_handler(
             params <- list(
                 matrix_file = "brushed_heatmap_matrix.csv",
                 metadata_file = "brushed_heatmap_metadata.csv",
-                fontsize_row = if(!is.null(input$heatmap_fontsize_row)) input$heatmap_fontsize_row else 8,
+                fontsize_row = 8,
                 parent_color_range = parent_range
             )
             
@@ -422,63 +302,23 @@ output$download_code_brushed_heatmap <- nasqar_download_handler(
     }
 )
 
-generateHeatmapPdf <- function(logNormCounts, Rowv, annLegend, annCol) {
-    p <- pheatmap(logNormCounts, filename = myValues$heatmap_path)
-    # heatmaptmp = heatmap(logNormCounts,scale = "none",
-    #          revC=TRUE,
-    #          fontsize = 10,
-    #          cexRow = 1.2,
-    #          Rowv = Rowv,
-    #          annLegend = annLegend,
-    #          #color = colorRampPalette( rev(brewer.pal(9, "Blues")) )(255),
-    #          annCol = annCol,
-    #          filename = myValues$heatmap_path
-    # )
-}
-
-# output$heatmapHighResAvailable <- reactive({
-#
-#   if(is.null(heatmapReactive()))
-#     return(F)
-#
-#   return(file.exists(myValues$heatmap_path))
-# })
-# outputOptions(output, 'heatmapHighResAvailable', suspendWhenHidden=FALSE)
-
+# Render the displayed heatmap (same matrix/object as heatmapReactive) to a PDF on demand
 output$downloadHighResHeatmap <- nasqar_download_handler(
-    filename = c("heatmap_highres.pdf"),
+    filename = "heatmap_highres.pdf",
     content = function(file) {
-        file.copy(myValues$heatmap_path, file)
+        heatmap_data <- heatmapReactive()
+        req(heatmap_data)
+        logNormCounts <- heatmap_data$logNormCounts
+        pdf(file, width = 10, height = max(7, min(200, 0.15 * nrow(logNormCounts) + 2)))
+        on.exit(dev.off(), add = TRUE)
+        draw(Heatmap(logNormCounts))
     }
 )
 
-output$heatmapData <- renderDataTable(
-    {
-        if (!is.null(heatmapReactive())) {
-            heatmapReactive()$logNormCounts
-        }
-    },
-    options = list(scrollX = TRUE, pageLength = 5)
-)
-
-#
 output$heatmapComputed <- reactive({
-    print("heatmapComputed")
     return(!is.null(heatmapReactive()))
 })
 outputOptions(output, "heatmapComputed", suspendWhenHidden = FALSE)
-
-
-output$downloadHeatmapCsv <- nasqar_download_handler(
-    filename = function() {
-        "heatmap_data.csv"
-    },
-    content = function(file) {
-        csv <- heatmapReactive()$logNormCounts
-
-        write.csv(csv, file)
-    }
-)
 
 # Export R code for heatmap
 output$download_code_heatmap <- nasqar_download_handler(
@@ -490,8 +330,7 @@ output$download_code_heatmap <- nasqar_download_handler(
         } else {
             timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
             export_mode <- get_export_mode(input)
-            export_format <- get_export_format(input)
-            
+
             filename_val <- if (export_mode == "full") {
                 paste0("heatmap_export_", timestamp, ".zip")
             } else {
@@ -520,8 +359,7 @@ output$download_code_heatmap <- nasqar_download_handler(
         }
         
         export_mode <- get_export_mode(input)
-        export_format <- get_export_format(input)
-        
+
         gene_type <- tryCatch(input$heatmap_sel_gene_type, error = function(e) NULL)
         use_gene_names_val <- (!is.null(gene_type) && gene_type == "gene.name")
 
@@ -627,7 +465,7 @@ output$download_code_heatmap <- nasqar_download_handler(
             params <- list(
                 matrix_file = matrix_filename,
                 metadata_file = metadata_filename,
-                fontsize_row = if(!is.null(input$heatmap_fontsize_row)) input$heatmap_fontsize_row else 8
+                fontsize_row = 8
             )
             
             # Generate simple R code

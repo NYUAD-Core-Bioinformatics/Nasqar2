@@ -121,12 +121,6 @@ tabItem(
                                 downloadButton("download_venn_plot", "Download Plot", class = "btn-success", style = "width: 100%; margin-top: 10px;")
                             )
                         ),
-                        # column(2,
-                        #        radioButtons("counttype","Y axis:",choices=c("counts","rlog","vst"))
-                        #        ),
-                        # column(2,
-                        #        actionButton("genBoxplot","Generate Plot", class = "btn btn-primary", style = "width:100%;")
-                        # ),
                         div(style = "clear:both;")
                     )
                 )
@@ -135,9 +129,8 @@ tabItem(
     ),
     fluidRow(
         hr(),
-        textOutput(outputId = "message"),
         conditionalPanel(
-            condition = "output.panelStatus && input.select_avo_de_venn_files.length > 1",
+            condition = "output.panelStatus && (input.select_avo_de_venn_files || []).length > 1",
             tags$div(
                 class = "BoxArea2",
                 column(
@@ -190,17 +183,7 @@ tabItem(
                         condition = "output.venn_expression_result",
                         InteractiveComplexHeatmapOutput("ht1",output_ui = htmlOutput("info"))
                     )
-                    # plotOutput("heatMap1")htmlOutput("info1"),
                 ),
-                column(
-                    4,
-                    conditionalPanel(
-                        condition = "output.venn_expression_result",
-                        htmlOutput("info2")
-                    )
-                ),
-                # h4(p(class = "text-right",downloadButton('downloadBoxCsv','Download .csv', class = "btn btn-primary btn-sm"))),
-                # withSpinner(dataTableOutput("boxplotData")),
                 div(style = "clear:both;")
             )
         )

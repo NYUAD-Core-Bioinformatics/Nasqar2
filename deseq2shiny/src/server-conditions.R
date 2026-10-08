@@ -1,3 +1,8 @@
+# Dropdown values of the conditions added in the table, keyed by column name.
+if (!is.list(myValues$conditions)) {
+    myValues$conditions <- list()
+}
+
 observe({
     colnamesChoices <- as.vector(colnames(myValues$DF[!(names(myValues$DF) %in% c("Samples", "Groups"))]))
     updateSelectInput(session, "colToRemove", choices = colnamesChoices, selected = NULL)
@@ -25,6 +30,7 @@ observeEvent(input$removeCol, {
     removeNotification("errorNotify1")
     myValues$DF <- hot_to_r(input$table)
     myValues$DF[, input$colToRemove] <- NULL
+    myValues$conditions[[input$colToRemove]] <- NULL
     updateDesignFormula()
     
     # Update factorNameInput choices only if DESeq2 analysis is completed
@@ -51,14 +57,8 @@ observe({
 tableEditReactive <- reactive({
     if (isTRUE(input$addConditions > 0)) {
         isolate({
-            print("input$table start")
-            # print(input$table)
             myValues$DF <- hot_to_r(input$table)
             DF <- myValues$DF
-
-            print("input$table stop")
-            print(myValues$DF)
-
 
             validate(
                 need(!(input$conditionName %in% colnames(DF)), message = "Condition name already exists"),
@@ -73,12 +73,7 @@ tableEditReactive <- reactive({
 
             myValues$DF <- DF
 
-            print("myValues$conditions")
-            print(DF)
-
-            myValues$conditions[[dim(DF)[2] - 1]] <- input$conditions
-
-            print(myValues$conditions)
+            myValues$conditions[[input$conditionName]] <- input$conditions
 
             updateTextInput(session, "conditionName", value = "")
             updateTextInput(session, "conditions", value = "")
@@ -110,8 +105,9 @@ output$table <- renderRHandsontable({
         if (dim(DF1)[2] < 2) {
             break()
         }
-        if (!is.null(myValues$conditions[[i - 1]])) {
-            table <- table %>% hot_col(col = colnames(DF1)[i], type = "dropdown", source = getConditionsListFromStr(myValues$conditions[[i - 1]]))
+        conditionsStr <- myValues$conditions[[colnames(DF1)[i]]]
+        if (!is.null(conditionsStr)) {
+            table <- table %>% hot_col(col = colnames(DF1)[i], type = "dropdown", source = getConditionsListFromStr(conditionsStr))
         }
     }
 
@@ -171,7 +167,6 @@ metadataFileReactive <- reactive({
         })
 
     sampleN <- colnames(fileContent)[-1]
-    print("sampleN")
 
     # metaData <- fileContent[,sampleN]
     # if meta dat has only one entry returns as vector.
@@ -185,14 +180,12 @@ metadataFileReactive <- reactive({
             x
         }
     })
-    print("metaData")
-    print(fileContent[, 1])
-    print("metaData")
     # metaData <- data.frame(sapply( metaData, as.factor ))
     # print(levels(metaData$Stage))
     row.names(metaData) <- fileContent[, 1]
 
     myValues$DF <- metaData
+    myValues$conditions <- list()
 
     updateDesignFormula()
 
@@ -225,13 +218,7 @@ ddsInitReactive <- eventReactive(input$init_deseq2, {
         # print("Initializing DESeq2 ...")
         removeNotification("errorNotify")
         removeNotification("errorNotify1")
-        # shinyjs::hide(selector = "a[data-value=\"deseqTab\"]")
-        shinyjs::hide(selector = "a[data-value=\"rlogTab\"]")
-        shinyjs::hide(selector = "a[data-value=\"vstTab\"]")
-
-        shinyjs::hide(selector = "a[data-value=\"resultsTab\"]")
-        shinyjs::hide(selector = "a[data-value=\"boxplotTab\"]")
-        shinyjs::hide(selector = "a[data-value=\"heatmapTab\"]")
+        reset_downstream_tabs("conditions")
 
         myValues$status <- NULL
         myValues$dds <- NULL
@@ -259,7 +246,6 @@ ddsInitReactive <- eventReactive(input$init_deseq2, {
                 validate(need(FALSE, myValues$status))
             }
         )
-        myValues$DF <- samples
 
         # Exclude selected samples after sample names are properly set
         excludedSamples <- input$samplesToExclude
@@ -272,14 +258,18 @@ ddsInitReactive <- eventReactive(input$init_deseq2, {
             columnsToKeep <- !colnames(dataCounts) %in% excludedSamples
             dataCounts <- dataCounts[, columnsToKeep, drop = FALSE]
             
-            # Store excluded samples info for display
-            myValues$excludedSamplesInfo <- excludedSamples
-            
-            print(paste("Excluded samples:", paste(excludedSamples, collapse = ", ")))
-            print(paste("Remaining samples:", paste(rownames(samples), collapse = ", ")))
-        } else {
+            # Store excluded samples info for display (cumulative until the
+            # counts are submitted again)
+            myValues$excludedSamplesInfo <- union(myValues$excludedSamplesInfo, excludedSamples)
+        } else if (is.null(myValues$excludedSamplesInfo)) {
             myValues$excludedSamplesInfo <- character(0)
         }
+
+        # Levels of excluded samples must not survive into the contrast
+        # dropdowns, and the counts must match the metadata kept.
+        samples <- droplevels(samples)
+        myValues$DF <- samples
+        myValues$dataCounts <- dataCounts
 
         # convert factors to unordered
         # factor(samples, ordered = F)
@@ -289,9 +279,6 @@ ddsInitReactive <- eventReactive(input$init_deseq2, {
                 samples[, i] <- factor(samples[, i], ordered = F)
             }
         }
-
-        print("samples")
-        print(samples)
 
         isolate({
             validate(need(
@@ -367,8 +354,6 @@ outputOptions(output, "hasExcludedSamples", suspendWhenHidden = FALSE)
 
 updateDesignFormula <- function() {
     isolate({
-        print("updateDesignFormula")
-        
         # Check if myValues$DF exists and has columns
         if (is.null(myValues$DF) || ncol(myValues$DF) == 0) {
             return()
@@ -388,7 +373,6 @@ updateDesignFormula <- function() {
             designFormula <- paste(" ~ ", paste(groupvars, collapse = " + "))
         }
 
-        print(designFormula)
         updateTextInput(session, "designFormula", value = designFormula)
         updateTextInput(session, "designFormulaSva", value = designFormula)
     })

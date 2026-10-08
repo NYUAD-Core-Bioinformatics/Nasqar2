@@ -1,5 +1,3 @@
-# Max upload size
-options(shiny.maxRequestSize = 600 * 1024^2)
 suppressPackageStartupMessages(library(kableExtra))
 
 # Define server
@@ -22,7 +20,6 @@ isCategoricalFactor <- function(factor_data, sample_count) {
         }
         
         # Debug logging
-        cat("DEBUG: safeInputValue - input type:", class(value), "length:", length(value), "\n")
         
         # CRITICAL: Strip all attributes first to avoid object issues
         # This ensures we're working with simple values only
@@ -51,16 +48,13 @@ isCategoricalFactor <- function(factor_data, sample_count) {
             if (is.atomic(parsed_value) && (is.character(parsed_value) || is.numeric(parsed_value) || is.logical(parsed_value))) {
                 # Ensure it's a simple vector with no attributes
                 result <- as.vector(parsed_value)
-                cat("DEBUG: safeInputValue - JSON round-trip successful:", paste(result, collapse = ", "), "\n")
                 return(result)
             }
         }, error = function(e) {
-            cat("DEBUG: safeInputValue - JSON serialization failed:", e$message, "\n")
         })
         
         # Handle complex objects that might be JavaScript objects or other non-serializable types
         if (is.object(value) && !is.data.frame(value) && !is.factor(value)) {
-            cat("DEBUG: safeInputValue - detected complex object, attempting to extract values\n")
             # Try to extract meaningful values from complex objects
             if (is.list(value)) {
                 if (length(value) > 0) {
@@ -70,17 +64,14 @@ isCategoricalFactor <- function(factor_data, sample_count) {
                             # Test JSON serialization of extracted value
                             tryCatch({
                                 json_test <- jsonlite::toJSON(value[[i]], auto_unbox = TRUE)
-                                cat("DEBUG: safeInputValue - extracted element", i, ":", paste(value[[i]], collapse = ", "), "\n")
                                 return(value[[i]])
                             }, error = function(e) {
-                                cat("DEBUG: safeInputValue - extracted element", i, "failed JSON test:", e$message, "\n")
                             })
                         }
                     }
                 }
             }
             # If we can't extract meaningful values, return NULL to avoid errors
-            cat("DEBUG: safeInputValue - complex object could not be processed, returning NULL\n")
             return(NULL)
         }
         
@@ -90,18 +81,14 @@ isCategoricalFactor <- function(factor_data, sample_count) {
                 json_test <- jsonlite::toJSON(value, auto_unbox = TRUE)
                 # Ensure it's a simple vector with no attributes
                 result <- as.vector(value)
-                cat("DEBUG: safeInputValue - returning simple vector:", paste(result, collapse = ", "), "\n")
                 return(result)
             }, error = function(e) {
-                cat("DEBUG: safeInputValue - simple vector failed JSON test:", e$message, "\n")
                 # Try to convert to character and test again
                 tryCatch({
                     char_value <- as.vector(as.character(value))
                     json_test <- jsonlite::toJSON(char_value, auto_unbox = TRUE)
-                    cat("DEBUG: safeInputValue - converted to character and passed JSON test:", paste(char_value, collapse = ", "), "\n")
                     return(char_value)
                 }, error = function(e2) {
-                    cat("DEBUG: safeInputValue - character conversion also failed:", e2$message, "\n")
                     return(NULL)
                 })
             })
@@ -109,7 +96,6 @@ isCategoricalFactor <- function(factor_data, sample_count) {
         
         # If it's a list, try to extract meaningful values
         if (is.list(value)) {
-            cat("DEBUG: safeInputValue - processing list with", length(value), "elements\n")
             if (length(value) > 0) {
                 # If first element is a vector, use it
                 if (is.vector(value[[1]]) && (is.character(value[[1]]) || is.numeric(value[[1]]) || is.logical(value[[1]]))) {
@@ -117,20 +103,16 @@ isCategoricalFactor <- function(factor_data, sample_count) {
                         json_test <- jsonlite::toJSON(value[[1]], auto_unbox = TRUE)
                         # Ensure it's a simple vector with no attributes
                         result <- as.vector(value[[1]])
-                        cat("DEBUG: safeInputValue - returning first vector element:", paste(result, collapse = ", "), "\n")
                         return(result)
                     }, error = function(e) {
-                        cat("DEBUG: safeInputValue - first vector element failed JSON test:", e$message, "\n")
                     })
                 } else {
                     # Convert to character only if it's a simple type
                     tryCatch({
                         char_value <- as.vector(as.character(value[[1]]))
                         json_test <- jsonlite::toJSON(char_value, auto_unbox = TRUE)
-                        cat("DEBUG: safeInputValue - converted to character:", paste(char_value, collapse = ", "), "\n")
                         return(char_value)
                     }, error = function(e) {
-                        cat("DEBUG: safeInputValue - conversion failed:", e$message, "\n")
                         return(NULL)
                     })
                 }
@@ -139,15 +121,12 @@ isCategoricalFactor <- function(factor_data, sample_count) {
         
         # If it's a data frame, try to get column names
         if (is.data.frame(value)) {
-            cat("DEBUG: safeInputValue - processing data frame with", ncol(value), "columns\n")
             if (ncol(value) > 0) {
                 col_names <- colnames(value)
                 tryCatch({
                     json_test <- jsonlite::toJSON(col_names, auto_unbox = TRUE)
-                    cat("DEBUG: safeInputValue - returning column names:", paste(col_names, collapse = ", "), "\n")
                     return(col_names)
                 }, error = function(e) {
-                    cat("DEBUG: safeInputValue - column names failed JSON test:", e$message, "\n")
                     return(NULL)
                 })
             }
@@ -157,10 +136,8 @@ isCategoricalFactor <- function(factor_data, sample_count) {
         tryCatch({
             char_value <- as.vector(as.character(value))
             json_test <- jsonlite::toJSON(char_value, auto_unbox = TRUE)
-            cat("DEBUG: safeInputValue - fallback to character:", paste(char_value, collapse = ", "), "\n")
             return(char_value)
         }, error = function(e) {
-            cat("DEBUG: safeInputValue - fallback conversion failed:", e$message, "\n")
             return(NULL)
         })
     }
@@ -180,7 +157,6 @@ isCategoricalFactor <- function(factor_data, sample_count) {
                     if (!is.null(validated_value)) {
                         validated_args[[arg_name]] <- validated_value
                     } else {
-                        cat("DEBUG: safeUpdateInput - skipping", arg_name, "due to validation failure\n")
                         return() # Skip this update entirely
                     }
                 } else {
@@ -192,7 +168,6 @@ isCategoricalFactor <- function(factor_data, sample_count) {
             # Call the update function with validated arguments
             do.call(update_func, c(list(session, input_id), validated_args))
         }, error = function(e) {
-            cat("DEBUG: Failed to update", input_id, ":", e$message, "\n")
             # Don't propagate the error, just log it
         })
     }
@@ -215,11 +190,9 @@ isCategoricalFactor <- function(factor_data, sample_count) {
             if (is.atomic(parsed_value) || (is.list(parsed_value) && all(sapply(parsed_value, function(x) is.atomic(x) || is.null(x))))) {
                 return(value)
             } else {
-                cat("DEBUG: validateForClient - value contains non-atomic elements, returning NULL\n")
                 return(NULL)
             }
         }, error = function(e) {
-            cat("DEBUG: validateForClient - JSON serialization failed:", e$message, "\n")
             return(NULL)
         })
     }
@@ -232,7 +205,6 @@ isCategoricalFactor <- function(factor_data, sample_count) {
         
         # Clean the saved_inputs section specifically
         if (!is.null(state_obj$saved_inputs) && is.list(state_obj$saved_inputs)) {
-            cat("DEBUG: Cleaning saved_inputs section\n")
             cleaned_inputs <- list()
             
             for (input_name in names(state_obj$saved_inputs)) {
@@ -243,12 +215,9 @@ isCategoricalFactor <- function(factor_data, sample_count) {
                     # Double-check with client validation
                     if (!is.null(validateForClient(cleaned_value))) {
                         cleaned_inputs[[input_name]] <- cleaned_value
-                        cat("DEBUG: Cleaned input", input_name, "successfully\n")
                     } else {
-                        cat("DEBUG: Input", input_name, "failed client validation, skipping\n")
                     }
                 } else {
-                    cat("DEBUG: Input", input_name, "could not be cleaned, skipping\n")
                 }
             }
             
@@ -274,10 +243,7 @@ isCategoricalFactor <- function(factor_data, sample_count) {
                 data_type <- class(factor_data)[1]
                 
                 if (isCategoricalFactor(factor_data, nrow(metadata_df))) {
-                    print(paste("✓ Factor", factor_name, "is categorical:", data_type, "with", unique_count, "levels"))
                     actualFactors <- c(actualFactors, factor_name)
-                } else {
-                    print(paste("✗ Skipping", factor_name, "-", data_type, "with", unique_count, "unique values (not suitable for categorical analysis)"))
                 }
             }
         }
@@ -342,12 +308,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
         }
     }
 
-    # Add error handling for client-side communication issues
-    session$onFlushed(function() {
-        # This runs after the session is flushed to the client
-        # Add any post-flush validation here if needed
-    })
-    
     # Add error handling for session errors
     session$onSessionEnded(function() {
         unlink(session_dir, recursive = TRUE, force = TRUE)
@@ -355,7 +315,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
 
     GotoTab <- function(name) {
         shinyjs::show(selector = paste0("a[data-value=\"", name, "\"]"))
-
+        updateTabItems(session, "tabs", name)
         shinyjs::runjs("window.scrollTo(0, 0)")
     }
     js_api <- js
@@ -399,6 +359,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     contrast_specs <- results_api$contrast_specs
     custom_colors <- boxplot_api$colors
     selected_matrix <- venn_api$selected_matrix
+    heatmap_matrix <- venn_api$heatmap_matrix
     heatmapReactive <- heatmap_api$heatmap
     updateDesignFormula <- design_api$update_formula
     
@@ -439,23 +400,23 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
             heatmap_path = NULL,
             
             # Volcano plot and Venn diagram data (saved analysis results for different datasets)
-            filelist_file_list = if(exists("filelist") && !is.null(filelist$file_list)) {
+            filelist_file_list = if(!is.null(filelist$file_list)) {
                 snapshot_saved_results(filelist$file_list)
             } else {
                 NULL
             },
-            contrast_specs = if(exists("contrast_specs") && !is.null(contrast_specs$specs)) {
+            contrast_specs = if(!is.null(contrast_specs$specs)) {
                 contrast_specs$specs
             } else {
                 NULL
             },
             
             # Boxplot custom colors
-            custom_colors_colors = if(exists("custom_colors") && !is.null(custom_colors$colors)) custom_colors$colors else NULL,
-            custom_colors_globalcolors = if(exists("custom_colors") && !is.null(custom_colors$globalcolors)) custom_colors$globalcolors else NULL,
+            custom_colors_colors = if(!is.null(custom_colors$colors)) custom_colors$colors else NULL,
+            custom_colors_globalcolors = if(!is.null(custom_colors$globalcolors)) custom_colors$globalcolors else NULL,
             
             # Venn diagram selected matrix (for selected genes from Venn intersections)
-            selected_matrix_matrix = if(exists("selected_matrix") && !is.null(selected_matrix$matrix)) selected_matrix$matrix else NULL,
+            selected_matrix_matrix = if(!is.null(selected_matrix$matrix)) selected_matrix$matrix else NULL,
             
             # Current input selections for plots (capture key parameters)
             saved_inputs = list(
@@ -477,8 +438,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                 venn_set_expression_input = if(!is.null(input$venn_set_expression_input)) safeInputValue(input$venn_set_expression_input) else NULL,
                 venn_sel_gene_type = if(!is.null(input$venn_sel_gene_type)) safeInputValue(input$venn_sel_gene_type) else NULL,
                 select_expression = if(!is.null(input$select_expression)) safeInputValue(input$select_expression) else NULL,
-                venn_gene_list = if(!is.null(input$venn_gene_list)) safeInputValue(input$venn_gene_list) else NULL,
-                venn_input_genes_sep = if(!is.null(input$venn_input_genes_sep)) safeInputValue(input$venn_input_genes_sep) else NULL,
                 evaluateExpression = if(!is.null(input$evaluateExpression)) safeInputValue(input$evaluateExpression) else NULL,
                 
                 # Boxplot parameters
@@ -535,8 +494,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     }
     
     loadAppState <- function(state_object) {
-        state_object <- validate_state_object(state_object)
-        
         # Clean the state object to remove any problematic values
         state_object <- cleanStateObject(state_object)
         
@@ -571,10 +528,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
         
         # Restore volcano plot and Venn diagram data files
         if (!is.null(state_object$filelist_file_list)) {
-            if (!exists("filelist")) {
-                filelist <<- reactiveValues()
-            }
-            filelist$file_list <<- materialize_saved_results(
+            filelist$file_list <- materialize_saved_results(
                 state_object$filelist_file_list,
                 session_dir
             )
@@ -582,32 +536,20 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
         }
 
         if (!is.null(state_object$contrast_specs)) {
-            if (!exists("contrast_specs")) {
-                contrast_specs <<- reactiveValues()
-            }
-            contrast_specs$specs <<- state_object$contrast_specs
+            contrast_specs$specs <- state_object$contrast_specs
         }
         
         # Restore boxplot custom colors
         if (!is.null(state_object$custom_colors_colors)) {
-            if (!exists("custom_colors")) {
-                custom_colors <<- reactiveValues()
-            }
-            custom_colors$colors <<- state_object$custom_colors_colors
+            custom_colors$colors <- state_object$custom_colors_colors
         }
         if (!is.null(state_object$custom_colors_globalcolors)) {
-            if (!exists("custom_colors")) {
-                custom_colors <<- reactiveValues()
-            }
-            custom_colors$globalcolors <<- state_object$custom_colors_globalcolors
+            custom_colors$globalcolors <- state_object$custom_colors_globalcolors
         }
         
         # Restore Venn diagram selected matrix
         if (!is.null(state_object$selected_matrix_matrix)) {
-            if (!exists("selected_matrix")) {
-                selected_matrix <<- reactiveValues()
-            }
-            selected_matrix$matrix <<- state_object$selected_matrix_matrix
+            selected_matrix$matrix <- state_object$selected_matrix_matrix
         }
         
         # Update UI elements based on loaded state
@@ -618,45 +560,34 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
         
         # Try immediate restoration of boxplot parameters (may fail if choices not ready)
         tryCatch({
-            cat("DEBUG: Attempting immediate boxplot restoration\n")
             
             # Restore sel_gene with enhanced validation
             if (!is.null(state_object$saved_inputs$sel_gene)) {
-                cat("DEBUG: Original sel_gene:", paste(state_object$saved_inputs$sel_gene, collapse = ", "), "\n")
                 sel_gene_safe <- safeInputValue(state_object$saved_inputs$sel_gene)
                 if (!is.null(sel_gene_safe) && !is.null(validateForClient(sel_gene_safe))) {
-                    cat("DEBUG: Updating sel_gene with:", paste(sel_gene_safe, collapse = ", "), "\n")
                     safeUpdateInput(updateSelectizeInput, session, "sel_gene", selected = sel_gene_safe)
                 } else {
-                    cat("DEBUG: sel_gene_safe failed validation, skipping update\n")
                 }
             }
             
             # Restore sel_groups with enhanced validation
             if (!is.null(state_object$saved_inputs$sel_groups)) {
-                cat("DEBUG: Original sel_groups:", paste(state_object$saved_inputs$sel_groups, collapse = ", "), "\n")
                 sel_groups_safe <- safeInputValue(state_object$saved_inputs$sel_groups)
                 if (!is.null(sel_groups_safe) && !is.null(validateForClient(sel_groups_safe))) {
-                    cat("DEBUG: Updating sel_groups with:", paste(sel_groups_safe, collapse = ", "), "\n")
                     safeUpdateInput(updateSelectizeInput, session, "sel_groups", selected = sel_groups_safe)
                 } else {
-                    cat("DEBUG: sel_groups_safe failed validation, skipping update\n")
                 }
             }
             
             # Restore sel_factors with enhanced validation
             if (!is.null(state_object$saved_inputs$sel_factors)) {
-                cat("DEBUG: Original sel_factors:", paste(state_object$saved_inputs$sel_factors, collapse = ", "), "\n")
                 sel_factors_safe <- safeInputValue(state_object$saved_inputs$sel_factors)
                 if (!is.null(sel_factors_safe) && !is.null(validateForClient(sel_factors_safe))) {
-                    cat("DEBUG: Updating sel_factors with:", paste(sel_factors_safe, collapse = ", "), "\n")
                     safeUpdateInput(updateSelectizeInput, session, "sel_factors", selected = sel_factors_safe)
                 } else {
-                    cat("DEBUG: sel_factors_safe failed validation, skipping update\n")
                 }
             }
         }, error = function(e) {
-            cat("DEBUG: Immediate restoration failed (expected):", e$message, "\n")
         })
         
         # Dynamic parameters are now restored within restoreInputParameters function
@@ -668,7 +599,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
             
             # Also trigger DE analysis regeneration if it was previously run
             if (!is.null(state_object$saved_inputs$getDiffResVs) && state_object$saved_inputs$getDiffResVs > 0) {
-                cat("DEBUG: DE analysis was previously run, getDiffResVs count:", state_object$saved_inputs$getDiffResVs, "\n")
                 
                 # Force trigger the DE analysis reactive
                 de_analysis_restore <- reactiveValues(done = FALSE)
@@ -678,9 +608,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                         invalidateLater(1000)  # Check every second
                         isolate({
                             de_analysis_attempts$count <- de_analysis_attempts$count + 1
-                            cat("DEBUG: DE analysis trigger attempt", de_analysis_attempts$count, "\n")
-                            cat("DEBUG: Current DE inputs - factorNameInput:", input$factorNameInput, "condition1:", input$condition1, "condition2:", input$condition2, "\n")
-                            cat("DEBUG: resultNameOrFactor:", input$resultNameOrFactor, "\n")
                             
                             # Check if we should use Result Names or Factors method
                             analysis_ready <- FALSE
@@ -689,7 +616,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                                 if (input$resultNameOrFactor == "Result Names") {
                                     # Check if result names are properly restored
                                     if (!is.null(input$resultNamesInput) && length(input$resultNamesInput) > 0) {
-                                        cat("DEBUG: Result Names method ready\n")
                                         analysis_ready <- TRUE
                                     }
                                 } else if (input$resultNameOrFactor == "Factors") {
@@ -699,21 +625,17 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                                         !is.null(input$condition2) && 
                                         input$condition1 != input$condition2 &&
                                         input$condition1 != "" && input$condition2 != "") {
-                                        cat("DEBUG: Factors method ready\n")
                                         analysis_ready <- TRUE
                                     }
                                 }
                             }
                             
                             if (analysis_ready) {
-                                cat("DEBUG: Analysis inputs ready, proceeding with DE analysis\n")
                                 
                                 # Use shinyjs to trigger a click on the DE analysis button
                                 tryCatch({
                                     shinyjs::click("getDiffResVs")
-                                    cat("DEBUG: Simulated getDiffResVs button click\n")
                                 }, error = function(e) {
-                                    cat("DEBUG: DE button click failed:", e$message, "\n")
                                 })
                                 
                                 showNotification(
@@ -724,15 +646,12 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                                 de_analysis_restore$done <- TRUE
                                 
                             } else if (de_analysis_attempts$count >= 15) {
-                                cat("DEBUG: Giving up on DE analysis trigger after 15 attempts\n")
-                                cat("DEBUG: Final state - factorNameInput:", input$factorNameInput, "condition1:", input$condition1, "condition2:", input$condition2, "\n")
                                 showNotification(
                                     "DE analysis inputs not fully restored. Please check the DE Results tab and run analysis manually.",
                                     type = "warning", duration = 8
                                 )
                                 de_analysis_restore$done <- TRUE
                             } else {
-                                cat("DEBUG: Waiting for conditions to be properly restored...\n")
                             }
                         })
                     }
@@ -773,23 +692,28 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
         myValues$restoration_boxplot_done <- FALSE
         
         observe({
-            # Check if the required data is available and we haven't triggered restoration yet
+            # Once the data is loaded, wait 2 s (one armed re-run) so the
+            # observers can populate choices and settle before restoring.
             if (!is.null(myValues$dataCounts) && !is.null(myValues$DF) && !delayed_restore$triggered) {
-                cat("DEBUG: Scheduling delayed restoration in 2 seconds\n")
-                # Longer delay to allow observers to populate choices and settle
-                invalidateLater(2000)
+                if (!isTRUE(delayed_restore$armed)) {
+                    delayed_restore$armed <- TRUE
+                    invalidateLater(2000)
+                    return()
+                }
                 isolate({
-                    cat("DEBUG: Executing delayed restoration now\n")
                     restoreDelayedInputParameters(state_object)
                     
-                    # Add an additional short delay to ensure restoration takes effect
-                    # before any observers might run again
-                    final_restore <- reactiveValues(done = FALSE)
+                    # Re-apply the selections after a further 500 ms delay
+                    # (one armed re-run) so they are not overridden by observers.
+                    final_restore <- reactiveValues(done = FALSE, armed = FALSE)
                     observe({
                         if (!final_restore$done) {
-                            invalidateLater(500)
+                            if (!final_restore$armed) {
+                                final_restore$armed <- TRUE
+                                invalidateLater(500)
+                                return()
+                            }
                             isolate({
-                                cat("DEBUG: Final restoration check - re-applying selections\n")
                                 sel_gene_safe <- safeInputValue(state_object$saved_inputs$sel_gene)
                                 if (!is.null(sel_gene_safe)) {
                                     updateSelectizeInput(session, "sel_gene", selected = sel_gene_safe)
@@ -806,7 +730,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                                 myValues$restoration_in_progress <- FALSE
                                 myValues$restoration_boxplot_done <- TRUE
                                 final_restore$done <- TRUE
-                                cat("DEBUG: Restoration state cleared - observers can now run normally\n")
                             })
                         }
                     })
@@ -886,15 +809,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                 if (!is.null(select_expression_safe)) {
                     safeUpdateInput(updateSelectInput, session, "select_expression", selected = select_expression_safe)
                 }
-            }
-            if (!is.null(inputs$venn_gene_list)) {
-                venn_gene_list_safe <- safeInputValue(inputs$venn_gene_list)
-                if (!is.null(venn_gene_list_safe)) {
-                    safeUpdateInput(updateTextAreaInput, session, "venn_gene_list", value = venn_gene_list_safe)
-                }
-            }
-            if (!is.null(inputs$venn_input_genes_sep)) {
-                safeUpdateInput(updateRadioButtons, session, "venn_input_genes_sep", selected = inputs$venn_input_genes_sep)
             }
             # Note: evaluateExpression is an action button, no update needed
             
@@ -1023,7 +937,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                 }
             }, error = function(e) {
                 # Dynamic restoration may fail if choices aren't populated yet - that's okay
-                cat("DEBUG: Dynamic restoration failed (expected):", e$message, "\n")
             })
         }
     }
@@ -1056,17 +969,14 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                     invalidateLater(1000)  # Check every second
                     isolate({
                         boxplot_restore_observer$attempts <- boxplot_restore_observer$attempts + 1
-                        cat("DEBUG: Boxplot restoration attempt", boxplot_restore_observer$attempts, "\n")
                         
                         # Check if data is ready
                         if (!is.null(myValues$dataCounts) && !is.null(myValues$DF)) {
-                            cat("DEBUG: Data is ready, attempting boxplot restoration\n")
                             
                             tryCatch({
                                 # Restore sel_gene
                                 if (!is.null(inputs$sel_gene)) {
                                     sel_gene_safe <- safeInputValue(inputs$sel_gene)
-                                    cat("DEBUG: Restoring sel_gene (safe):", paste(sel_gene_safe, collapse = ", "), "\n")
                                     
                                     # Check if gene type is set correctly first
                                     if (!is.null(inputs$box_plot_sel_gene_type)) {
@@ -1078,9 +988,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                                                     selected = sel_gene_safe,
                                                     server = TRUE
                                                 )
-                                                cat("DEBUG: sel_gene restored successfully\n")
                                             } else {
-                                                cat("DEBUG: sel_gene values not found in genenames\n")
                                             }
                                         } else {
                                             gene_ids <- as.vector(rownames(myValues$dataCounts))
@@ -1090,9 +998,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                                                     selected = sel_gene_safe,
                                                     server = TRUE
                                                 )
-                                                cat("DEBUG: sel_gene restored successfully\n")
                                             } else {
-                                                cat("DEBUG: sel_gene values not found in gene_ids\n")
                                             }
                                         }
                                     }
@@ -1101,7 +1007,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                                 # Restore sel_groups
                                 if (!is.null(inputs$sel_groups)) {
                                     sel_groups_safe <- safeInputValue(inputs$sel_groups)
-                                    cat("DEBUG: Restoring sel_groups (safe):", paste(sel_groups_safe, collapse = ", "), "\n")
                                     
                                     # Get available groups from DF columns
                                     available_groups <- as.vector(colnames(myValues$DF))
@@ -1111,16 +1016,13 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                                             selected = sel_groups_safe,
                                             server = TRUE
                                         )
-                                        cat("DEBUG: sel_groups restored successfully\n")
                                     } else {
-                                        cat("DEBUG: sel_groups values not found in available groups\n")
                                     }
                                 }
                                 
                                 # Restore sel_factors
                                 if (!is.null(inputs$sel_factors)) {
                                     sel_factors_safe <- safeInputValue(inputs$sel_factors)
-                                    cat("DEBUG: Restoring sel_factors (safe):", paste(sel_factors_safe, collapse = ", "), "\n")
                                     
                                     # Get available factors from DF columns
                                     available_factors <- as.vector(colnames(myValues$DF))
@@ -1130,25 +1032,20 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                                             selected = sel_factors_safe,
                                             server = TRUE
                                         )
-                                        cat("DEBUG: sel_factors restored successfully\n")
                                     } else {
-                                        cat("DEBUG: sel_factors values not found in available factors\n")
                                     }
                                 }
                                 
                                 # Mark as done
                                 myValues$restoration_boxplot_done <- TRUE
                                 boxplot_restore_observer$done <- TRUE
-                                cat("DEBUG: Boxplot restoration completed successfully\n")
                                 
                             }, error = function(e) {
-                                cat("DEBUG: Boxplot restoration attempt failed:", e$message, "\n")
                             })
                         }
                         
                         # Give up after 10 attempts
                         if (boxplot_restore_observer$attempts >= 10) {
-                            cat("DEBUG: Giving up on boxplot restoration after 10 attempts\n")
                             boxplot_restore_observer$done <- TRUE
                         }
                     })
@@ -1172,7 +1069,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
         # First restore factorNameInput, which will trigger condition choices to be populated
         if (!is.null(inputs$factorNameInput)) {
             factorNameInput_safe <- safeInputValue(inputs$factorNameInput)
-            cat("DEBUG: Restoring factorNameInput:", factorNameInput_safe, "\n")
             updateSelectizeInput(session, "factorNameInput", selected = factorNameInput_safe)
         }
         
@@ -1185,7 +1081,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                     invalidateLater(500)  # Check every 500ms
                     isolate({
                         de_condition_restore$attempts <- de_condition_restore$attempts + 1
-                        cat("DEBUG: Condition restoration attempt", de_condition_restore$attempts, "\n")
                         
                         # Check if condition choices are available
                         current_condition1_choices <- NULL
@@ -1195,12 +1090,10 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                         tryCatch({
                             # Force the factorNameInput observer to run by manually updating it
                             if (!is.null(inputs$factorNameInput) && !is.null(myValues$DF)) {
-                                # Ensure DF columns are factors
-                                myValues$DF[] <- lapply(myValues$DF, as.factor)
+                                levels_of <- function(col) levels(factor(myValues$DF[[col]]))
                                 
                                 if (inputs$factorNameInput %in% colnames(myValues$DF)) {
-                                    factor_levels <- as.vector(levels(myValues$DF[, inputs$factorNameInput]))
-                                    cat("DEBUG: Available factor levels for", inputs$factorNameInput, ":", paste(factor_levels, collapse = ", "), "\n")
+                                    factor_levels <- levels_of(inputs$factorNameInput)
                                     
                                     # Manually update the condition choices
                                     updateSelectInput(session, "condition1", choices = factor_levels)
@@ -1209,12 +1102,10 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                                     # Now restore the selected values
                                     if (!is.null(inputs$condition1) && inputs$condition1 %in% factor_levels) {
                                         condition1_safe <- safeInputValue(inputs$condition1)
-                                        cat("DEBUG: Restoring condition1:", condition1_safe, "\n")
                                         updateSelectInput(session, "condition1", selected = condition1_safe)
                                     }
                                     if (!is.null(inputs$condition2) && inputs$condition2 %in% factor_levels) {
                                         condition2_safe <- safeInputValue(inputs$condition2)
-                                        cat("DEBUG: Restoring condition2:", condition2_safe, "\n")
                                         updateSelectInput(session, "condition2", selected = condition2_safe)
                                     }
                                     
@@ -1222,18 +1113,15 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                                     if (!is.null(inputs$condition1) && !is.null(inputs$condition2) && 
                                         inputs$condition1 %in% factor_levels && inputs$condition2 %in% factor_levels &&
                                         inputs$condition1 != inputs$condition2) {
-                                        cat("DEBUG: Condition restoration successful\n")
                                         de_condition_restore$done <- TRUE
                                     }
                                 }
                             }
                         }, error = function(e) {
-                            cat("DEBUG: Condition restoration attempt failed:", e$message, "\n")
                         })
                         
                         # Give up after 10 attempts (5 seconds)
                         if (de_condition_restore$attempts >= 10) {
-                            cat("DEBUG: Giving up on condition restoration after 10 attempts\n")
                             de_condition_restore$done <- TRUE
                         }
                     })
@@ -1282,7 +1170,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
             # Update factor choices for analysis
             if (!is.null(myValues$dds)) {
                 factorChoices <- as.vector(colnames(colData(myValues$dds)))
-                factorChoices <- factorChoices[!grepl("^SV[::digit::]*", factorChoices)]
+                factorChoices <- factorChoices[!grepl("^SV[[:digit:]]+$", factorChoices)]
                 factorChoices <- factorChoices[!(factorChoices %in% c("sizeFactor", "replaceable"))]
                 
                 updateSelectInput(session, "rlogIntGroupsInput", choices = factorChoices, selected = factorChoices[1])
@@ -1327,22 +1215,9 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
         
         # Regenerate saved file list display if filelist exists
         if (!is.null(state_object$filelist_file_list) && length(state_object$filelist_file_list) > 0) {
-            cat("DEBUG: Restoring saved file list with", length(state_object$filelist_file_list), "files\n")
-            
-            # Restore the filelist reactive values
-            if (!exists("filelist")) {
-                filelist <<- reactiveValues()
-            }
-            filelist$file_list <<- state_object$filelist_file_list
-            
-            # Regenerate the display
+            # The top-level savedFileList renderer reacts to filelist$file_list.
             Saved.Results <- names(state_object$filelist_file_list)
-            output$savedFileList <- renderDataTable({
-                data.frame(Saved.Results)
-            })
-            
-            cat("DEBUG: Restored files:", paste(Saved.Results, collapse = ", "), "\n")
-            
+
             # Show volcano and venn diagram tabs if there are saved files
             if (length(Saved.Results) > 0) {
                 shinyjs::show(selector = "a[data-value=\"volcanoplotTab\"]")
@@ -1354,37 +1229,36 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
         
         # Trigger heatmap regeneration if heatmap was previously generated
         if (!is.null(inputs$genHeatmap) && inputs$genHeatmap > 0) {
-            cat("DEBUG: Heatmap was previously generated, genHeatmap count:", inputs$genHeatmap, "\n")
             
             # Force trigger the heatmap reactive by updating the button value
             # This ensures the reactive will run even if the restored value is the same
-            heatmap_restore <- reactiveValues(done = FALSE)
+            heatmap_restore <- reactiveValues(done = FALSE, armed = FALSE)
             observe({
                 if (!heatmap_restore$done) {
-                    invalidateLater(3000)  # Wait 3 seconds for data to be fully loaded
+                    # Wait 3 seconds (one armed re-run) for data to be fully loaded
+                    if (!heatmap_restore$armed) {
+                        heatmap_restore$armed <- TRUE
+                        invalidateLater(3000)
+                        return()
+                    }
                     isolate({
-                        cat("DEBUG: Triggering heatmap regeneration\n")
                         # Temporarily increment and then restore the genHeatmap value to force reactivity
                         current_value <- if(is.null(input$genHeatmap)) 0 else input$genHeatmap
                         target_value <- inputs$genHeatmap
                         
                         # Force trigger heatmap reactive by simulating button click
-                        cat("DEBUG: Forcing heatmap reactive trigger\n")
                         
                         # Use shinyjs to trigger a click on the heatmap button
                         tryCatch({
                             shinyjs::click("genHeatmap")
-                            cat("DEBUG: Simulated genHeatmap button click\n")
                         }, error = function(e) {
-                            cat("DEBUG: Button click failed, trying alternative method:", e$message, "\n")
                             
                             # Alternative: force invalidation of heatmap reactive
                             # This is a bit of a hack but should work
-                            if (exists("heatmapReactive") && is.function(heatmapReactive)) {
+                            if (is.function(heatmapReactive)) {
                                 try({
                                     # Force re-evaluation by accessing the reactive
                                     temp_result <- heatmapReactive()
-                                    cat("DEBUG: Forced heatmap reactive evaluation\n")
                                 }, silent = TRUE)
                             }
                         })
@@ -1412,11 +1286,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     
     save_state_file <- function(file) {
         withProgress(message = "Saving application state...", value = 0, {
-            setProgress(value = 0.1, detail = "Collecting core data...")
-            setProgress(value = 0.3, detail = "Collecting DESeq2 objects...")
-            setProgress(value = 0.5, detail = "Collecting analysis results...")
-            setProgress(value = 0.7, detail = "Collecting UI inputs...")
-            setProgress(value = 0.8, detail = "Creating state object...")
+            setProgress(value = 0.3, detail = "Creating state object...")
             state_object <- saveAppState()
             setProgress(value = 0.9, detail = "Writing state file...")
             save(state_object, file = file)
@@ -1450,13 +1320,13 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                 envir = state_environment,
                 inherits = FALSE
             )
-            if (is.list(state_object) && !is.null(state_object$all_inputs)) {
+            if (!is.list(state_object)) {
+                stop("Invalid state file: state_object must be a list.")
+            }
+            if (!is.null(state_object$all_inputs)) {
                 session$userData$nasqar_generic_inputs <- state_object$all_inputs
                 session$userData$nasqar_generic_skip <- names(state_object$saved_inputs)
                 shinyjs::runjs("setTimeout(function() { Shiny.setInputValue('nasqar_generic_restore', Math.random(), {priority: 'event'}); }, 8000);")
-            }
-            if (!is.list(state_object)) {
-                stop("Invalid state file: state_object must be a list.")
             }
             state_object <- validate_state_object(state_object)
 
@@ -1466,9 +1336,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                 stop("State loaded with errors. Please check the saved data.")
             }
 
-            setProgress(value = 0.7, detail = "Restoring UI inputs...")
-            setProgress(value = 0.85, detail = "Preparing interface...")
-            setProgress(value = 0.95, detail = "Finalizing restoration...")
+            setProgress(value = 0.9, detail = "Finalizing restoration...")
             if (!is.null(myValues$vsResults)) {
                 updateTabItems(session, "tabs", "resultsTab")
             } else if (!is.null(myValues$dds)) {
@@ -1594,6 +1462,9 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     # Load state handler
     observeEvent(input$loadStateFile, {
         req(input$loadStateFile)
+        restoring_project(TRUE)
+        # cleared on error too, or the autosave observers stay disabled
+        on.exit(later::later(function() restoring_project(FALSE), 8), add = TRUE)
         tryCatch({
             load_state_file(input$loadStateFile$datapath)
         }, error = function(error) {
@@ -1629,13 +1500,11 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                 raw_counts_file <- file.path(export_dir, paste0("raw_counts_", timestamp, ".csv"))
                 write.csv(myValues$fileContent, raw_counts_file, row.names = FALSE)  # row.names=FALSE since first column is gene.id
                 all_files <- c(all_files, raw_counts_file)
-                cat("Exported original raw counts (complete):", nrow(myValues$fileContent), "genes x", ncol(myValues$fileContent), "columns (including gene names)\n")
             } else if (!is.null(myValues$dataCounts)) {
                 # Fallback to dataCounts if fileContent not available
                 raw_counts_file <- file.path(export_dir, paste0("raw_counts_", timestamp, ".csv"))
                 write.csv(myValues$dataCounts, raw_counts_file, row.names = TRUE)
                 all_files <- c(all_files, raw_counts_file)
-                cat("Exported original raw counts:", nrow(myValues$dataCounts), "genes x", ncol(myValues$dataCounts), "samples\n")
             } else {
                 cat("WARNING: No raw counts available (myValues$fileContent and myValues$dataCounts are NULL)\n")
             }
@@ -1646,7 +1515,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                 original_metadata_file <- file.path(export_dir, paste0("original_metadata_", timestamp, ".csv"))
                 write.csv(myValues$coldata, original_metadata_file, row.names = TRUE)
                 all_files <- c(all_files, original_metadata_file)
-                cat("Exported original metadata:", nrow(myValues$coldata), "samples x", ncol(myValues$coldata), "factors\n")
                 metadata_exported <- TRUE
             } else if (!is.null(myValues$dds)) {
                 # Try to extract from DESeq2 object
@@ -1657,7 +1525,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                 col_data$replaceable <- NULL
                 write.csv(col_data, original_metadata_file, row.names = TRUE)
                 all_files <- c(all_files, original_metadata_file)
-                cat("Exported metadata from DESeq2 object:", nrow(col_data), "samples x", ncol(col_data), "factors\n")
                 metadata_exported <- TRUE
             }
             
@@ -1672,35 +1539,15 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                     original_metadata_file <- file.path(export_dir, paste0("original_metadata_", timestamp, ".csv"))
                     write.csv(minimal_metadata, original_metadata_file, row.names = TRUE)
                     all_files <- c(all_files, original_metadata_file)
-                    cat("Created minimal metadata file\n")
                 }
             }
             
             withProgress(message = "Exporting all plots...", value = 0, {
                 
-                # Debug: Check which plots are available
-                cat("\n=== Checking Available Plots ===\n")
-                cat("filelist$file_list:", !is.null(filelist$file_list), length(if(!is.null(filelist$file_list)) filelist$file_list else 0), "\n")
-                cat("myValues$dds:", !is.null(myValues$dds), "\n")
-                cat("myValues$dataCounts:", !is.null(myValues$dataCounts), "\n")
-                cat("myValues$vsd:", !is.null(myValues$vsd), "\n")
-                cat("myValues$rld:", !is.null(myValues$rld), "\n")
-                cat("myValues$vsResults:", !is.null(myValues$vsResults), "\n")
-                cat("myValues$brushed_heatmap_data:", !is.null(myValues$brushed_heatmap_data), 
-                    if(!is.null(myValues$brushed_heatmap_data)) paste0("(", nrow(myValues$brushed_heatmap_data), " genes)") else "", "\n")
-                cat("myValues$brushed_venn_heatmap_data:", !is.null(myValues$brushed_venn_heatmap_data), 
-                    if(!is.null(myValues$brushed_venn_heatmap_data)) paste0("(", nrow(myValues$brushed_venn_heatmap_data), " genes)") else "", "\n")
-                cat("myValues$brushed_venn_genes:", !is.null(myValues$brushed_venn_genes), 
-                    if(!is.null(myValues$brushed_venn_genes)) paste0("(", length(myValues$brushed_venn_genes), " genes)") else "", "\n")
-                cat("input$select_avo_de_file:", if(!is.null(input$select_avo_de_file)) input$select_avo_de_file else "NULL", "\n")
-                cat("input$sel_gene:", if(!is.null(input$sel_gene)) paste(input$sel_gene, collapse=", ") else "NULL", "\n")
-                cat("input$boxplotX:", if(!is.null(input$boxplotX)) input$boxplotX else "NULL", "\n")
-                cat("input$condition1:", if(!is.null(input$condition1)) input$condition1 else "NULL", "\n")
-                cat("================================\n\n")
                 
                 # Check and export each plot type
                 total_plots <- 0
-                num_saved_contrasts <- if (exists("filelist") && !is.null(filelist$file_list)) length(filelist$file_list) else 0
+                num_saved_contrasts <- if (!is.null(filelist$file_list)) length(filelist$file_list) else 0
                 
                 # Volcano plots - one per saved contrast
                 if (num_saved_contrasts > 0) total_plots <- total_plots + num_saved_contrasts
@@ -1742,21 +1589,17 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                     total_plots <- total_plots + 1
                 }
                 
-                cat("Total plots expected:", total_plots, "(including", num_saved_contrasts, "volcano and", num_saved_contrasts, "MA plots)\n\n")
                 
                 current <- 0
                 
                 # Export Volcano plots for ALL saved contrasts
-                cat("Checking Volcano conditions...\n")
-                if (exists("filelist") && !is.null(filelist$file_list) && length(filelist$file_list) > 0) {
+                if (!is.null(filelist$file_list) && length(filelist$file_list) > 0) {
                     
                     saved_files <- names(filelist$file_list)
-                    cat("Exporting Volcano plots for", length(saved_files), "saved contrasts...\n")
                     
                     for (file_idx in seq_along(saved_files)) {
                         tryCatch({
                             filename <- saved_files[file_idx]
-                            cat("  - Processing:", filename, "\n")
                             
                             setProgress(value = current/total_plots, detail = paste("Exporting Volcano plot", file_idx, "of", length(saved_files)))
                             
@@ -1796,20 +1639,16 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                             )
                             
                             plot_count <- plot_count + 1
-                            cat("    ✓ Volcano plot for", comparison_name_clean, "added\n")
                         }, error = function(e) { cat("    ✗ Volcano export error for", filename, ":", e$message, "\n") })
                     }
                     current <- current + 1
                 } else {
-                    cat("No saved contrasts found for volcano plots, skipping.\n")
                 }
                 
                 # Export Boxplot if available
-                cat("Checking Boxplot conditions...\n")
                 if (!is.null(myValues$dds) && !is.null(myValues$dataCounts) &&
                     !is.null(input$sel_gene) && !is.null(input$boxplotX)) {
                     
-                    cat("Exporting Boxplot...\n")
                     tryCatch({
                         setProgress(value = current/total_plots, detail = "Exporting Boxplot...")
                         
@@ -1842,13 +1681,10 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                     }, error = function(e) { cat("Boxplot export error:", e$message, "\n") })
                     current <- current + 1
                 } else {
-                    cat("Boxplot conditions not met, skipping.\n")
                 }
                 
                 # Export Heatmap if available
-                cat("Checking Heatmap conditions...\n")
                 if (!is.null(myValues$dds) && !is.null(heatmapReactive())) {
-                    cat("Exporting Heatmap...\n")
                     tryCatch({
                         setProgress(value = current/total_plots, detail = "Exporting Heatmap...")
                         
@@ -1866,7 +1702,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                             use_gene_names = (!is.null(input$heatmap_sel_gene_type) && length(input$heatmap_sel_gene_type) > 0 && input$heatmap_sel_gene_type == "gene.name"),
                             counts_file = "normalized_counts.csv",
                             metadata_file = "metadata.csv",
-                            fontsize_row = if(!is.null(input$heatmap_fontsize_row)) input$heatmap_fontsize_row else 8,
+                            fontsize_row = 8,
                             is_brushed_heatmap = FALSE,
                             sample_order = NULL,
                             is_venn_heatmap = FALSE,
@@ -1890,14 +1726,11 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                     }, error = function(e) { cat("Heatmap export error:", e$message, "\n") })
                     current <- current + 1
                 } else {
-                    cat("Heatmap conditions not met, skipping.\n")
                 }
                 
                 # Export Brushed Sub-Heatmap if user has selected genes via brush
-                cat("Checking Brushed Heatmap conditions...\n")
                 if (!is.null(myValues$brushed_heatmap_data) && nrow(myValues$brushed_heatmap_data) > 0 &&
                     !is.null(myValues$brushed_genes) && length(myValues$brushed_genes) > 0) {
-                    cat("Exporting Brushed Sub-Heatmap...\n")
                     tryCatch({
                         setProgress(value = current/total_plots, detail = "Exporting Brushed Heatmap...")
                         
@@ -1920,7 +1753,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                             parent_range <- NULL  # Will cause warning in export
                         } else {
                             parent_range <- myValues$heatmap_data_range
-                            cat("Using parent heatmap color range:", parent_range[1], "to", parent_range[2], "\n")
                         }
                         
                         params <- list(
@@ -1933,7 +1765,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                             color_range = parent_range,  # Use parent heatmap's color scale
                             counts_file = "normalized_counts.csv",
                             metadata_file = "metadata.csv",
-                            fontsize_row = if(!is.null(input$heatmap_fontsize_row)) input$heatmap_fontsize_row else 8,
+                            fontsize_row = 8,
                             is_venn_heatmap = FALSE
                         )
                         
@@ -1949,24 +1781,19 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                         )
                         
                         plot_count <- plot_count + 1
-                        cat("  ✓ Brushed heatmap with", length(valid_gene_ids), "genes added\n")
                     }, error = function(e) { cat("  ✗ Brushed heatmap export error:", e$message, "\n") })
                     current <- current + 1
                 } else {
-                    cat("No brushed heatmap selection found, skipping.\n")
                 }
                 
                 # Export MA Plots for ALL saved contrasts
-                cat("Checking MA plot conditions...\n")
-                if (exists("filelist") && !is.null(filelist$file_list) && length(filelist$file_list) > 0) {
+                if (!is.null(filelist$file_list) && length(filelist$file_list) > 0) {
                     
                     saved_files <- names(filelist$file_list)
-                    cat("Exporting MA plots for", length(saved_files), "saved contrasts...\n")
                     
                     for (file_idx in seq_along(saved_files)) {
                         tryCatch({
                             filename <- saved_files[file_idx]
-                            cat("  - Processing:", filename, "\n")
                             
                             setProgress(value = current/total_plots, detail = paste("Exporting MA plot", file_idx, "of", length(saved_files)))
                             
@@ -1995,18 +1822,14 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                             )
                             
                             plot_count <- plot_count + 1
-                            cat("    ✓ MA plot for", comparison_name_clean, "added\n")
                         }, error = function(e) { cat("    ✗ MA plot export error for", filename, ":", e$message, "\n") })
                     }
                     current <- current + 1
                 } else {
-                    cat("No saved contrasts found for MA plots, skipping.\n")
                 }
                 
                 # Export PCA (VST) if available
-                cat("Checking PCA (VST) conditions...\n")
                 if (!is.null(myValues$vsd) && !is.null(myValues$vstMat) && !is.null(myValues$dds)) {
-                    cat("Exporting PCA (VST)...\n")
                     tryCatch({
                         setProgress(value = current/total_plots, detail = "Exporting PCA (VST)...")
                         
@@ -2050,13 +1873,10 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                     }, error = function(e) { cat("PCA (VST) export error:", e$message, "\n") })
                     current <- current + 1
                 } else {
-                    cat("PCA (VST) conditions not met, skipping.\n")
                 }
                 
                 # Export PCA (RLOG) if available
-                cat("Checking PCA (RLOG) conditions...\n")
                 if (!is.null(myValues$rld) && !is.null(myValues$rlogMat) && !is.null(myValues$dds)) {
-                    cat("Exporting PCA (RLOG)...\n")
                     tryCatch({
                         setProgress(value = current/total_plots, detail = "Exporting PCA (RLOG)...")
                         
@@ -2100,13 +1920,10 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                     }, error = function(e) { cat("PCA (RLOG) export error:", e$message, "\n") })
                     current <- current + 1
                 } else {
-                    cat("PCA (RLOG) conditions not met, skipping.\n")
                 }
                 
                 # Export Distance Heatmap (VST) if available
-                cat("Checking Distance Heatmap (VST) conditions...\n")
                 if (!is.null(myValues$vsd) && !is.null(myValues$vstMat) && !is.null(myValues$dds)) {
-                    cat("Exporting Distance Heatmap (VST)...\n")
                     tryCatch({
                         setProgress(value = current/total_plots, detail = "Exporting Distance Heatmap (VST)...")
                         
@@ -2133,13 +1950,10 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                     }, error = function(e) { cat("Distance Heatmap (VST) export error:", e$message, "\n") })
                     current <- current + 1
                 } else {
-                    cat("Distance Heatmap (VST) conditions not met, skipping.\n")
                 }
                 
                 # Export Distance Heatmap (RLOG) if available
-                cat("Checking Distance Heatmap (RLOG) conditions...\n")
                 if (!is.null(myValues$rld) && !is.null(myValues$rlogMat) && !is.null(myValues$dds)) {
-                    cat("Exporting Distance Heatmap (RLOG)...\n")
                     tryCatch({
                         setProgress(value = current/total_plots, detail = "Exporting Distance Heatmap (RLOG)...")
                         
@@ -2166,14 +1980,11 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                     }, error = function(e) { cat("Distance Heatmap (RLOG) export error:", e$message, "\n") })
                     current <- current + 1
                 } else {
-                    cat("Distance Heatmap (RLOG) conditions not met, skipping.\n")
                 }
                 
                 # Export Venn Diagram if available
-                cat("Checking Venn Diagram conditions...\n")
                 if (!is.null(filelist$file_list) && length(filelist$file_list) > 1 &&
                     !is.null(input$select_avo_de_venn_files) && length(input$select_avo_de_venn_files) > 1) {
-                    cat("Exporting Venn Diagram...\n")
                     tryCatch({
                         setProgress(value = current/total_plots, detail = "Exporting Venn Diagram...")
                         
@@ -2213,15 +2024,12 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                     }, error = function(e) { cat("Venn Diagram export error:", e$message, "\n") })
                     current <- current + 1
                 } else {
-                    cat("Venn Diagram conditions not met, skipping.\n")
                 }
                 
                 # Export Venn Set Heatmap if user has created one
-                cat("Checking Venn Set Heatmap conditions...\n")
                 if (!is.null(filelist$file_list) && length(filelist$file_list) > 1 &&
                     !is.null(input$venn_set_expression_input) && length(input$venn_set_expression_input) > 0 && 
                     nchar(input$venn_set_expression_input) > 0) {
-                    cat("Exporting Venn Set Heatmap...\n")
                     tryCatch({
                         setProgress(value = current/total_plots, detail = "Exporting Venn Set Heatmap...")
                         
@@ -2253,7 +2061,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                                 matrix_with_ids <- hm
                                 rownames(matrix_with_ids) <- gene_ids
                                 
-                                cat("Captured", nrow(hm), "genes ×", ncol(hm), "comparisons from Shiny's heatmap matrix\n")
                                 list(
                                     genes = gene_ids,
                                     matrix = matrix_with_ids,
@@ -2278,7 +2085,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                             matrix_file <- file.path(export_dir, paste0("venn_set_matrix_", timestamp, ".csv"))
                             write.csv(export_matrix, matrix_file, row.names = TRUE)
                             all_files <- c(all_files, matrix_file)
-                            cat("  - Exported Venn set matrix:", nrow(export_matrix), "genes ×", ncol(export_matrix), "comparisons\n")
                         }
                         
                         params <- list(
@@ -2311,19 +2117,15 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                         )
                         
                         plot_count <- plot_count + 1
-                        cat("  ✓ Venn set heatmap for", input$venn_set_expression_input, "added\n")
                     }, error = function(e) { cat("  ✗ Venn Set Heatmap export error:", e$message, "\n") })
                     current <- current + 1
                 } else {
-                    cat("Venn Set Heatmap conditions not met, skipping.\n")
                 }
                 
                 # Export Brushed Venn Set Heatmap if user has brushed one
-                cat("Checking Brushed Venn Set Heatmap conditions...\n")
                 if (!is.null(myValues$brushed_venn_heatmap_data) && 
                     !is.null(myValues$brushed_venn_genes) && 
                     length(myValues$brushed_venn_genes) > 0) {
-                    cat("Exporting Brushed Venn Set Heatmap...\n")
                     tryCatch({
                         setProgress(value = current/total_plots, detail = "Exporting Brushed Venn Set Heatmap...")
                         
@@ -2343,7 +2145,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                             parent_range <- NULL  # Will cause warning in export
                         } else {
                             parent_range <- myValues$venn_heatmap_data_range
-                            cat("Using parent Venn heatmap color range:", parent_range[1], "to", parent_range[2], "\n")
                         }
                         
                         # Export the brushed matrix directly (already clean from Shiny)
@@ -2372,7 +2173,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                         brushed_matrix_file <- file.path(export_dir, paste0("venn_brushed_matrix_", timestamp, ".csv"))
                         write.csv(export_brushed_matrix, brushed_matrix_file, row.names = TRUE)
                         all_files <- c(all_files, brushed_matrix_file)
-                        cat("  - Exported brushed Venn matrix:", nrow(export_brushed_matrix), "genes ×", ncol(export_brushed_matrix), "comparisons\n")
                         
                         params <- list(
                             comparisons = input$select_avo_de_venn_files,
@@ -2404,28 +2204,18 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                         )
                         
                         plot_count <- plot_count + 1
-                        cat("  ✓ Brushed Venn heatmap with", length(myValues$brushed_venn_genes), "genes added\n")
                     }, error = function(e) { cat("  ✗ Brushed Venn Set Heatmap export error:", e$message, "\n") })
                     current <- current + 1
                 } else {
-                    cat("Brushed Venn Set Heatmap conditions not met, skipping.\n")
-                    cat("  - brushed_venn_heatmap_data:", if(!is.null(myValues$brushed_venn_heatmap_data)) 
-                        paste0("EXISTS (", nrow(myValues$brushed_venn_heatmap_data), " genes)") else "NULL", "\n")
-                    cat("  - brushed_venn_genes:", if(!is.null(myValues$brushed_venn_genes)) 
-                        paste0("EXISTS (", length(myValues$brushed_venn_genes), " genes)") else "NULL", "\n")
                 }
-                
-                cat("\n=== Export Summary ===\n")
-                cat("Total plots exported:", plot_count, "\n")
-                cat("======================\n\n")
                 
                 setProgress(value = 1, detail = paste("Exported", plot_count, "plots"))
             })
             
             # Create combined R script with all analyses
+            script_filename <- NULL
             if (length(all_r_code_sections) > 0) {
                 # Create DESeq2 pipeline section using the comprehensive generator
-                cat("Generating Section 0: DESeq2 Pipeline...\n")
                 
                 # Prepare parameters for pipeline generator
                 pipeline_params <- list(
@@ -2446,14 +2236,12 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                     design_obj <- design(myValues$dds)
                     pipeline_params$design_formula <- paste(deparse(design_obj), collapse = " ")
                     
-                    cat("Extracted design formula:", pipeline_params$design_formula, "\n")
                     
                     # Extract main factor from design
                     design_terms <- attr(terms(design_obj), "term.labels")
                     if (length(design_terms) > 0) {
                         # Last term is typically the main comparison factor
                         main_factor <- design_terms[length(design_terms)]
-                        cat("Main factor:", main_factor, "\n")
                     }
                 } else if (!is.null(myValues$coldata) && ncol(myValues$coldata) > 0) {
                     # Fallback: determine from coldata
@@ -2472,28 +2260,17 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                 # Add all saved contrasts using their structured specifications.
                 pipeline_params$contrasts <- list()
                 
-                if (exists("contrast_specs") &&
-                    !is.null(contrast_specs$specs) &&
+                if (!is.null(contrast_specs$specs) &&
                     length(contrast_specs$specs) > 0) {
                     for (filename in names(contrast_specs$specs)) {
                         specification <- contrast_specs$specs[[filename]]
                         contrast_name <- sub("\\.csv$", "", filename)
                         pipeline_params$contrasts[[contrast_name]] <- specification$contrast
-                        cat("Added structured contrast:", contrast_name, "\n")
                     }
                 } else if (!is.null(myValues$vsResults) && !is.null(input$condition1) && !is.null(input$condition2) && !is.null(main_factor)) {
                     # Fallback: if no saved contrasts, use current contrast from UI
                     contrast_name <- paste0(input$condition1, "_vs_", input$condition2)
                     pipeline_params$contrasts[[contrast_name]] <- c(main_factor, input$condition1, input$condition2)
-                    cat("No saved contrasts found, using current contrast:", contrast_name, "\n")
-                }
-                
-                # Print final contrast list
-                if (!is.null(pipeline_params$contrasts)) {
-                    cat("Final contrasts for export:\n")
-                    print(pipeline_params$contrasts)
-                } else {
-                    cat("No contrasts available for export\n")
                 }
                 
                 # Generate the comprehensive DESeq2 pipeline code
@@ -2502,7 +2279,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                     params = pipeline_params
                 )
                 
-                cat("Section 0 pipeline generated successfully!\n")
                 
                 deseq2_pipeline <- paste0(deseq2_pipeline,
                     "\ncat(\"=\", rep(\"=\", 70), \"\\n\", sep = \"\")\n",
@@ -2512,7 +2288,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                 )
                 
                 # Load helper functions template for optimized code generation
-                cat("Loading helper functions template...\n")
                 helper_functions_code <- tryCatch({
                     readLines("templates/template_helper_functions.R", warn = FALSE)
                 }, error = function(e) {
@@ -2526,17 +2301,14 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                         paste(helper_functions_code, collapse = "\n"),
                         "\n\n"
                     )
-                    cat("Helper functions loaded successfully!\n")
                 } else {
                     helper_functions_section <- ""
-                    cat("Skipping helper functions (not found)\n")
                 }
                 
                 # Sort sections by order for plot generation
                 sections_ordered <- all_r_code_sections[order(sapply(all_r_code_sections, function(x) x$order))]
                 
                 # Generate complete script using template wrapper (cleaner than paste0)
-                cat("Assembling complete script from template...\n")
                 combined_script <- generateScriptWrapper(
                     helper_functions = helper_functions_section,
                     deseq2_pipeline = deseq2_pipeline,
@@ -2550,7 +2322,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                 script_file <- file.path(export_dir, script_filename)
                 writeLines(combined_script, script_file)
                 
-                cat("Created comprehensive script:", script_filename, "\n")
             }
             
             # Create README
@@ -2586,7 +2357,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
             }
             
             # Generate README from template (much cleaner than 122 lines of paste0!)
-            cat("Generating README from template...\n")
             readme_text <- generateREADME(
                 timestamp = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
                 script_filename = script_filename,
@@ -2599,14 +2369,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
             
             # Create final ZIP
             if (length(all_files) > 0) {
-                # Debug: List files in export directory
-                cat("\n=== Export ALL Debug ===\n")
-                cat("Export directory:", export_dir, "\n")
-                cat("Files in export directory:\n")
                 files_to_zip <- list.files(export_dir, full.names = FALSE)
-                cat(paste(files_to_zip, collapse = "\n"), "\n")
-                cat("Total files:", length(files_to_zip), "\n")
-                cat("========================\n\n")
                 
                 if (length(files_to_zip) > 0) {
                     zip_file <- file.path(temp_dir, paste0("all_plots_export_", timestamp, ".zip"))

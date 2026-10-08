@@ -3,9 +3,7 @@ observe({
 })
 
 compareReactive <- reactive({
-    cat("DEBUG: compareReactive triggered, getDiffResVs value:", input$getDiffResVs, "\n")
     if (isTRUE(input$getDiffResVs > 0)) {
-        cat("DEBUG: getDiffResVs > 0, proceeding with DE analysis\n")
         withProgress(message = "Getting DESeq results , please wait ...", {
             isolate({
                 factorsStr <- "Intercept: no replicates"
@@ -21,7 +19,6 @@ compareReactive <- reactive({
                         myValues$vsResults <- results(myValues$dds, contrast = list(input$resultNamesInput))
                         factorsStr <- paste(list(input$resultNamesInput))
                     } else if (input$resultNameOrFactor == "Factors") {
-                        cat("DEBUG: Using Factors method with factorNameInput:", input$factorNameInput, "condition1:", input$condition1, "condition2:", input$condition2, "\n")
                         validate(
                             need((input$condition1 != input$condition2), message = "condition 1 must be different from condition 2")
                         )
@@ -29,39 +26,33 @@ compareReactive <- reactive({
 
                         myValues$vsResults <- results(myValues$dds, contrast = c(input$factorNameInput, input$condition1, input$condition2))
                         factorsStr <- paste(input$factorNameInput, " : ", input$condition1, input$condition2)
-                        cat("DEBUG: Factors analysis completed, factorsStr:", factorsStr, "\n")
                     }
                 }
 
 
                 js$addStatusIcon("resultsTab", "done")
-                
-                cat("DEBUG: DE analysis completed successfully\n")
+
                 return(list("results" = myValues$vsResults, "conditions" = factorsStr))
             })
         })
     } else {
-        cat("DEBUG: getDiffResVs <= 0, returning NULL\n")
         return(NULL)
     }
 })
 
 output$maPlot <- renderPlot({
-    cat("DEBUG: maPlot renderPlot called\n")
     comparison_result <- compareReactive()
+    # Read the plot settings outside isolate() so the plot reacts to them
+    ylim <- input$ylim
+    alpha <- input$alpha
     if (!is.null(comparison_result)) {
-        cat("DEBUG: compareReactive() returned valid results, generating MA plot\n")
         isolate({
-            plotMA(comparison_result$results, main = "MA Plot", ylim = c(-input$ylim, input$ylim), alpha = input$alpha, colSig = "red")
+            plotMA(comparison_result$results, main = "MA Plot", ylim = c(-ylim, ylim), alpha = alpha, colSig = "red")
         })
     } else {
-        cat("DEBUG: compareReactive() returned NULL, MA plot will be empty\n")
-        cat("DEBUG: Current state - getDiffResVs:", input$getDiffResVs, "vsResults exists:", !is.null(myValues$vsResults), "\n")
-        
         # If we have stored results but compareReactive is returning NULL, try to use those directly
         if (!is.null(myValues$vsResults)) {
-            cat("DEBUG: Using stored vsResults for MA plot\n")
-            plotMA(myValues$vsResults, main = "MA Plot (from stored results)", ylim = c(-input$ylim, input$ylim), alpha = input$alpha, colSig = "red")
+            plotMA(myValues$vsResults, main = "MA Plot (from stored results)", ylim = c(-ylim, ylim), alpha = alpha, colSig = "red")
         }
     }
 })
@@ -112,10 +103,29 @@ output$download_ma_plot <- nasqar_download_handler(
 
 filelist <- reactiveValues()
 filelist$file_list <- list()
+filelist$saved_at <- list()
 contrast_specs <- reactiveValues()
 contrast_specs$specs <- list()
 
+# A new DESeq2 run invalidates every result derived from the previous dds
+# (results table, saved contrasts, brushed heatmap selection). Skipped while a
+# saved session is being restored, since that sets dds and the results together.
+observeEvent(myValues$dds, {
+    if (isTRUE(myValues$restoration_in_progress)) {
+        return()
+    }
+    myValues$vsResults <- NULL
+    filelist$file_list <- list()
+    filelist$saved_at <- list()
+    contrast_specs$specs <- list()
+    myValues$brushed_heatmap_data <- NULL
+    myValues$brushed_genes <- NULL
+    myValues$brushed_samples <- NULL
+}, ignoreInit = TRUE)
 
+output$savedFileList <- renderDataTable({
+    data.frame(Saved.Results = as.character(names(filelist$file_list)))
+})
 
 observeEvent(input$do, {
     req(compareReactive()$results)
@@ -152,13 +162,10 @@ observeEvent(input$do, {
     csv <- myValues$vsResults
     file <- file.path(session_dir, filename)
     filelist$file_list[[filename]] <- file
+    # Stamp each save so re-marking the same contrast re-reads the file
+    filelist$saved_at[[filename]] <- Sys.time()
     write.csv(csv, file, row.names = T)
-    # print( names(filelist$file_list))
     Saved.Results <- names(filelist$file_list)
-    output$savedFileList <- renderDataTable({
-        data.frame(Saved.Results)
-    })
-    print(Saved.Results)
     shinyjs::show(selector = "a[data-value=\"volcanoplotTab\"]")
 
     if (length(Saved.Results) > 1) {
@@ -269,9 +276,8 @@ output$download_code_ma <- nasqar_download_handler(
     },
     content = function(file) {
         export_mode <- get_export_mode(input)
-        export_format <- get_export_format(input)
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-        
+
         if (export_mode == "full") {
             # FULL MODE: Export MA plots for multiple saved contrasts
             req(exists("filelist"), !is.null(filelist$file_list), length(filelist$file_list) > 0)

@@ -3,10 +3,16 @@ observe({
 })
 
 svaReactive <- eventReactive(input$runSVA, {
-    # print(input$designFormulaSva)
-    sva_design <- parse_design_formula(
-        input$designFormulaSva,
-        colnames(colData(myValues$dds))
+    req(myValues$dds)
+    sva_design <- tryCatch(
+        parse_design_formula(
+            input$designFormulaSva,
+            colnames(colData(myValues$dds))
+        ),
+        error = function(e) {
+            showNotification(paste("SVA error:", conditionMessage(e)), type = "error")
+            validate(need(FALSE, conditionMessage(e)))
+        }
     )
     validate(need(
         length(attr(terms(sva_design), "term.labels")) > 0,
@@ -118,32 +124,38 @@ sva_scatter_plot <- reactive({
 output$svaPlot <- renderPlotly(ggplotly(sva_scatter_plot()))
 
 observeEvent(input$regressVarsBatch, ignoreInit = TRUE, {
+    req(myValues$ddsSva)
     withProgress(message = "Removing batch effect, this may take a long time.", {
-        dds <- myValues$ddsSva
+        tryCatch({
+            dds <- myValues$ddsSva
 
-        svaFormula <- parse_design_formula(
-            input$newFormulaSva,
-            colnames(colData(dds))
-        )
+            svaFormula <- parse_design_formula(
+                input$newFormulaSva,
+                colnames(colData(dds))
+            )
 
-        design(dds) <- svaFormula
+            design(dds) <- svaFormula
 
-        shiny::setProgress(value = 0.3, detail = "Running DESeq ...")
-        dds <- DESeq(
-            dds,
-            parallel = TRUE,
-            BPPARAM = MulticoreParam(3)
-        )
+            shiny::setProgress(value = 0.3, detail = "Running DESeq ...")
+            dds <- DESeq(
+                dds,
+                parallel = TRUE,
+                BPPARAM = MulticoreParam(3)
+            )
 
-        shiny::setProgress(value = 0.6, detail = "Computing VST matrix ...")
-        vsd <- varianceStabilizingTransformation(dds)
+            shiny::setProgress(value = 0.6, detail = "Computing VST matrix ...")
+            vsd <- varianceStabilizingTransformation(dds)
 
-        shiny::setProgress(value = 0.8, detail = "limma::removeBatchEffect ...")
-        assay(vsd) <- limma::removeBatchEffect(assay(vsd), covariates = colData(dds)[, input$varsToRegress])
+            shiny::setProgress(value = 0.8, detail = "limma::removeBatchEffect ...")
+            assay(vsd) <- limma::removeBatchEffect(assay(vsd), covariates = colData(dds)[, input$varsToRegress])
 
 
-        myValues$vsdSva <- vsd
-        myValues$ddsAddSV <- dds
+            myValues$vsdSva <- vsd
+            myValues$ddsAddSV <- dds
+        }, error = function(e) {
+            showNotification(paste("SVA error:", conditionMessage(e)), type = "error")
+            NULL
+        })
     })
 })
 
@@ -194,19 +206,14 @@ output$varsToIncludeInDeseq <- renderText({
     return("")
 })
 
-observe({
-    if (isTRUE(input$runDeseqWithSVs > 0)) {
-        #
-        # myValues$DF = colData(myValues$ddsAddSV)
-        myValues$dds <- myValues$ddsAddSV
+observeEvent(input$runDeseqWithSVs, {
+    req(myValues$ddsAddSV)
+    myValues$dds <- myValues$ddsAddSV
 
-        GotoTab("deseqTab")
-    }
-})
+    GotoTab("deseqTab")
+}, ignoreInit = TRUE)
 
-observe({
-    if (isTRUE(input$runDeseqWithoutSVs > 0)) {
-        myValues$dds <- ddsInitReactive()
-        GotoTab("deseqTab")
-    }
-})
+observeEvent(input$runDeseqWithoutSVs, {
+    myValues$dds <- ddsInitReactive()
+    GotoTab("deseqTab")
+}, ignoreInit = TRUE)

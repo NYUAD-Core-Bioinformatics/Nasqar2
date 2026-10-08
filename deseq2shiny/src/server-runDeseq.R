@@ -1,19 +1,12 @@
 output$ddsColData <- renderTable(
     {
-        # print(myValues)
-        # print(myValues$dds)
-        print("ddsColData")
-        print(colData(myValues$dds))
         colDataTable <- colData(myValues$dds)
         colsToSelect <- labels(terms(design(myValues$dds)))
-        print(colsToSelect)
-        print(length(colsToSelect))
 
         if (length(colsToSelect) == 0) {
             return(head(colDataTable, n = 5))
         }
         if (length(colsToSelect) == 1) {
-            print(colsToSelect[[1]])
             h <- head(colDataTable[, colsToSelect], n = 5)
             h <- as.data.frame(h)
             colnames(h) <- c(colsToSelect[[1]])
@@ -46,6 +39,7 @@ ddsReactive <- eventReactive(input$run_deseq2, {
 
         removeNotification("errorNotify")
         removeNotification("errorNotify1")
+        reset_downstream_tabs("deseq")
         # nasqar use 3 cores
         validate(need(
             tryCatch(
@@ -71,22 +65,30 @@ ddsReactive <- eventReactive(input$run_deseq2, {
             "Error"
         ))
 
+        # A failing transformation is reported and skipped; dds is kept.
+        transform_or_notify <- function(label, expr) {
+            tryCatch(expr, error = function(e) {
+                showNotification(paste0(label, " error: ", conditionMessage(e)), type = "error", duration = NULL)
+                NULL
+            })
+        }
+
         if (input$computeRlog) {
             shiny::setProgress(value = 0.5, detail = "Calculating RLog transformation ...")
-            rld <- rlog(dds)
+            rld <- transform_or_notify("rlog", rlog(dds))
             myValues$rld <- rld
-            myValues$rlogMat <- assay(rld)
+            myValues$rlogMat <- if (is.null(rld)) NULL else assay(rld)
 
-            myValues$rldColNames <- colnames(rld)
+            myValues$rldColNames <- if (is.null(rld)) NULL else colnames(rld)
         }
 
 
         shiny::setProgress(value = 0.7, detail = "Computing Variance Stabilizing Transformation ...")
 
-        vsd <- varianceStabilizingTransformation(dds)
+        vsd <- transform_or_notify("VST", varianceStabilizingTransformation(dds))
         myValues$vsd <- vsd
-        myValues$vstMat <- assay(vsd)
-        myValues$vsdColNames <- colnames(vsd)
+        myValues$vstMat <- if (is.null(vsd)) NULL else assay(vsd)
+        myValues$vsdColNames <- if (is.null(vsd)) NULL else colnames(vsd)
 
         shiny::setProgress(value = 0.8, detail = "Formatting data ...")
 
@@ -99,12 +101,12 @@ ddsReactive <- eventReactive(input$run_deseq2, {
         shinyjs::show(selector = "a[data-value=\"boxplotTab\"]")
         shinyjs::show(selector = "a[data-value=\"resultsTab\"]")
         shinyjs::show(selector = "a[data-value=\"heatmapTab\"]")
-        shinyjs::show(selector = "a[data-value=\"vstTab\"]")
+        if (!is.null(vsd)) {
+            shinyjs::show(selector = "a[data-value=\"vstTab\"]")
+        }
 
-        if (input$computeRlog) {
+        if (input$computeRlog && !is.null(myValues$rld)) {
             shinyjs::show(selector = "a[data-value=\"rlogTab\"]")
-        } else {
-            shinyjs::hide(selector = "a[data-value=\"rlogTab\"]")
         }
 
 
@@ -112,7 +114,7 @@ ddsReactive <- eventReactive(input$run_deseq2, {
 
         # print('factorChoices')
         # print(factorChoices)
-        factorChoices <- factorChoices[!grepl("^SV[::digit::]*", factorChoices)]
+        factorChoices <- factorChoices[!grepl("^SV[[:digit:]]+$", factorChoices)]
 
         updateSelectInput(session, "rlogIntGroupsInput", choices = factorChoices, selected = factorChoices[1])
         updateSelectInput(session, "vsdIntGroupsInput", choices = factorChoices, selected = factorChoices[1])
@@ -121,19 +123,11 @@ ddsReactive <- eventReactive(input$run_deseq2, {
 
         # Filter factorChoices to only include categorical factors that are in the design formula
         design_terms <- labels(terms(design(dds)))
-        print("Design formula terms:")
-        print(design_terms)
-        print("Available factor choices:")
-        print(factorChoices)
         
         validFactorChoices <- getValidCategoricalFactors(factorChoices, design_terms, myValues$DF)
         
-        print("Valid categorical factor choices:")
-        print(validFactorChoices)
-        
-        # If no valid factors found, keep original list but add warning
+        # If no valid factors found, keep original list
         if (length(validFactorChoices) == 0) {
-            print("Warning: No categorical factors from design formula found for differential analysis")
             validFactorChoices <- factorChoices
         }
 
@@ -165,10 +159,6 @@ ddsReactive <- eventReactive(input$run_deseq2, {
 
 observeEvent(input$factorNameInput,
     {
-        print("factorNameInput")
-        print(input$factorNameInput)
-        print(myValues$DF)
-        
         # Validate that the selected factor still exists in myValues$DF
         if (is.null(myValues$DF) || is.null(input$factorNameInput) || input$factorNameInput == "") {
             return()
@@ -214,9 +204,6 @@ observeEvent(input$factorNameInput,
             return()
         }
         
-        # print(levels(factor(myValues$DF[,input$factorNameInput])))
-        print("factorNameInput changed")
-        
         # Get factor levels properly, converting to factor if necessary
         factor_data <- myValues$DF[, input$factorNameInput]
         
@@ -226,7 +213,6 @@ observeEvent(input$factorNameInput,
         }
         
         factor_levels <- as.vector(levels(factor_data))  # Ensure simple vector
-        print(paste("Factor levels:", paste(factor_levels, collapse = ", ")))
         
         # Only populate if there are at least 2 levels for comparison
         if (length(factor_levels) < 2) {

@@ -6,23 +6,18 @@ output$select_ui <- renderUI({
 })
 
 avo_data <- reactive({
-    print("avao_dataaaa")
     req(input$select_avo_de_file)
-
-    print("avao_dataaaa2")
-
-
-
-
     req(input$select_avo_de_file != "Select data")
 
-    df <- read.csv(filelist$file_list[[input$select_avo_de_file]])
+    path <- filelist$file_list[[input$select_avo_de_file]]
+    # Depend on the save stamp so a re-marked contrast (same path) is re-read
+    filelist$saved_at[[input$select_avo_de_file]]
+    req(path)
 
-
+    df <- read.csv(path)
 
     df <- na.omit(df)
     zero_padj_row <- df$padj < 1e-310
-    print(sum(zero_padj_row))
 
     if (sum(zero_padj_row) > 0) {
         df[zero_padj_row, ]$padj <- 1e-310
@@ -54,8 +49,7 @@ avo_data <- reactive({
 
 all_genes <- reactive({
     df <- avo_data()
-    print(as.numeric(input$log_fold_change_threshold))
-    
+
     # Use either the slider threshold or direct padj threshold based on user selection
     if (input$volcano_threshold_type == "slider") {
         df <- df[(df$padj < 1 / 10^as.numeric(input$significance_threshold)) & abs(df$log2FoldChange) > as.numeric(input$log_fold_change_threshold), ]
@@ -81,23 +75,18 @@ low_sig_genes <- reactive({
 
 sig_genes <- reactive({
     if (input$sig_genes_selection == "1") {
-        print("All genes")
         return(all_genes())
     }
     if (input$sig_genes_selection == "2") {
-        print("High genes")
         return(high_sig_genes())
     }
 
-    print("Low genes")
     return(low_sig_genes())
 })
 
 
 output$sig_gene_table <- renderDataTable(
     {
-        fileUrl <- UUIDgenerate()
-        fileUrl <- file.path(session_dir, paste0(fileUrl, ".csv"))
         genes_df <- sig_genes()
 
         if (input$gene_alias == "included") {
@@ -121,23 +110,7 @@ output$sig_gene_table <- renderDataTable(
 
 
 
-        # write.csv(gene_names, file = fileUrl, row.names = FALSE)
-
-
         updateTextAreaInput(session, "volcano_gene_list", value = paste(gene_names, collapse = input$volcano_input_genes_sep))
-
-        # output[["volcano_gene_list_ouput"]] <- renderUI({
-        #           textAreaInput("volcano_gene_list", 'GeneList', rows = 3)
-        # })
-
-        # output[["enrichGo_volcano"]] <-   renderUI({
-
-        #       tags$div(class = "BoxArea7", style = "text-align: center;",
-        #                     p(strong("ClusterProfShinyORA")),
-        #                     a("goEnrich", href=paste0("/ClusterProfShinyORA?gene_names=", encryptUrlParam(fileUrl)), class = "btn btn-success", target = "_blank", style = "width: 100%;")
-        #                     )
-        # })
-
 
         return(genes_df)
     },
@@ -154,7 +127,6 @@ output$sig_genes_header <- renderText({
         return(paste0("Up regulated genes: ", nrow(high_sig_genes())))
     }
 
-    print("Low genes")
     return(paste0("Down regulated genes: ", nrow(low_sig_genes())))
 })
 
@@ -162,11 +134,7 @@ output$sig_genes_header <- renderText({
 
 output$curve_plot <- renderPlot(
     {
-        print("curve_plot")
-
         df <- avo_data()
-
-        print(df)
 
         # Determine the padj cutoff based on user's selection
         pCutoff <- if (input$volcano_threshold_type == "slider") {
@@ -414,16 +382,18 @@ output$download_code_volcano <- nasqar_download_handler(
     },
     content = function(file) {
         export_mode <- get_export_mode(input)
-        export_format <- get_export_format(input)
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-        
+
         # Get current parameters
         padj_threshold <- if (input$volcano_threshold_type == "slider") {
             1 / 10^as.numeric(input$significance_threshold)
         } else {
             as.numeric(input$volcano_direct_padj)
         }
-        
+        # Label genes the same way the displayed plot does (gene.name when
+        # gene names are included, otherwise gene.id)
+        label_by_gene_name <- identical(input$gene_alias, "included") && !is.null(myValues$genenames)
+
         if (export_mode == "full") {
             # FULL MODE: Export volcano plots for multiple saved contrasts
             req(exists("filelist"), !is.null(filelist$file_list), length(filelist$file_list) > 0)
@@ -494,8 +464,8 @@ output$download_code_volcano <- nasqar_download_handler(
                     comparison_name = comparison_name_clean,
                     padj_threshold = padj_threshold,
                     log2fc_threshold = input$log_fold_change_threshold,
-                    use_gene_names = (!is.null(input$volcano_sel_gene_type) && input$volcano_sel_gene_type == "gene.name"),
-                    gene_type = if(!is.null(input$volcano_sel_gene_type)) input$volcano_sel_gene_type else "gene.id",
+                    use_gene_names = label_by_gene_name,
+                    gene_type = if (label_by_gene_name) "gene.name" else "gene.id",
                     data_file = results_filename,
                     genes_of_interest = if (!is.null(input$volcano_genes_of_interest)) trimws(input$volcano_genes_of_interest) else ""
                 )
@@ -613,8 +583,8 @@ output$download_code_volcano <- nasqar_download_handler(
                 comparison_name = comparison_name,
                 padj_threshold = padj_threshold,
                 log2fc_threshold = input$log_fold_change_threshold,
-                use_gene_names = (!is.null(input$volcano_sel_gene_type) && input$volcano_sel_gene_type == "gene.name"),
-                gene_type = if(!is.null(input$volcano_sel_gene_type)) input$volcano_sel_gene_type else "gene.id",
+                use_gene_names = label_by_gene_name,
+                gene_type = if (label_by_gene_name) "gene.name" else "gene.id",
                 data_file = paste0(comparison_name, "_results.csv"),
                 genes_of_interest = if (!is.null(input$volcano_genes_of_interest)) trimws(input$volcano_genes_of_interest) else ""
             )

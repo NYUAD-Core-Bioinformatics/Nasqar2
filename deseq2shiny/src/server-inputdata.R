@@ -15,36 +15,9 @@ if (!is.null(data_root)) {
 }
 
 observe({
-    # Hide the loading message when the rest of the server function has executed
-    # hide(id = "loading-content", anim = TRUE, animType = "fade")
-    #
-    # removeClass("app-content", "hidden")
-
-
-    # shinyjs::hide(selector = "a[data-value=\"conditionsTab1\"]")
-    # print("server-inputdata")
-
-    shinyjs::hide(selector = "a[data-value=\"deseqTab\"]")
-    shinyjs::hide(selector = "a[data-value=\"svaseqTab\"]")
-    shinyjs::hide(selector = "a[data-value=\"conditionsTab\"]")
-
-    shinyjs::hide(selector = "a[data-value=\"rlogTab\"]")
-    shinyjs::hide(selector = "a[data-value=\"vstTab\"]")
-
-    shinyjs::hide(selector = "a[data-value=\"resultsTab\"]")
-    shinyjs::hide(selector = "a[data-value=\"venndiagramTab\"]")
-    shinyjs::hide(selector = "a[data-value=\"volcanoplotTab\"]")
-    shinyjs::hide(selector = "a[data-value=\"boxplotTab\"]")
-    shinyjs::hide(selector = "a[data-value=\"heatmapTab\"]")
+    reset_downstream_tabs("input")
 
     shinyjs::disable("computeVST")
-    # Check if example selected, or if not then ask to upload a file.
-
-    # shiny:: validate(
-    #   need((input$data_file_type=="examplecounts")|((!is.null(input$rdatafile))|(!is.null(input$datafile))),
-    #        message = "Please select a file")
-    # )
-    # inFile <- input$datafile
 
     inputFileReactive()
 })
@@ -78,7 +51,14 @@ inputFileReactive <- reactive({
     # print('valida')
 
     if (!is.null(query[["countsdata"]])) {
-        inFile <- validate_exchange_path(decryptUrlParam(query[["countsdata"]]))
+        handoff_expected <- c(
+            "A counts table handed off by another NASQAR module through a link that is still valid",
+            "If the link has expired, upload the counts file directly instead"
+        )
+        inFile <- tryCatch(validate_exchange_path(decryptUrlParam(query[["countsdata"]])),
+                           error = function(e) nasqar_input_problem(
+                               paste("The handed-off counts file is no longer available:", conditionMessage(e)),
+                               handoff_expected, NULL, "handoff"))
         # print('ask inputdata')
         shinyjs::show(selector = "a[data-value=\"inputdata\"]")
         shinyjs::disable("datafile")
@@ -113,20 +93,33 @@ inputFileReactive <- reactive({
 
     # A wrong file explains itself (expected layout + first lines received)
     # instead of crashing the session.
-    geneAliasMode <- input$gene_alias
-    counts_expected <- c(
+    # The gene-alias radio is only offered for uploaded (or handed-off) files;
+    # the example data sets have no symbol column.
+    geneAliasMode <- if (!is.null(query[["countsdata"]]) || isTRUE(input$data_file_type %in% c("countsFile", "hpcFile"))) {
+        input$gene_alias
+    } else {
+        "notincluded"
+    }
+    counts_expected_for <- function(mode) c(
         "A plain-text table (CSV or tab-delimited) with a header row",
         "Column 1: gene identifiers, unique, one gene per row",
-        if (identical(geneAliasMode, "included")) "Column 2: gene symbols (choose 'My matrix contains GeneIDs only' if there is no such column)",
+        if (identical(mode, "included")) "Column 2: gene symbols (choose 'My matrix contains GeneIDs only' if there is no such column)",
         "Every following column: one sample of raw (integer) read counts, with the sample name in the header",
         "No normalised values (TPM/FPKM), no blank cells"
     )
+    counts_expected <- counts_expected_for(geneAliasMode)
     fileContent <- nasqar_read_table(inFile[1], counts_expected, label = "counts file",
                                      check = function(df) if (ncol(df) < 2) "The table has fewer than 2 columns (is the separator a comma or a tab?)")
+
+    # A new file starts without the gene-name bookkeeping of the previous one.
+    myValues$geneids <- NULL
+    myValues$genenames <- NULL
+    output$conditional_output <- renderUI(NULL)
 
     if (!is.null(query[["countsdata"]]) &&
         has_gene_alias_column(fileContent)) {
         geneAliasMode <- "included"
+        counts_expected <- counts_expected_for(geneAliasMode)
         updateRadioButtons(session, "gene_alias", selected = geneAliasMode)
     }
     counts_problem <- nasqar_check_count_table(fileContent, id_columns = if (identical(geneAliasMode, "included")) 2L else 1L)
@@ -147,14 +140,11 @@ inputFileReactive <- reactive({
         sampleN <- colnames(fileContent)[c(-1,-2)]
 
         chosen_column <- "gene.names"
-        print(chosen_column)
         
         df <-  fileContent
        
         duplicated_names <- df[[2]][duplicated(df[[2]])]
-        print(duplicated_names)
         duplicate_rows <- df[df[[2]] %in% duplicated_names, ]
-        print(duplicate_rows)
         output$duplicate_contents <- renderDataTable({duplicate_rows}, options = list(scrollX = TRUE))
 
         genenames <-fileContent[, c(2)]
@@ -174,9 +164,6 @@ inputFileReactive <- reactive({
 
         myValues$geneids <- geneids
         myValues$genenames <- genenames
-        print('length(duplicated_names)')
-        print(duplicated_names)
-        print(length(duplicated_names))
         if(length(duplicated_names)>0) {
         output$conditional_output <- renderUI({
         div(
@@ -232,27 +219,14 @@ output$contents <- renderDataTable(
 
 
 observeEvent(input$prefilterCounts, ignoreInit = TRUE, {
+    validate(need(is.finite(input$minRowCount), "Enter a minimum row count"))
     dataCounts <- inputFileReactive()
-    dataCounts <- dataCounts[rowSums(dataCounts) >= input$minRowCount, ]
+    dataCounts <- dataCounts[rowSums(dataCounts) >= input$minRowCount, , drop = FALSE]
     myValues$dataCounts <- dataCounts
     
     # Store filtering parameters for export reproducibility
     myValues$prefilter_applied <- TRUE
     myValues$prefilter_threshold <- input$minRowCount
-    
-    print("prefilterCounts")
-    print(paste("Applied prefilter with threshold:", input$minRowCount))
-})
-
-output$deseqMenu <- renderMenu({
-    if (!is.null(csvDataReactive())) {
-        menuItem("2. Run DESeq2",
-            tabName = "preprocTab", icon = icon("th"), startExpanded = T,
-            menuSubItem("Design Conditions", tabName = "conditionsTab"),
-            menuSubItem("Hidden Batch Effect", tabName = "svaseqTab"),
-            menuSubItem("Run DESeq2", tabName = "deseqTab")
-        )
-    }
 })
 
 
@@ -267,6 +241,7 @@ csvDataReactive <- eventReactive(input$submit, {
     # Reapply the requested prefilter so that "Next" does not silently restore
     # rows removed with the Filter button.
     if (isTRUE(input$prefilterCounts > 0)) {
+        validate(need(is.finite(input$minRowCount), "Enter a minimum row count"))
         fileContent <- fileContent[
             rowSums(fileContent) >= input$minRowCount,
             ,
@@ -310,6 +285,7 @@ csvDataReactive <- eventReactive(input$submit, {
 
 
     myValues$DF <- samples
+    myValues$excludedSamplesInfo <- character(0)
     myValues$DF[] <- lapply(myValues$DF, function(x) {
         if (is.character(x) || is.factor(x)) {
             as.factor(x)
@@ -337,6 +313,6 @@ outputOptions(output, "noreplicates", suspendWhenHidden = FALSE)
 observe({
     if (isTRUE(input$data_file_type %in% c("examplecountsfactors", "countsFile", "hpcFile"))) {
         updateCheckboxInput(session, "no_replicates", value = F)
-        test <- inputFileReactive()
+        inputFileReactive()
     }
 })
