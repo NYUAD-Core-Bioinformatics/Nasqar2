@@ -70,6 +70,9 @@ merge_count_frames <- function(frames) {
 
 ui <- tagList(
     tags$head(
+        # same icon as the NASQAR2 landing page
+        tags$link(rel = "icon", type = "image/png", href = "CGSB-Logo.png"),
+        tags$link(rel = "shortcut icon", type = "image/png", href = "CGSB-Logo.png"),
         tags$style(HTML(" .shiny-output-error-validation {color: darkred; } ")),
         tags$style(".mybuttonclass{background-color:#CD0000;} .mybuttonclass{color: #fff;} .mybuttonclass{border-color: #9E0000;}"),
         tags$style(".BoxArea2 { padding:19px; margin: 5px; border: 3px solid; border-color:#c7dbe6; border-radius:10px;}"),

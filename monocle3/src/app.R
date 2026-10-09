@@ -30,7 +30,11 @@ source("./source.R")
 # Define UI for application
 ui <- shinyUI(fluidPage(
                         # Set style for vertical alignment
-                        tags$head(tags$style(
+                        tags$head(
+                            # same icon as the NASQAR2 landing page
+                            tags$link(rel = "icon", type = "image/png", href = "CGSB-Logo.png"),
+                            tags$link(rel = "shortcut icon", type = "image/png", href = "CGSB-Logo.png"),
+                            tags$style(
                           HTML('
                                #vert { 
                                display: flex;

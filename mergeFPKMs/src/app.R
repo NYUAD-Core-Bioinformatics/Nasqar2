@@ -7,6 +7,9 @@ library(parallel)
 ui <- tagList(
     shinyjs::useShinyjs(),
     tags$head(
+        # same icon as the NASQAR2 landing page
+        tags$link(rel = "icon", type = "image/png", href = "CGSB-Logo.png"),
+        tags$link(rel = "shortcut icon", type = "image/png", href = "CGSB-Logo.png"),
         tags$style(HTML(" .shiny-output-error-validation {color: darkred; } ")),
         tags$style(".mybuttonclass{background-color:#CD0000;} .mybuttonclass{color: #fff;} .mybuttonclass{border-color: #9E0000;}")
     ),

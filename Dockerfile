@@ -86,6 +86,12 @@ RUN set -e; \
       rm /tmp/$pkg.tar.gz; \
     done
 
+# Minified libraries that reference a source map their R package does not
+# ship (pickr in InteractiveComplexHeatmap, numbro in rhandsontable, bslib)
+# would make every browser console report 404s; drop those references.
+COPY strip-source-maps.sh /tmp/strip-source-maps.sh
+RUN sh /tmp/strip-source-maps.sh && rm /tmp/strip-source-maps.sh
+
 # Application sources change far more often than the environments and data
 # packages above, so copy them last to keep those layers cached.
 COPY animalcules /srv/shiny-server/animalcules
