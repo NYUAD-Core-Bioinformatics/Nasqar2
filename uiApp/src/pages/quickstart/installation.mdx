@@ -142,6 +142,14 @@ The same variables work with an image built from source (`nasqar2-all`). Leave `
 
 Applications only accept paths under `NASQAR_DATA_ROOT`, so mount the narrowest directory that holds your inputs rather than your home directory.
 
+**Example data.** To have something to try in every application's private-space input, populate the data folder once with small public data sets (pasilla RNA-seq, 10x pbmc3k, the mothur MiSeq SOP, SILVA references, and the ATAC-seq and VCF examples shipped with Bioconductor packages):
+
+```bash
+common/fetch-example-data.sh /path/to/nasqar2-private/data
+```
+
+It writes `data/examples/<App>/...` (about 140 MB, or 360 MB with the SILVA taxonomy references; `--skip-silva` leaves those out) and an `examples/README.md` naming each source. Downloads happen on the machine you run it on; the derived files (DESeq2 results for ORA/GSEA, a Seurat object for Monocle 3) are computed inside the NASQAR2 image, so Docker (or `--sif` for a Singularity image) must be available.
+
 > **Do not set `NASQAR_DATA_ROOT` or the project directories on a public deployment.** Any user of the portal could then browse and read whatever is mounted there. Leave them unset and the instance stays upload-only.
 
 On HPC the Slurm job script sets all of these for you; see the [HPC Deployment Guide](/quickstart/hpc).

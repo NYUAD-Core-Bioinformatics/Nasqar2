@@ -119,6 +119,21 @@ cohort-sized VCF runs in bounded memory. Raise the chunk size on a node with
 plenty of memory to trade RAM for speed, or lower it on a small allocation:
 `NASQAR_VARIANT_ANNOTATION_CHUNK=100000 sbatch nasqar2.sbatch`.
 
+## Example data
+
+To try each application before pointing it at your own files, populate the
+data root once from a login node (it downloads public data sets and derives a
+few files inside the image; about 360 MB, `--skip-silva` for 140 MB):
+
+```bash
+common/fetch-example-data.sh /path/to/data --sif /path/to/nasqar2/images/nasqar2.sif
+```
+
+`/path/to/data` is the directory the job mounts as `NASQAR2_DATA_ROOT` (by
+default the directory containing `NASQAR2_HOME`). The files land in
+`/path/to/data/examples/<App>/` with a README naming every source; pick them
+from the Browse dialog of the matching application.
+
 ## Applications with private-instance data access
 
 A Slurm job is one form of NASQAR2 private instance: the portal serves a single
