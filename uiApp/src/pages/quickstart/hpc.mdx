@@ -30,9 +30,11 @@ docker build -t nasqar2-all:latest .
 ./hpc/build-sif.sh
 ```
 
-The SIF is written to `hpc/build/nasqar2.sif` (pass another path as the
-first argument). The build needs about 25 GB of temporary space under
-`hpc/build`; set `NASQAR2_BUILD_DIR` to use a larger filesystem instead.
+Run both commands from the repository root. The SIF is written inside the
+repository, to `hpc/build/nasqar2.sif`, wherever the script is run from
+(pass another path as the first argument to change that). The build needs
+about 25 GB of temporary space, also under `hpc/build`; set
+`NASQAR2_BUILD_DIR` to use a larger filesystem instead.
 
 ## Install on the cluster filesystem
 
