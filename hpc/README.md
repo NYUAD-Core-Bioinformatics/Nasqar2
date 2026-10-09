@@ -27,11 +27,11 @@ Building requires approximately 25 GB of temporary space. If `/tmp` is too
 small, direct the temporary files and cache to a larger filesystem:
 
 ```bash
-mkdir -p /data/nasqar2-build/{tmp,cache}
-TMPDIR=/data/nasqar2-build/tmp \
-SINGULARITY_TMPDIR=/data/nasqar2-build/tmp \
-SINGULARITY_CACHEDIR=/data/nasqar2-build/cache \
-./hpc/build-sif.sh /data/nasqar2-build/nasqar2.sif
+mkdir -p /path/to/build-space/{tmp,cache}
+TMPDIR=/path/to/build-space/tmp \
+SINGULARITY_TMPDIR=/path/to/build-space/tmp \
+SINGULARITY_CACHEDIR=/path/to/build-space/cache \
+./hpc/build-sif.sh /path/to/build-space/nasqar2.sif
 ```
 
 ## Choose the install directory
