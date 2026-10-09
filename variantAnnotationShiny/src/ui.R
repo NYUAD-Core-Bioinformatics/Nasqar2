@@ -67,6 +67,9 @@ ui <- dashboardPage(
         ")),
         extendShinyjs(script = "custom.js", functions = c("addStatusIcon", "collapse")),
         htmltags$head(
+            # same icon as the NASQAR2 landing page
+            htmltags$link(rel = "icon", type = "image/png", href = "CGSB-Logo.png"),
+            htmltags$link(rel = "shortcut icon", type = "image/png", href = "CGSB-Logo.png"),
             htmltags$link(rel = "stylesheet", type = "text/css", href = "custom.css"),
             htmltags$style(HTML(" .shiny-output-error-validation {color: darkred; } "))
         ),

@@ -25,6 +25,9 @@ library(shinyjs)
 customHeaderPanel <- function(title, windowTitle = title) {
     tagList(
         tags$head(
+            # same icon as the NASQAR2 landing page
+            tags$link(rel = "icon", type = "image/png", href = "CGSB-Logo.png"),
+            tags$link(rel = "shortcut icon", type = "image/png", href = "CGSB-Logo.png"),
             tags$title(windowTitle),
             tags$link(
                 rel = "stylesheet", type = "text/css",
