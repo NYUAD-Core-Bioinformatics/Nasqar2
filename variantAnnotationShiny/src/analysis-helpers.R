@@ -255,16 +255,14 @@ offline_install_instructions <- function(resource, lib) {
     host_lib <- Sys.getenv("NASQAR_R_LIBRARY_HOST", unset = "")
     sif <- Sys.getenv("NASQAR_SIF_HOST", unset = "")
     if (nzchar(host_lib) && nzchar(sif)) {
+        # The Slurm install keeps its helper scripts in <NASQAR2_HOME>/bin,
+        # next to images/<sif>; the helper applies the same bind and library.
+        home <- dirname(dirname(sif))
         paste(
-            "# Compute nodes usually have no internet access. Run this once on an HPC",
-            "# login node. It installs into the same private R library this job mounts,",
-            "# so the genome is available here and in every later job.",
-            "module load singularity",
-            "singularity exec --cleanenv \\",
-            sprintf("  --bind %s:%s \\", host_lib, lib),
-            sprintf("  --env R_LIBS_USER=%s \\", lib),
-            sprintf("  %s \\", sif),
-            sprintf("  /opt/conda/envs/merged_env/bin/Rscript -e '%s'", r_call),
+            "# Compute nodes usually have no internet access. Run this once on a login",
+            "# node. It installs into the private R library this job mounts, so the",
+            "# genome is available here and in every later job.",
+            sprintf("%s/bin/nasqar2-install-genome %s", home, resource$key),
             sep = "\n"
         )
     } else {

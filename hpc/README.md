@@ -46,7 +46,7 @@ ssh USER@LOGIN_HOST \
   'mkdir -p /path/to/nasqar2/{bin,images,runs,slurm}'
 rsync -ah --partial hpc/build/nasqar2.sif \
   USER@LOGIN_HOST:/path/to/nasqar2/images/nasqar2.sif
-rsync -ah hpc/bin/nasqar2-hpc \
+rsync -ah hpc/bin/ \
   USER@LOGIN_HOST:/path/to/nasqar2/bin/
 rsync -ah hpc/slurm/nasqar2.sbatch \
   USER@LOGIN_HOST:/path/to/nasqar2/slurm/
@@ -123,8 +123,12 @@ browser upload.
 Runtime R packages (for example additional reference genomes for Variant
 Annotation) are installed into the private R library, which persists across
 jobs while the SIF and input data remain read-only. Compute nodes usually have
-no internet access; the application shows a ready-to-run `singularity exec`
-command to run once on a login node, which installs into the same library.
+no internet access, so install genomes from a login node with the helper
+(`nasqar2-install-genome --list` shows the catalog):
+
+```bash
+/path/to/nasqar2/bin/nasqar2-install-genome mm39
+```
 
 ## Projects
 

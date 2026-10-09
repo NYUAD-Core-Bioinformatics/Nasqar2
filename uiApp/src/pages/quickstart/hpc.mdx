@@ -54,7 +54,7 @@ ssh USER@LOGIN_HOST \
 
 rsync -ah --partial hpc/build/nasqar2.sif \
   USER@LOGIN_HOST:/path/to/nasqar2/images/nasqar2.sif
-rsync -ah hpc/bin/nasqar2-hpc \
+rsync -ah hpc/bin/ \
   USER@LOGIN_HOST:/path/to/nasqar2/bin/
 rsync -ah hpc/slurm/nasqar2.sbatch \
   USER@LOGIN_HOST:/path/to/nasqar2/slurm/
@@ -154,25 +154,19 @@ portal and take their input through browser upload.
 
 Variant Annotation ships human hg38 and hg19 and can install other species
 (mouse, rat, zebrafish, fruit fly, nematode, yeast, chicken, pig, cow, dog,
-rhesus macaque, chimpanzee) into the private R library, `NASQAR2_R_LIBRARY`
-(default `$NASQAR2_HOME/r-library/R-4.3`). Compute nodes usually have no
-internet access, so the in-app **Install** button fails there. The app then
-shows a ready-to-run command, with the packages for the chosen genome filled
-in, under **No internet on this server?**. Run it once on a login node; it
-installs into the same library the job mounts, so the genome is available in
-this and every later job. For mouse mm39 it is:
+rhesus macaque, chimpanzee) into the private R library. Compute nodes usually
+have no internet access, so the in-app **Install** button fails there; run the
+helper once on a login node instead (the app shows the exact command under
+**No internet on this server?**). For mouse mm39:
 
 ```bash
-module load singularity
-singularity exec --cleanenv \
-  --bind /path/to/nasqar2/r-library/R-4.3:/runtime/R/library \
-  --env R_LIBS_USER=/runtime/R/library \
-  /path/to/nasqar2/images/nasqar2.sif \
-  /opt/conda/envs/merged_env/bin/Rscript -e 'options(timeout = 7200); BiocManager::install(c("BSgenome.Mmusculus.UCSC.mm39", "TxDb.Mmusculus.UCSC.mm39.knownGene", "org.Mm.eg.db"), lib = "/runtime/R/library", update = FALSE, ask = FALSE)'
+/path/to/nasqar2/bin/nasqar2-install-genome mm39
 ```
 
-Installing packages is light enough for a login node. The `timeout` option matters: BSgenome
-tarballs are up to 1 GB and R's default 60-second download limit aborts them.
+`nasqar2-install-genome --list` prints the catalog. The helper installs into
+the same library the jobs mount, so the genome is available in this and every
+later job. It honours the same `NASQAR2_HOME`, `NASQAR2_R_LIBRARY` and
+`NASQAR2_SINGULARITY_MODULE` settings as the job script.
 
 ## Stop a job
 
