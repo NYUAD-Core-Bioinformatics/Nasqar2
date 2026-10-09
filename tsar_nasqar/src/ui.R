@@ -25,9 +25,6 @@ library(shinyjs)
 customHeaderPanel <- function(title, windowTitle = title) {
     tagList(
         tags$head(
-            # same icon as the NASQAR2 landing page
-            tags$link(rel = "icon", type = "image/png", href = "CGSB-Logo.png"),
-            tags$link(rel = "shortcut icon", type = "image/png", href = "CGSB-Logo.png"),
             tags$title(windowTitle),
             tags$link(
                 rel = "stylesheet", type = "text/css",
@@ -45,6 +42,9 @@ jsCode <- "shinyjs.changeWidthHeatmap = function(params){$('#heatmap_rna').css('
 
 tagList(
     tags$head(
+        # same icon as the NASQAR2 landing page
+        tags$link(rel = "icon", type = "image/png", href = "CGSB-Logo.png"),
+        tags$link(rel = "shortcut icon", type = "image/png", href = "CGSB-Logo.png"),
         tags$link(rel = "stylesheet", type = "text/css", href = "buttons.css"),
         tags$style(HTML(" .shiny-output-error-validation {color: darkred; } ")),
         tags$style(".mybuttonclass{background-color:#CD0000;} .mybuttonclass{color: #fff;} .mybuttonclass{border-color: #9E0000;}"),
