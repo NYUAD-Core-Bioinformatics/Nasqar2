@@ -1,7 +1,5 @@
 # Dropdown values of the conditions added in the table, keyed by column name.
-if (!is.list(myValues$conditions)) {
-    myValues$conditions <- list()
-}
+isolate(if (!is.list(myValues$conditions)) myValues$conditions <- list())
 
 observe({
     colnamesChoices <- as.vector(colnames(myValues$DF[!(names(myValues$DF) %in% c("Samples", "Groups"))]))
