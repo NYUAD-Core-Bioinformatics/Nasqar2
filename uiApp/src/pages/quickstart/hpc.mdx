@@ -23,45 +23,16 @@ local scheduling policy.
 
 ## Build the Singularity image
 
-Build the all-in-one Docker image (the Singularity definition bootstraps from
-the `nasqar2-all:latest` tag), then create the SIF:
+Build the all-in-one Docker image, then turn it into a SIF:
 
 ```bash
 docker build -t nasqar2-all:latest .
 ./hpc/build-sif.sh
 ```
 
-The default output is `hpc/build/nasqar2.sif`. The Singularity build can
-require approximately 25 GB of temporary space. Redirect its temporary and
-cache directories when `/tmp` is too small:
-
-```bash
-mkdir -p /path/to/build-space/{tmp,cache}
-TMPDIR=/path/to/build-space/tmp \
-SINGULARITY_TMPDIR=/path/to/build-space/tmp \
-SINGULARITY_CACHEDIR=/path/to/build-space/cache \
-./hpc/build-sif.sh /path/to/build-space/nasqar2.sif
-```
-
-The `docker-daemon` bootstrap exports the image through the Docker daemon,
-which stages it under `/var/lib/docker/tmp`. If that filesystem has less than
-about 15 GB free the build fails with `no space left on device` even when the
-directories above point elsewhere. In that case stream the container
-filesystem into a sandbox directory and build from it instead:
-
-```bash
-mkdir -p /path/to/build-space/sandbox
-cid=$(docker create nasqar2-all:latest)
-docker export "$cid" | tar -x -C /path/to/build-space/sandbox
-docker rm "$cid"
-sed 's#^Bootstrap: docker-daemon$#Bootstrap: localimage#; s#^From: .*#From: /path/to/build-space/sandbox#' \
-  hpc/singularity/nasqar2-local.def > /path/to/build-space/nasqar2-sandbox.def
-singularity build --fakeroot --force /path/to/build-space/nasqar2.sif /path/to/build-space/nasqar2-sandbox.def
-```
-
-Run the `singularity build` from the repository root so the definition's
-`%files` entry resolves. The resulting SIF is identical in content; only the
-Docker metadata (which the definition re-creates) is not carried over.
+The SIF is written to `hpc/build/nasqar2.sif` (pass another path as the
+first argument). The build needs about 25 GB of temporary space under
+`hpc/build`; set `NASQAR2_BUILD_DIR` to use a larger filesystem instead.
 
 ## Install on the cluster filesystem
 
