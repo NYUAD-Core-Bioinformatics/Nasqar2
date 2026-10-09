@@ -209,10 +209,8 @@ compute_enrichment <- function(prepared) {
             if (!is.null(prepared$kegg_gene_list)) {
                 setProgress(value = 0.6, detail = "Performing KEGG enrichment analysis, please wait ...")
 
-                old_timeout <- getOption("timeout")
-                options(timeout = min(old_timeout, 20))
                 kegg_enrich <- tryCatch(
-                    enrichKEGG(
+                    nasqar_with_timeout(enrichKEGG(
                         gene = prepared$kegg_genes,
                         universe = names(prepared$kegg_gene_list),
                         organism = organismsDbKegg[input$organismDb],
@@ -222,17 +220,16 @@ compute_enrichment <- function(prepared) {
                         keyType = "ncbi-geneid",
                         minGSSize = input$minGSSize,
                         maxGSSize = input$maxGSSize
-                    ),
+                    )),
                     error = function(e) {
                         showNotification(
                             id = "keggEnrichError",
-                            paste("KEGG enrichment failed:", conditionMessage(e),
-                                  "GO results remain available."),
+                            if (nasqar_network_error(e)) paste("KEGG enrichment skipped.", nasqar_offline_message("KEGG"))
+                            else paste("KEGG enrichment failed:", conditionMessage(e), "GO results remain available."),
                             type = "warning", duration = NULL
                         )
                         NULL
-                    },
-                    finally = options(timeout = old_timeout)
+                    }
                 )
 
                 if (is.null(kegg_enrich) || nrow(kegg_enrich@result) == 0) {

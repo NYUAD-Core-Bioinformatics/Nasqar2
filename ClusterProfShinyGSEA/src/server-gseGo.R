@@ -130,7 +130,7 @@ compute_enrichment <- function(prepared) {
             setProgress(value = 0.6, detail = "Performing KEGG gene set enrichment analysis ...")
             if (!is.null(prepared$kegg_gene_list)) {
                 kegg_gse <- tryCatch(
-                    gseKEGG(
+                    nasqar_with_timeout(gseKEGG(
                         geneList = prepared$kegg_gene_list,
                         organism = myValues$organismKegg,
                         nPerm = input$nPerm,
@@ -139,11 +139,12 @@ compute_enrichment <- function(prepared) {
                         pvalueCutoff = input$pvalCuttoff,
                         pAdjustMethod = input$pAdjustMethod,
                         keyType = "ncbi-geneid"
-                    ),
+                    )),
                     error = function(e) {
                         showNotification(
                             id = "keggGseError",
-                            paste("KEGG GSEA failed:", conditionMessage(e)),
+                            if (nasqar_network_error(e)) paste("KEGG GSEA skipped.", nasqar_offline_message("KEGG"))
+                            else paste("KEGG GSEA failed:", conditionMessage(e)),
                             type = "error", duration = NULL
                         )
                         NULL
