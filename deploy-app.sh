@@ -31,9 +31,17 @@ while [[ $# -gt 0 ]]; do
 done
 [[ ${#apps[@]} -gt 0 ]] || usage 1
 
+# Default: every running container started with `docker run nasqar2-all...`
+# (Config.Image keeps that reference even after the tag moves to a rebuilt
+# image, which makes `--filter ancestor` and `docker ps` image names miss
+# containers from the previous build) that actually runs the stack (a scanner
+# or a one-off `docker run` of the image has no supervisord and is skipped).
 if [[ ${#containers[@]} -eq 0 ]]; then
-    mapfile -t containers < <(docker ps --filter ancestor=nasqar2-all:latest --format '{{.Names}}')
-    [[ ${#containers[@]} -gt 0 ]] || { echo "no running nasqar2-all container; pass -c <name>" >&2; exit 1; }
+    for name in $(docker ps -q | xargs -r docker inspect --format '{{.Name}} {{.Config.Image}}' |
+                      awk '$2 ~ /^nasqar2-all(:|$)/ {sub("^/", "", $1); print $1}'); do
+        docker exec "$name" test -S /var/run/supervisor.sock 2>/dev/null && containers+=("$name")
+    done
+    [[ ${#containers[@]} -gt 0 ]] || { echo "no running nasqar2-all container with supervisord; pass -c <name>" >&2; exit 1; }
 fi
 
 for app in "${apps[@]}"; do
@@ -47,9 +55,10 @@ trap 'rm -f "$bundle"' EXIT
 (cd "$repo_root" && git ls-files -z --cached --others --exclude-standard -- "${apps[@]}" |
      tar --null -T - -cf "$bundle")
 
+status=0
 for container in "${containers[@]}"; do
     echo "== $container"
-    docker cp "$bundle" "$container:/tmp/nasqar2-deploy.tar"
+    docker cp "$bundle" "$container:/tmp/nasqar2-deploy.tar" || { status=1; continue; }
     docker exec "$container" sh -c '
         set -e
         tar -xf /tmp/nasqar2-deploy.tar -C /srv/shiny-server --no-same-owner
@@ -59,5 +68,6 @@ for container in "${containers[@]}"; do
             supervisorctl restart "$app"
         done
         sleep 8
-        supervisorctl status "$@"' sh "${apps[@]}"
+        supervisorctl status "$@"' sh "${apps[@]}" || status=1
 done
+exit $status
