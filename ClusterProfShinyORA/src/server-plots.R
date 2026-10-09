@@ -659,27 +659,27 @@ pathviewReactive <- eventReactive(input$generatePathview, {
                 dir.create(pathview_dir, recursive = TRUE, showWarnings = FALSE)
 
                 setProgress(0.3, detail = paste0("Downloading pathway map — ", input$pathwayIds, " \u2026"))
-                dme <- pathview(
+                dme <- nasqar_with_timeout(pathview(
                     gene.data   = myValues$kegg_gene_list,
                     pathway.id  = input$pathwayIds,
                     species     = myValues$organismKegg,
                     gene.idtype = "ENTREZ",
                     kegg.dir    = pathview_dir
-                )
+                ))
                 # Copy to a unique name so the UI preview refreshes each run
                 native_img <- file.path(pathview_dir, paste0(input$pathwayIds, ".pathview.png"))
                 unique_img <- file.path(pathview_dir, paste0("testimage_", input$pathwayIds, ".png"))
                 file.copy(native_img, unique_img, overwrite = TRUE)
 
                 setProgress(0.7, detail = paste0("Generating PDF \u2014 ", input$pathwayIds, " \u2026"))
-                dmePdf <- pathview(
+                dmePdf <- nasqar_with_timeout(pathview(
                     gene.data   = myValues$kegg_gene_list,
                     pathway.id  = input$pathwayIds,
                     species     = myValues$organismKegg,
                     gene.idtype = "ENTREZ",
                     kegg.native = FALSE,
                     kegg.dir    = pathview_dir
-                )
+                ))
 
                 myValues$imagePath <- file.path(
                     pathview_dir,
@@ -693,18 +693,14 @@ pathviewReactive <- eventReactive(input$generatePathview, {
 
             }, error = function(e) {
                 msg <- conditionMessage(e)
-                is_network <- grepl(
-                    "curl|connection|reset|peer|timeout|could not resolve|network|recv failure",
-                    msg, ignore.case = TRUE
-                )
-                if (is_network) {
+                if (nasqar_network_error(e)) {
                     showNotification(
                         ui       = tagList(
-                            icon("exclamation-triangle"), strong(" KEGG network error"),
+                            icon("exclamation-triangle"), strong(" KEGG pathway map not available"),
                             tags$br(),
-                            "Connection to rest.kegg.jp was interrupted.",
+                            nasqar_offline_message("Pathview"),
                             tags$br(),
-                            "Please click \u201cGenerate Pathview\u201d again to retry."
+                            "If this server is online, click \u201cGenerate Pathview\u201d again to retry."
                         ),
                         type     = "error",
                         duration = 15

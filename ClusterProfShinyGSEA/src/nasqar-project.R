@@ -571,6 +571,31 @@ nasqar_check_count_table <- function(df, id_columns = 1L, min_samples = 1L, uniq
     NULL
 }
 
+# ---------------------------------------------------------------------------
+# Services that need the internet (KEGG, pathway maps): on an offline server,
+# e.g. a cluster compute node, say so instead of showing a curl error.
+# ---------------------------------------------------------------------------
+
+nasqar_network_error <- function(error) {
+    grepl("curl|connection|reset by peer|timed? ?out|could not resolve|resolve host|network|recv failure|cannot open url|failed to connect|unreachable|no route",
+          conditionMessage(error), ignore.case = TRUE)
+}
+
+nasqar_offline_message <- function(service = "KEGG") {
+    sprintf(paste("%s needs internet access, and this server could not reach it: either it is offline",
+                  "(cluster compute nodes usually are) or the connection failed. Results that do not need %s",
+                  "remain available; otherwise rerun on a machine with internet access."), service, service)
+}
+
+# Run `expr` with R's download timeout capped at `seconds`, so an offline
+# server fails fast instead of hanging the session.
+nasqar_with_timeout <- function(expr, seconds = 20) {
+    old <- getOption("timeout")
+    options(timeout = min(old, seconds))
+    on.exit(options(timeout = old), add = TRUE)
+    expr
+}
+
 if (!exists("%||%", mode = "function")) {
     `%||%` <- function(x, y) if (is.null(x)) y else x
 }

@@ -14,7 +14,7 @@ ui <- tagList(
         tags$style(".mybuttonclass{background-color:#CD0000;} .mybuttonclass{color: #fff;} .mybuttonclass{border-color: #9E0000;}")
     ),
     navbarPage(
-        theme = "https://bootswatch.com/3/spacelab/bootstrap.min.css",
+        theme = "bootstrap.spacelab.min.css",  # Bootswatch Spacelab 3.4.1 (MIT), vendored in www/
         inverse = TRUE,
         title = "Merge FPKM Files",
         tabPanel(
