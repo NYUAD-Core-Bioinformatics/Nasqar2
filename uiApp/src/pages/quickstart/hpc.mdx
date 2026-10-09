@@ -63,34 +63,47 @@ Run the `singularity build` from the repository root so the definition's
 `%files` entry resolves. The resulting SIF is identical in content; only the
 Docker metadata (which the definition re-creates) is not carried over.
 
-## Install in scratch
+## Install on the cluster filesystem
 
-The example below uses `$SCRATCH/nasqar2`. Replace the login host and paths
-with values appropriate for the HPC system.
+NASQAR2 keeps everything it needs on the cluster under one persistent,
+writable directory, `NASQAR2_HOME`. Any space the site provides works: a
+scratch area, a project or lab allocation, or your home directory, as long as
+it is visible from the compute nodes and large enough for the image (about
+10 GB) plus your projects. The job script defaults to `$SCRATCH/nasqar2` on
+clusters that define `SCRATCH` and to `$HOME/nasqar2` elsewhere; set
+`NASQAR2_HOME` to use another location. The example below uses
+`/path/to/nasqar2` as a placeholder; replace it and the login host with your
+own values.
 
 ```bash
 ssh USER@LOGIN_HOST \
-  'mkdir -p "$SCRATCH/nasqar2"/{bin,images,slurm,runs}'
+  'mkdir -p /path/to/nasqar2/{bin,images,slurm,runs}'
 
 rsync -ah --partial hpc/build/nasqar2.sif \
-  USER@LOGIN_HOST:/path/to/scratch/nasqar2/images/nasqar2.sif
+  USER@LOGIN_HOST:/path/to/nasqar2/images/nasqar2.sif
 rsync -ah hpc/bin/nasqar2-hpc \
-  USER@LOGIN_HOST:/path/to/scratch/nasqar2/bin/
+  USER@LOGIN_HOST:/path/to/nasqar2/bin/
 rsync -ah hpc/slurm/nasqar2.sbatch \
-  USER@LOGIN_HOST:/path/to/scratch/nasqar2/slurm/
+  USER@LOGIN_HOST:/path/to/nasqar2/slurm/
 ```
+
+The job script loads a module named `singularity`; if your cluster names it
+differently (for example `apptainer` or `singularity/4.2.0`), set
+`NASQAR2_SINGULARITY_MODULE` at submission.
 
 ## Submit and connect
 
 ```bash
 ssh USER@LOGIN_HOST \
-  'cd "$SCRATCH/nasqar2/slurm" && sbatch nasqar2.sbatch'
+  'cd /path/to/nasqar2/slurm && NASQAR2_HOME=/path/to/nasqar2 sbatch nasqar2.sbatch'
 ```
+
+`NASQAR2_HOME` can be omitted when the install lives at the default location.
 
 After the job starts, read its connection file:
 
 ```bash
-cat "$SCRATCH/nasqar2/runs/JOB_ID/connection.txt"
+cat /path/to/nasqar2/runs/JOB_ID/connection.txt
 ```
 
 Run the reported tunnel command on the workstation. Keep that terminal open:
@@ -104,22 +117,26 @@ remain active; it is forwarding traffic until stopped with `Ctrl+C`.
 
 ## Persistent and temporary storage
 
-| Data | Default location |
-| --- | --- |
-| Per-job runtime, logs, uploads, and exchange files | `$SCRATCH/nasqar2/runs/JOB_ID` |
-| Private-space projects of every application (`projects/<App>/<name>`, each with its outputs, caches and a `state.rds` for restoring) | `$SCRATCH/nasqar2/projects` (`NASQAR2_PROJECTS`) |
-| Private R library | `$SCRATCH/nasqar2/r-library/R-4.3` |
+All locations are relative to `NASQAR2_HOME` unless overridden:
+
+| Data | Default location | Override |
+| --- | --- | --- |
+| Per-job runtime, logs, uploads, and exchange files | `$NASQAR2_HOME/runs/JOB_ID` | `NASQAR2_RUNTIME_DIR` |
+| Private-space projects of every application (`projects/<App>/<name>`, each with its outputs, caches and a `state.rds` for restoring) | `$NASQAR2_HOME/projects` | `NASQAR2_PROJECTS` |
+| Private R library | `$NASQAR2_HOME/r-library/R-4.3` | `NASQAR2_R_LIBRARY` |
 
 Input data are mounted read-only from `NASQAR2_DATA_ROOT`, which defaults to
-`$SCRATCH`. Applications validate requested paths against that root. Generated
-files are written to the job runtime or persistent project directories, not
-beside the source data.
+the directory containing `NASQAR2_HOME` (with the default install, your
+scratch or home space). Applications validate requested paths against that
+root. Generated files are written to the job runtime or persistent project
+directories, not beside the source data.
 
 Override storage locations at submission:
 
 ```bash
-NASQAR2_DATA_ROOT=/scratch/USER/project \
-NASQAR2_R_LIBRARY=/scratch/USER/project/r-library \
+NASQAR2_HOME=/path/to/nasqar2 \
+NASQAR2_DATA_ROOT=/path/to/sequencing-data \
+NASQAR2_R_LIBRARY=/path/to/shared/r-library \
 sbatch nasqar2.sbatch
 ```
 
@@ -146,9 +163,9 @@ for Docker on a workstation; see
 - **DADA2** loads FASTQ files directly, processes temporary files in node-local
   storage, caches parameter-aware results, and writes persistent projects.
 - **Seurat v5** loads count matrices or Seurat objects from the data root and
-  writes project outputs to persistent scratch.
+  writes project outputs to the persistent project space.
 - **Monocle 3** loads Seurat objects from the data root and writes trajectory
-  outputs to persistent scratch.
+  outputs to the persistent project space.
 - **DESeq2Shiny**, **ClusterProfShinyORA**, **ClusterProfShinyGSEA**, **Gene Count
   Merger** and **mergeFPKMs** read their count or result tables, or a selection
   of per-sample count files, in place from the data root.
@@ -165,7 +182,7 @@ portal and take their input through browser upload.
 Variant Annotation ships human hg38 and hg19 and can install other species
 (mouse, rat, zebrafish, fruit fly, nematode, yeast, chicken, pig, cow, dog,
 rhesus macaque, chimpanzee) into the private R library, `NASQAR2_R_LIBRARY`
-(default `$SCRATCH/nasqar2/r-library/R-4.3`). Compute nodes usually have no
+(default `$NASQAR2_HOME/r-library/R-4.3`). Compute nodes usually have no
 internet access, so the in-app **Install** button fails there. The app then
 shows a ready-to-run command, with the packages for the chosen genome filled
 in, under **No internet on this server?**. Run it once on a login node; it
@@ -175,9 +192,9 @@ this and every later job. For mouse mm39 it is:
 ```bash
 module load singularity
 singularity exec --cleanenv \
-  --bind $SCRATCH/nasqar2/r-library/R-4.3:/runtime/R/library \
+  --bind /path/to/nasqar2/r-library/R-4.3:/runtime/R/library \
   --env R_LIBS_USER=/runtime/R/library \
-  $SCRATCH/nasqar2/images/nasqar2.sif \
+  /path/to/nasqar2/images/nasqar2.sif \
   /opt/conda/envs/merged_env/bin/Rscript -e 'options(timeout = 7200); BiocManager::install(c("BSgenome.Mmusculus.UCSC.mm39", "TxDb.Mmusculus.UCSC.mm39.knownGene", "org.Mm.eg.db"), lib = "/runtime/R/library", update = FALSE, ask = FALSE)'
 ```
 

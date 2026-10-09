@@ -11,16 +11,24 @@
 set -euo pipefail
 
 module purge
-module load singularity/4.2.0
+# Name of the Singularity/Apptainer module on this cluster.
+module load "${NASQAR2_SINGULARITY_MODULE:-singularity}"
 
-sif="${NASQAR2_SIF:-$SCRATCH/nasqar2/images/nasqar2.sif}"
-launcher="${NASQAR2_LAUNCHER:-$SCRATCH/nasqar2/bin/nasqar2-hpc}"
-runtime_dir="${NASQAR2_RUNTIME_DIR:-$SCRATCH/nasqar2/runs/$SLURM_JOB_ID}"
+# Everything NASQAR2 keeps on the cluster filesystem lives under one
+# persistent, writable directory: NASQAR2_HOME. Choose your scratch, project
+# or home space as the site provides; the default is $SCRATCH/nasqar2 where a
+# SCRATCH variable exists and $HOME/nasqar2 otherwise.
+nasqar2_home="${NASQAR2_HOME:-${SCRATCH:-$HOME}/nasqar2}"
+
+sif="${NASQAR2_SIF:-$nasqar2_home/images/nasqar2.sif}"
+launcher="${NASQAR2_LAUNCHER:-$nasqar2_home/bin/nasqar2-hpc}"
+runtime_dir="${NASQAR2_RUNTIME_DIR:-$nasqar2_home/runs/$SLURM_JOB_ID}"
 port="${NASQAR2_PORT:-$((20000 + SLURM_JOB_ID % 20000))}"
-data_root="${NASQAR2_DATA_ROOT:-$SCRATCH}"
-r_library="${NASQAR2_R_LIBRARY:-$SCRATCH/nasqar2/r-library/R-4.3}"
+# Input files the applications may read in place (mounted read-only).
+data_root="${NASQAR2_DATA_ROOT:-$(dirname "$nasqar2_home")}"
+r_library="${NASQAR2_R_LIBRARY:-$nasqar2_home/r-library/R-4.3}"
 # Root of the private-space projects of every application (projects/<App>/<name>)
-projects_root="${NASQAR2_PROJECTS:-$SCRATCH/nasqar2/projects}"
+projects_root="${NASQAR2_PROJECTS:-$nasqar2_home/projects}"
 node_tmp="${SLURM_TMPDIR:-/tmp/$USER/nasqar2-$SLURM_JOB_ID}"
 exchange_dir="$runtime_dir/exchange"
 
