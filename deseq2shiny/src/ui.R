@@ -52,7 +52,9 @@ ui <- tagList(
                         .navbar-nav > li > a { padding: 15px 10px !important; }
                     ")),
                     tags$link(rel = "stylesheet", type = "text/css", href = "custom.css"),
-                    tags$link(rel = "icon", type = "image/x-icon", href = "favicon.ico"),
+                    # same icon as the NASQAR2 landing page
+                    tags$link(rel = "icon", type = "image/png", href = "CGSB-Logo.png"),
+                    tags$link(rel = "shortcut icon", type = "image/png", href = "CGSB-Logo.png"),
                     # A dependency adds Font Awesome 5 CSS without its webfonts
                     # (404s for ../webfonts/*); Shiny's Font Awesome 6 covers it.
                     htmltools::suppressDependencies("fontawesome")
