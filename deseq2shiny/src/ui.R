@@ -51,7 +51,11 @@ ui <- tagList(
                         .state-modal-content h4 { color: #333; margin-bottom: 15px; }
                         .navbar-nav > li > a { padding: 15px 10px !important; }
                     ")),
-                    tags$link(rel = "stylesheet", type = "text/css", href = "custom.css")
+                    tags$link(rel = "stylesheet", type = "text/css", href = "custom.css"),
+                    tags$link(rel = "icon", type = "image/x-icon", href = "favicon.ico"),
+                    # A dependency adds Font Awesome 5 CSS without its webfonts
+                    # (404s for ../webfonts/*); Shiny's Font Awesome 6 covers it.
+                    htmltools::suppressDependencies("fontawesome")
                 ),
                 tabItems(
                     source("ui-tab-intro.R", local = TRUE)$value,
