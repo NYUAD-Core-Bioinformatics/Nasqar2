@@ -4,7 +4,7 @@ From: nasqar2-all:latest
 %labels
     Author NASQAR2 developers
     Application NASQAR2
-    Deployment Jubail HPC
+    Deployment Slurm cluster
     Runtime Singularity
 
 %files
@@ -17,7 +17,7 @@ From: nasqar2-all:latest
 
 %environment
     export PATH=/opt/conda/envs/merged_env/bin:$PATH
-    export TZ=Asia/Dubai
+    export TZ="${TZ:-UTC}"
 
 %runscript
     exec /opt/nasqar2-hpc/bin/nasqar2-hpc "$@"

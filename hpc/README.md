@@ -16,23 +16,14 @@ The user-facing version of these instructions is the portal's
 
 ## Build the image
 
-The local definition imports the current `nasqar2-all:latest` Docker image:
-
 ```bash
+docker build -t nasqar2-all:latest .
 ./hpc/build-sif.sh
 ```
 
-The default output is `hpc/build/nasqar2.sif`.
-Building requires approximately 25 GB of temporary space. If `/tmp` is too
-small, direct the temporary files and cache to a larger filesystem:
-
-```bash
-mkdir -p /path/to/build-space/{tmp,cache}
-TMPDIR=/path/to/build-space/tmp \
-SINGULARITY_TMPDIR=/path/to/build-space/tmp \
-SINGULARITY_CACHEDIR=/path/to/build-space/cache \
-./hpc/build-sif.sh /path/to/build-space/nasqar2.sif
-```
+The SIF is written to `hpc/build/nasqar2.sif` (pass another path as the
+first argument). The build needs about 25 GB of temporary space under
+`hpc/build`; set `NASQAR2_BUILD_DIR` to use a larger filesystem instead.
 
 ## Choose the install directory
 
