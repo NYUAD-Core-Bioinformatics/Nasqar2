@@ -7,7 +7,7 @@ usage() {
 Usage: nasqar2-hpc [--port PORT] [--runtime DIR] [--allow-login-node]
 
 Starts the NASQAR2 portal and all Shiny services without requiring root.
-Run it inside a Slurm allocation on Jubail.
+Run it inside a Slurm allocation (nasqar2.sbatch does this).
 EOF
 }
 
