@@ -36,11 +36,11 @@ require approximately 25 GB of temporary space. Redirect its temporary and
 cache directories when `/tmp` is too small:
 
 ```bash
-mkdir -p /data/nasqar2-build/{tmp,cache}
-TMPDIR=/data/nasqar2-build/tmp \
-SINGULARITY_TMPDIR=/data/nasqar2-build/tmp \
-SINGULARITY_CACHEDIR=/data/nasqar2-build/cache \
-./hpc/build-sif.sh /data/nasqar2-build/nasqar2.sif
+mkdir -p /path/to/build-space/{tmp,cache}
+TMPDIR=/path/to/build-space/tmp \
+SINGULARITY_TMPDIR=/path/to/build-space/tmp \
+SINGULARITY_CACHEDIR=/path/to/build-space/cache \
+./hpc/build-sif.sh /path/to/build-space/nasqar2.sif
 ```
 
 The `docker-daemon` bootstrap exports the image through the Docker daemon,
@@ -50,13 +50,13 @@ directories above point elsewhere. In that case stream the container
 filesystem into a sandbox directory and build from it instead:
 
 ```bash
-mkdir -p /data/nasqar2-build/sandbox
+mkdir -p /path/to/build-space/sandbox
 cid=$(docker create nasqar2-all:latest)
-docker export "$cid" | tar -x -C /data/nasqar2-build/sandbox
+docker export "$cid" | tar -x -C /path/to/build-space/sandbox
 docker rm "$cid"
-sed 's#^Bootstrap: docker-daemon$#Bootstrap: localimage#; s#^From: .*#From: /data/nasqar2-build/sandbox#' \
-  hpc/singularity/nasqar2-local.def > /data/nasqar2-build/nasqar2-sandbox.def
-singularity build --fakeroot --force /data/nasqar2-build/nasqar2.sif /data/nasqar2-build/nasqar2-sandbox.def
+sed 's#^Bootstrap: docker-daemon$#Bootstrap: localimage#; s#^From: .*#From: /path/to/build-space/sandbox#' \
+  hpc/singularity/nasqar2-local.def > /path/to/build-space/nasqar2-sandbox.def
+singularity build --fakeroot --force /path/to/build-space/nasqar2.sif /path/to/build-space/nasqar2-sandbox.def
 ```
 
 Run the `singularity build` from the repository root so the definition's
