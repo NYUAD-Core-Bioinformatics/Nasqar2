@@ -420,8 +420,8 @@ server <- shinyServer(function(input, output, session) {
 
   restore_project <- function(state, dir) {
     if (!identical(state$app, project_app)) return("this is not a Monocle 3 project")
-    if (!isTRUE(state$source_type %in% c("private", "hpc"))) return("this project was made from an uploaded object; upload it again to rerun it")
-    input_path <- state$private_input_path %||% state$hpc_input_path   # older projects
+    if (!identical(state$source_type, "private")) return("this project was made from an uploaded object; upload it again to rerun it")
+    input_path <- state$private_input_path
     if (is.null(input_path) || !file.exists(input_path)) return("the project's Seurat object is no longer available")
     updateRadioButtons(session, "data_source", selected = "private")
     updateTextInput(session, "private_input_path", value = input_path)

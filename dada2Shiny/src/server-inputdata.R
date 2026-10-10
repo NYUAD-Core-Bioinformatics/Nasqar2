@@ -309,7 +309,7 @@ input_files_reactive <- eventReactive(input$initFastq, {
         paste("You entered:", input$num)
     })
 
-output$hpc_dada2_path <- renderText({
+output$private_dada2_path <- renderText({
     req(my_values$work_dir)
     paste("DADA2 project output:", my_values$work_dir)
 })

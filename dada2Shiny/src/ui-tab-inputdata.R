@@ -54,7 +54,7 @@ tabItem(
                     )
                 ),
                  textOutput("status"),
-                    textOutput("hpc_dada2_path"),
+                    textOutput("private_dada2_path"),
                     tags$style("#status { color: red; }")
             ),
             box(

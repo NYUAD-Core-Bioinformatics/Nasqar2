@@ -60,7 +60,7 @@ observeEvent(reactiveTaxonomyData$taxa, {
 
 restore_project <- function(state, dir) {
     if (!identical(state$app, project_app)) return("this is not a DADA2 project")
-    if (!isTRUE(state$source_type %in% c("private_directory", "hpc_scratch_directory"))) {
+    if (!identical(state$source_type, "private_directory")) {
         return("this project was made from uploaded or example files; load them again to rerun it (its caches are kept)")
     }
     if (is.null(state$base_dir) || !dir.exists(state$base_dir)) {

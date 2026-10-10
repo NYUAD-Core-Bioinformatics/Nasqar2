@@ -206,7 +206,7 @@ missing_genome_packages <- function(resource, is_installed = default_is_installe
 
 # The persistent user library: an R_LIBS_USER directory that already exists
 # and is writable. A private instance mounts it from the host (Docker) or the
-# launcher creates it in the job runtime (HPC). R always defines R_LIBS_USER,
+# launcher creates it in the job runtime (Slurm). R always defines R_LIBS_USER,
 # so the directory must not be created here: on a public instance it does not
 # exist, nothing persists, and on-the-fly installs are not offered at all.
 genome_install_library <- function() {
@@ -244,7 +244,7 @@ start_genome_install <- function(packages, lib, log_file) {
 }
 
 # Command to install a genome from a machine with internet access when this
-# server has none (typically an HPC compute node). With the host-side paths the
+# server has none (for example a cluster compute node). With the host-side paths the
 # job script exports, this is an exact singularity command for a login node.
 offline_install_instructions <- function(resource, lib) {
     packages <- c(resource$bsgenome, resource$txdb, resource$orgdb)
