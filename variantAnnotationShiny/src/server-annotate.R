@@ -38,7 +38,7 @@ observeEvent(input$runAnnotation, {
             my_values$cache_status <- paste("Computing annotation:", key)
             result <- withProgress(message = "Annotating variants", value = 0, {
                 stream_annotation(
-                    my_values$filtered_path, my_values$filtered_index, genome, options, hpc_workers,
+                    my_values$filtered_path, my_values$filtered_index, genome, options, workers,
                     output_dir = cache_dir,
                     total_records = my_values$filtered_records,
                     has_dp = isTRUE(my_values$overview$has_dp),

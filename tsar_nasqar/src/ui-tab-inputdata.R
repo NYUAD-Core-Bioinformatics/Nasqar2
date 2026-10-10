@@ -39,7 +39,7 @@ tabPanel("Input Data",
                 ),
                 conditionalPanel(
                     condition = "input.data_file_type=='localpath'",
-                    textInput("localfilepath", "CSV File Path", "", placeholder = "/scratch/.../allcounts.csv"),
+                    textInput("localfilepath", "CSV File Path", "", placeholder = "/path/to/allcounts.csv"),
                     actionButton("upload_data1", "Load",
                         style = "color: #fff; background-color: #CD0000; border-color: #9E0000"
                     )

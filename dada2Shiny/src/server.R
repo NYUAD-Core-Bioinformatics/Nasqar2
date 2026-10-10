@@ -1,8 +1,8 @@
 options(shiny.maxRequestSize = 30 * 1024^4)
 
 server <- function(input, output, session) {
-    hpc_workers <- suppressWarnings(as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1")))
-    if (is.na(hpc_workers) || hpc_workers < 1L) hpc_workers <- 1L
+    workers <- suppressWarnings(as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1")))
+    if (is.na(workers) || workers < 1L) workers <- 1L
 
     data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
     data_root <- if (nzchar(data_root)) normalizePath(data_root, winslash = "/", mustWork = FALSE) else NULL

@@ -1,7 +1,7 @@
 options(shiny.maxRequestSize = 30 * 1024^4)
 
 server <- function(input, output, session) {
-    hpc_workers <- available_workers(limit = 8L)
+    workers <- available_workers(limit = 8L)
 
     data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
     data_root <- if (nzchar(data_root)) {

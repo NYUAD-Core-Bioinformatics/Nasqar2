@@ -51,8 +51,8 @@ observeEvent(inputDataReactive(), {
 
 restore_project <- function(state, dir) {
   if (!identical(state$app, project_app)) return("this is not a Seurat v5 project")
-  if (!isTRUE(state$source_type %in% c("privateSpace", "hpcScratch"))) return("this project was made from uploaded files; upload them again to rerun it")
-  data_path <- state$private_data_path %||% state$hpc_data_path   # older projects
+  if (!identical(state$source_type, "privateSpace")) return("this project was made from uploaded files; upload them again to rerun it")
+  data_path <- state$private_data_path
   if (is.null(data_path) || !file.exists(data_path)) return("the project's input data is no longer available")
   updateRadioButtons(session, "data_file_type", selected = "privateSpace")
   updateTextInput(session, "private_data_path", value = data_path)

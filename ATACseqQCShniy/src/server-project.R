@@ -2,19 +2,19 @@
 # results are cached per project, so restoring replays the directory input
 # and later steps are served from the cache.
 
-observeEvent(my_values$scratch_dir, {
-    if (!private_space || is.null(my_values$scratch_dir)) return()
+observeEvent(my_values$private_dir, {
+    if (!private_space || is.null(my_values$private_dir)) return()
     dir <- nasqar_project_dir(project_app, current_project_name(), fallback = "atac-project")
     nasqar_project_state_write(
         dir, project_app, basename(dir), "loaded",
-        input_label = basename(my_values$scratch_dir), source_type = "private_directory",
-        private_directory_path = my_values$scratch_dir, bs_genome = input$bs_genome_input
+        input_label = basename(my_values$private_dir), source_type = "private_directory",
+        private_directory_path = my_values$private_dir, bs_genome = input$bs_genome_input
     )
     project_refresh(basename(dir))
 }, ignoreInit = TRUE)
 
 observeEvent(input$bs_genome_input, {
-    if (!private_space || is.null(my_values$scratch_dir) || is.null(input$bs_genome_input) || !nzchar(input$bs_genome_input)) return()
+    if (!private_space || is.null(my_values$private_dir) || is.null(input$bs_genome_input) || !nzchar(input$bs_genome_input)) return()
     dir <- nasqar_project_dir(project_app, current_project_name(), fallback = "atac-project")
     if (!is.null(nasqar_project_state_read(dir))) {
         nasqar_project_state_write(dir, project_app, basename(dir), "loaded", bs_genome = input$bs_genome_input)
@@ -23,7 +23,7 @@ observeEvent(input$bs_genome_input, {
 
 restore_project <- function(state, dir) {
     if (!identical(state$app, project_app)) return("this is not an ATACseqQC project")
-    directory <- state$private_directory_path %||% state$scratch_directory   # older projects
+    directory <- state$private_directory_path
     if (is.null(directory) || !dir.exists(directory)) {
         return("the project's BAM directory is no longer available")
     }

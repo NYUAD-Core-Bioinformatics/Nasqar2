@@ -119,7 +119,7 @@ reactiveInputData <- eventReactive(input$runDADA2, {
                 truncQ = 2,
                 rm.phix = TRUE,
                 compress = TRUE,
-                multithread = hpc_workers
+                multithread = workers
             )
         } else {
             filtered_counts <- filterAndTrim(
@@ -131,25 +131,25 @@ reactiveInputData <- eventReactive(input$runDADA2, {
                 truncQ = 2,
                 rm.phix = TRUE,
                 compress = TRUE,
-                multithread = hpc_workers
+                multithread = workers
             )
         }
         rownames(filtered_counts) <- sample_names
 
         shiny::setProgress(value = 0.25, detail = "Learning forward-read errors")
-        err_f <- learnErrors(filt_fs, multithread = hpc_workers)
+        err_f <- learnErrors(filt_fs, multithread = workers)
         err_r <- NULL
         if (identical(seq_type, "paired")) {
             shiny::setProgress(value = 0.4, detail = "Learning reverse-read errors")
-            err_r <- learnErrors(filt_rs, multithread = hpc_workers)
+            err_r <- learnErrors(filt_rs, multithread = workers)
         }
 
         shiny::setProgress(value = 0.55, detail = "Denoising reads")
-        dada_fs <- dada(filt_fs, err = err_f, multithread = hpc_workers)
+        dada_fs <- dada(filt_fs, err = err_f, multithread = workers)
         dada_rs <- NULL
         mergers <- NULL
         if (identical(seq_type, "paired")) {
-            dada_rs <- dada(filt_rs, err = err_r, multithread = hpc_workers)
+            dada_rs <- dada(filt_rs, err = err_r, multithread = workers)
             shiny::setProgress(value = 0.7, detail = "Merging paired reads")
             mergers <- mergePairs(
                 dada_fs,
@@ -175,7 +175,7 @@ reactiveInputData <- eventReactive(input$runDADA2, {
         sequence_table_nochim <- removeBimeraDenovo(
             sequence_table,
             method = "consensus",
-            multithread = hpc_workers,
+            multithread = workers,
             verbose = TRUE
         )
 

@@ -63,7 +63,7 @@ observeEvent(input$assignTaxonomy, {
     } else {
         withProgress(message = "Assigning Taxonomy, please wait...", {
             shiny::setProgress(value = 0.1, detail = "...assigning taxonomy")
-            taxa <- assignTaxonomy(seqtab.nochim, reference_db, multithread = hpc_workers)
+            taxa <- assignTaxonomy(seqtab.nochim, reference_db, multithread = workers)
 
             # Assign species if a species-level database is selected
             if (!is.null(species_db)) {

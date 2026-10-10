@@ -54,17 +54,17 @@ observe({
 
 
 my_values <- reactiveValues()
-my_values$scratch_dir <- NULL
+my_values$private_dir <- NULL
 
-configured_scratch_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
-scratch_root <- if (nzchar(configured_scratch_root)) {
-    normalizePath(configured_scratch_root, winslash = "/", mustWork = FALSE)
+configured_private_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
+private_root <- if (nzchar(configured_private_root)) {
+    normalizePath(configured_private_root, winslash = "/", mustWork = FALSE)
 } else {
     NULL
 }
 
 # Server-side browser jailed to the private data root; it only fills the path box.
-if (!is.null(scratch_root)) {
+if (!is.null(private_root)) {
     browse_roots <- nasqar_browse_roots()
     shinyFiles::shinyDirChoose(input, "browse_private_directory", roots = browse_roots, session = session)
     observeEvent(input$browse_private_directory, {
@@ -79,7 +79,7 @@ if (!is.null(scratch_root)) {
 }
 
 observeEvent(input$private_directory_path, {
-    my_values$scratch_dir <- NULL
+    my_values$private_dir <- NULL
 }, ignoreInit = TRUE)
 
 observeEvent(input$load_private_directory, {
@@ -87,7 +87,7 @@ observeEvent(input$load_private_directory, {
         showNotification("Enter a directory containing BAM and BAI files.", type = "error")
         return()
     }
-    if (is.null(scratch_root)) {
+    if (is.null(private_root)) {
         showNotification("This instance has no private space configured.", type = "error")
         return()
     }
@@ -102,8 +102,8 @@ observeEvent(input$load_private_directory, {
         return()
     }
 
-    inside_scratch <- nasqar_path_inside_roots(requested_dir)
-    if (!inside_scratch) {
+    inside_private <- nasqar_path_inside_roots(requested_dir)
+    if (!inside_private) {
         showNotification(
             "Directory must be in the private space.",
             type = "error"
@@ -117,7 +117,7 @@ observeEvent(input$load_private_directory, {
         return()
     }
 
-    my_values$scratch_dir <- requested_dir
+    my_values$private_dir <- requested_dir
     showNotification("BAM directory loaded.", type = "message")
 })
 
@@ -174,8 +174,8 @@ input_files_reactive <- reactive({
 
 
     shiny::validate(
-        need(identical(input$data_file_type, "example_bam_file") | identical(input$data_file_type, "upload_bam_file") | (identical(input$data_file_type, "private_directory") & !is.null(my_values$scratch_dir)),
-            message = "Enter a scratch directory and select Load directory."
+        need(identical(input$data_file_type, "example_bam_file") | identical(input$data_file_type, "upload_bam_file") | (identical(input$data_file_type, "private_directory") & !is.null(my_values$private_dir)),
+            message = "Enter a directory in the private space and select Load directory."
         )
     )
 
@@ -217,7 +217,7 @@ input_files_reactive <- reactive({
         bam_files <- files[grepl(".bam$", files)]
         bai_files <- files[grepl(".bai$", files)]
     } else if (identical(input$data_file_type, "private_directory")) {
-        base_dir <- my_values$scratch_dir
+        base_dir <- my_values$private_dir
         # Get the list of files in the directory
         files <- list.files(base_dir, full.names = FALSE)
 

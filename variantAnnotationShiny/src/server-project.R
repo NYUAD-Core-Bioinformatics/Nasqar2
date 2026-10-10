@@ -32,7 +32,7 @@ restore_project <- function(state, dir) {
     my_values$genome <- genome
     my_values$project_dir <- dir
     updateSelectInput(session, "genome_input", selected = resource$key)
-    if (isTRUE(state$source_type %in% c("private_vcf_file", "hpc_vcf_file"))) {
+    if (identical(state$source_type, "private_vcf_file")) {
         updateRadioButtons(session, "data_file_type", selected = "private_vcf_file")
         updateTextInput(session, "private_vcf_path", value = state$source_path %||% "")
     }

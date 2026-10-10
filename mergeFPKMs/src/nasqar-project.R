@@ -4,7 +4,7 @@
 #       state.rds                       what was loaded, the settings, the stage reached
 #       ... application outputs ...
 #
-# The root comes from NASQAR_PROJECT_ROOT (set by run-nasqar2.sh and the HPC
+# The root comes from NASQAR_PROJECT_ROOT (set by run-nasqar2.sh and the Slurm
 # launcher). A per-application legacy variable (e.g. NASQAR_VARIANT_PROJECT_DIR)
 # still wins when set, so existing deployments keep their layout. When neither
 # is set, or the directory is missing or read-only, there is no private space:
