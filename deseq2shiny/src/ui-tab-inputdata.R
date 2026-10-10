@@ -12,23 +12,23 @@ tabItem(
                         "Upload Counts File" = "countsFile",
                         "Example Data (single-factor)" = "examplecounts",
                         "Example Data (multi-factor)" = "examplecountsfactors",
-                        "Use a counts file in the private space" = "hpcFile"
+                        "Use a counts file in the private space" = "privateFile"
                     ),
                     selected = "countsFile"
                 ),
 
-                conditionalPanel(condition = "input.data_file_type=='hpcFile'",
+                conditionalPanel(condition = "input.data_file_type=='privateFile'",
                     div(
                         style = "display:flex; gap:8px; align-items:flex-end;",
                         div(style = "flex:1;",
-                            textInput("hpc_counts_path", "Counts file (.csv/.txt) in the private space", value = "")
+                            textInput("private_counts_path", "Counts file (.csv/.txt) in the private space", value = "")
                         ),
-                        div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_hpc_counts", "Browse...", "Choose a counts file in the private space", multiple = FALSE))
+                        div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_private_counts", "Browse...", "Choose a counts file in the private space", multiple = FALSE))
                     ),
                     helpText("The file is read in place; nothing is uploaded.")
                 ),
 
-                conditionalPanel(condition = "input.data_file_type=='countsFile' || input.data_file_type=='hpcFile'",
+                conditionalPanel(condition = "input.data_file_type=='countsFile' || input.data_file_type=='privateFile'",
                     radioButtons("gene_alias", "Raw counts matrix format",
                         c(
                             "My matrix contains GeneIDs and GeneSymbols" = "included",

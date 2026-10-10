@@ -17,12 +17,12 @@ server <- function(input, output, session) {
         observeEvent(input$browse_vcf_path, {
             selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_vcf_path), error = function(e) NULL)
             if (!is.null(selected) && nrow(selected)) {
-                updateTextInput(session, "hpc_vcf_path", value = as.character(selected$datapath[1]))
+                updateTextInput(session, "private_vcf_path", value = as.character(selected$datapath[1]))
             }
         }, ignoreInit = TRUE)
     } else {
         removeUI(selector = "#browse_vcf_path")
-        shinyjs::runjs("$('input[name=data_file_type][value=hpc_vcf_file]').closest('.radio').remove()")
+        shinyjs::runjs("$('input[name=data_file_type][value=private_vcf_file]').closest('.radio').remove()")
     }
 
 

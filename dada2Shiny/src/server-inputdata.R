@@ -186,10 +186,10 @@ input_files_reactive <- eventReactive(input$initFastq, {
             fn_Fs <- names(matching_files[matching_files == TRUE])
             fn_Rs <- stringr::str_replace_all(fn_Fs, input$forward_pattern, input$reverse_pattern)
         }
-    } else if (identical(input$data_file_type, "hpc_scratch_directory")) {
-        shiny::validate(need(nzchar(trimws(input$hpc_fastq_directory)), "Enter a FASTQ directory in the private space."))
+    } else if (identical(input$data_file_type, "private_directory")) {
+        shiny::validate(need(nzchar(trimws(input$private_fastq_directory)), "Enter a FASTQ directory in the private space."))
         base_dir <- tryCatch(
-            nasqar_private_path(input$hpc_fastq_directory, directory = TRUE, what = "FASTQ directory"),
+            nasqar_private_path(input$private_fastq_directory, directory = TRUE, what = "FASTQ directory"),
             error = function(e) {
                 shiny::validate(need(FALSE, e$message))
             }
@@ -294,7 +294,7 @@ input_files_reactive <- eventReactive(input$initFastq, {
   output$result1 <- renderText({
         # Ensure the input is between 1 and 10
         shiny::validate(
-        need(identical(input$data_file_type, "example_fastq_file") | identical(input$data_file_type, "hpc_scratch_directory") | (identical(input$data_file_type, "upload_fastq_file") & !is.null(input$fastq_files) & length(input$fastq_files$name) > 1),
+        need(identical(input$data_file_type, "example_fastq_file") | identical(input$data_file_type, "private_directory") | (identical(input$data_file_type, "upload_fastq_file") & !is.null(input$fastq_files) & length(input$fastq_files$name) > 1),
             message = "Please upload both R1 andd R2 fastq files "
         )
     )
@@ -302,7 +302,7 @@ input_files_reactive <- eventReactive(input$initFastq, {
     print('load')
 
     shiny::validate(
-        need(identical(input$data_file_type, "example_fastq_file") | identical(input$data_file_type, "upload_fastq_file") | identical(input$data_file_type, "hpc_scratch_directory"),
+        need(identical(input$data_file_type, "example_fastq_file") | identical(input$data_file_type, "upload_fastq_file") | identical(input$data_file_type, "private_directory"),
             message = "Please select a FASTQ data source."
         )
     )

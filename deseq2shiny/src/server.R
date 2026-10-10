@@ -1425,7 +1425,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     apply_generic_restore <- function() {
         saved <- session$userData$nasqar_generic_inputs
         if (is.null(saved) || !length(saved)) return()
-        skip <- c(session$userData$nasqar_generic_skip, "tabs", "data_file_type", "hpc_counts_path",
+        skip <- c(session$userData$nasqar_generic_skip, "tabs", "data_file_type", "private_counts_path",
                   "showStateModal", "nasqar_generic_restore")
         remaining <- list()
         for (id in setdiff(names(saved), skip)) {

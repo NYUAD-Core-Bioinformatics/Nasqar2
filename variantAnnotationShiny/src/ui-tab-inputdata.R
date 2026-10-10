@@ -10,7 +10,7 @@ tabItem(
                     c(
                         "Upload VCF file" = "upload_vcf",
                         "Example VCF (1000 Genomes chr22 subset, hg19)" = "example_vcf",
-                        "Use a VCF in the private space" = "hpc_vcf_file"
+                        "Use a VCF in the private space" = "private_vcf_file"
                     ),
                     selected = "example_vcf"
                 ),
@@ -27,11 +27,11 @@ tabItem(
                     )
                 ),
                 conditionalPanel(
-                    condition = "input.data_file_type == 'hpc_vcf_file'",
+                    condition = "input.data_file_type == 'private_vcf_file'",
                     div(
                         style = "display:flex; gap:8px; align-items:flex-end;",
                         div(style = "flex:1;",
-                        textInput("hpc_vcf_path", "VCF file path in the private space", value = "")
+                        textInput("private_vcf_path", "VCF file path in the private space", value = "")
                         ),
                         div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_vcf_path", "Browse...", "Choose a VCF in the private space", multiple = FALSE))
                     ),

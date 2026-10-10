@@ -11,17 +11,17 @@ tabItem(
                     c(
                         "Upload fastq File" = "upload_fastq_file",
                         "Example fastq file" = "example_fastq_file",
-                        "Use a directory in the private space" = "hpc_scratch_directory"
+                        "Use a directory in the private space" = "private_directory"
                     ),
                     selected = "example_fastq_file"
                 ),
                 conditionalPanel(
-                    condition = "input.data_file_type=='hpc_scratch_directory'",
+                    condition = "input.data_file_type=='private_directory'",
                     div(
                         style = "display:flex; gap:8px; align-items:flex-end;",
                         div(style = "flex:1;",
                         textInput(
-                            "hpc_fastq_directory",
+                            "private_fastq_directory",
                             "FASTQ directory in the private space",
                             value = ""
                         )

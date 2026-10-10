@@ -58,7 +58,7 @@ ui <- shinyUI(fluidPage(
                           "Seurat object source",
                           c(
                             "Upload from browser" = "upload",
-                            "Use a file in the private space" = "hpc"
+                            "Use a file in the private space" = "private"
                           ),
                           selected = "upload"
                         ),
@@ -69,23 +69,23 @@ ui <- shinyUI(fluidPage(
                           actionButton("upload", "Upload")
                         ),
                         conditionalPanel(
-                          "input.data_source == 'hpc'",
+                          "input.data_source == 'private'",
                           div(
                               style = "display:flex; gap:8px; align-items:flex-end;",
                               div(style = "flex:1;",
                               textInput(
-                                "hpc_input_path",
+                                "private_input_path",
                                 "Seurat .rds or .RData file in the private space",
                                 value = ""
                               )
                               ),
-                              div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_hpc_input", "Browse...", "Choose a Seurat .rds or .RData file in the private space", multiple = FALSE))
+                              div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_private_input", "Browse...", "Choose a Seurat .rds or .RData file in the private space", multiple = FALSE))
                           ),
-                          actionButton("load_hpc", "Load from Data Root")
+                          actionButton("load_private", "Load from Data Root")
                         ),
                         nasqar_project_ui("monocle3-project",
                           help = "Trajectory outputs are kept under this name in the private space, so the project survives the session and can be restored later."),
-                        textOutput("hpc_output_path"),
+                        textOutput("private_output_path"),
                         
                         fluidRow(tags$hr(style="border-color: black;")),
                         
@@ -143,16 +143,16 @@ server <- shinyServer(function(input, output, session) {
   # Server-side browser jailed to the private data root; it only fills the path box.
   if (!is.null(data_root)) {
       browse_roots <- nasqar_browse_roots()
-      shinyFiles::shinyFileChoose(input, "browse_hpc_input", roots = browse_roots, session = session, filetypes = c("rds", "rdata"))
-      observeEvent(input$browse_hpc_input, {
-          selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_hpc_input), error = function(e) NULL)
+      shinyFiles::shinyFileChoose(input, "browse_private_input", roots = browse_roots, session = session, filetypes = c("rds", "rdata"))
+      observeEvent(input$browse_private_input, {
+          selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_private_input), error = function(e) NULL)
           if (!is.null(selected) && nrow(selected)) {
-              updateTextInput(session, "hpc_input_path", value = as.character(selected$datapath[1]))
+              updateTextInput(session, "private_input_path", value = as.character(selected$datapath[1]))
           }
       }, ignoreInit = TRUE)
   } else {
-      removeUI(selector = "#browse_hpc_input")
-      shinyjs::runjs("$('input[name=data_source][value=hpc]').closest('.radio').remove()")
+      removeUI(selector = "#browse_private_input")
+      shinyjs::runjs("$('input[name=data_source][value=private]').closest('.radio').remove()")
   }
 
 
@@ -275,10 +275,10 @@ server <- shinyServer(function(input, output, session) {
     configure_seurat_input(data)
   })
 
-  observeEvent(input$load_hpc, {
-    validate(need(nzchar(trimws(input$hpc_input_path)), "Enter a Seurat object path in the private space."))
+  observeEvent(input$load_private, {
+    validate(need(nzchar(trimws(input$private_input_path)), "Enter a Seurat object path in the private space."))
     path <- tryCatch(
-      nasqar_private_path(input$hpc_input_path, what = "Seurat .rds or .RData file"),
+      nasqar_private_path(input$private_input_path, what = "Seurat .rds or .RData file"),
       error = function(e) {
         validate(need(FALSE, e$message))
       }
@@ -290,8 +290,8 @@ server <- shinyServer(function(input, output, session) {
       dir <- project_directory(current_project_name())
       nasqar_project_state_write(
         dir, project_app, basename(dir), "loaded",
-        input_label = basename(input$hpc_input_path), source_type = "hpc",
-        hpc_input_path = input$hpc_input_path
+        input_label = basename(input$private_input_path), source_type = "private",
+        private_input_path = input$private_input_path
       )
       project_refresh(basename(dir))
     }
@@ -311,7 +311,7 @@ server <- shinyServer(function(input, output, session) {
   # Render results (also used when a project is restored, without recomputing).
   show_monocle_results <- function(out, output_dir) {
     monocle_results(out)
-    output$hpc_output_path <- renderText({
+    output$private_output_path <- renderText({
       if (private_space) paste("Saved persistently in the private space:", output_dir)
     })
     output$dim <- renderPlot({out$dim})
@@ -420,13 +420,14 @@ server <- shinyServer(function(input, output, session) {
 
   restore_project <- function(state, dir) {
     if (!identical(state$app, project_app)) return("this is not a Monocle 3 project")
-    if (!identical(state$source_type, "hpc")) return("this project was made from an uploaded object; upload it again to rerun it")
-    if (is.null(state$hpc_input_path) || !file.exists(state$hpc_input_path)) return("the project's Seurat object is no longer available")
-    updateRadioButtons(session, "data_source", selected = "hpc")
-    updateTextInput(session, "hpc_input_path", value = state$hpc_input_path)
+    if (!isTRUE(state$source_type %in% c("private", "hpc"))) return("this project was made from an uploaded object; upload it again to rerun it")
+    input_path <- state$private_input_path %||% state$hpc_input_path   # older projects
+    if (is.null(input_path) || !file.exists(input_path)) return("the project's Seurat object is no longer available")
+    updateRadioButtons(session, "data_source", selected = "private")
+    updateTextInput(session, "private_input_path", value = input_path)
     restore_pending(list(stage = state$stage, assay = state$assay, ident = state$ident, gene = state$gene,
                          run_file = state$run_file, dir = dir))
-    shinyjs::delay(800, shinyjs::click("load_hpc"))
+    shinyjs::delay(800, shinyjs::click("load_private"))
     NULL
   }
 
