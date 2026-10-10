@@ -20,16 +20,6 @@ server <- function(input, output, session) {
     # Private data root: input files read in place (private instance only)
     data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
     data_root <- if (nzchar(data_root)) normalizePath(data_root, winslash = "/", mustWork = FALSE) else NULL
-    resolve_hpc_path <- function(path, directory = FALSE) {
-        if (is.null(data_root)) stop("This instance has no private space configured.")
-        if (is.null(path) || !nzchar(trimws(path))) stop("Enter a path in the private space.")
-        resolved <- normalizePath(trimws(path), winslash = "/", mustWork = TRUE)
-        inside <- nasqar_path_inside_roots(resolved)
-        if (!inside) stop("The path must be in the private space.")
-        if (directory && !dir.exists(resolved)) stop("Select a directory.")
-        if (!directory && dir.exists(resolved)) stop("Select a file, not a directory.")
-        resolved
-    }
     if (!is.null(data_root)) {
         browse_roots <- nasqar_browse_roots()
         shinyFiles::shinyFileChoose(input, "browse_hpc_file", roots = browse_roots, session = session,

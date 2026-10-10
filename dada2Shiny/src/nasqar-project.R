@@ -101,6 +101,26 @@ nasqar_browse_roots <- function() {
     roots
 }
 
+# Resolve a path a user typed or browsed to in a private instance: it must
+# exist and lie inside the private space (data root or projects). `directory`
+# is TRUE for a directory, FALSE for a file, NA for either. `what` names the
+# expected input in messages ("counts file", "FASTQ directory", ...).
+nasqar_private_path <- function(path, directory = FALSE, what = if (isTRUE(directory)) "directory" else "file") {
+    if (!nzchar(Sys.getenv("NASQAR_DATA_ROOT", unset = ""))) {
+        stop("This instance has no private space configured.", call. = FALSE)
+    }
+    if (is.null(path) || !nzchar(trimws(path))) {
+        stop(sprintf("Enter the path of a %s in the private space.", what), call. = FALSE)
+    }
+    resolved <- tryCatch(normalizePath(trimws(path), winslash = "/", mustWork = TRUE),
+                         error = function(error) NULL)
+    if (is.null(resolved)) stop(sprintf("The %s does not exist or is not readable: %s", what, trimws(path)), call. = FALSE)
+    if (!nasqar_path_inside_roots(resolved)) stop(sprintf("The %s must be in the private space.", what), call. = FALSE)
+    if (isTRUE(directory) && !dir.exists(resolved)) stop(sprintf("Select a directory for the %s.", what), call. = FALSE)
+    if (isFALSE(directory) && dir.exists(resolved)) stop(sprintf("Select a file for the %s, not a directory.", what), call. = FALSE)
+    resolved
+}
+
 # TRUE when a resolved path lies inside one of the browse roots.
 nasqar_path_inside_roots <- function(resolved, roots = nasqar_browse_roots()) {
     for (var in c("NASQAR_DATA_ROOT", "NASQAR_PROJECT_ROOT")) {   # always allowed, even when nested

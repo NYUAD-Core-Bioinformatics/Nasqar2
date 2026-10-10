@@ -25,29 +25,6 @@ server <- function(input, output, session) {
         shinyjs::runjs("$('input[name=data_file_type][value=hpc_vcf_file]').closest('.radio').remove()")
     }
 
-    resolve_hpc_file <- function(path) {
-        if (is.null(data_root)) {
-            stop("This instance has no private space configured.", call. = FALSE)
-        }
-        if (!nzchar(trimws(path))) {
-            stop("Enter the path of a VCF file in the private space.", call. = FALSE)
-        }
-        resolved <- tryCatch(
-            normalizePath(trimws(path), winslash = "/", mustWork = TRUE),
-            error = function(error) NULL
-        )
-        if (is.null(resolved) || dir.exists(resolved)) {
-            stop("The VCF path does not exist, is not readable, or is a directory.", call. = FALSE)
-        }
-        inside <- nasqar_path_inside_roots(resolved)
-        if (!inside) {
-            stop("The VCF must be in the private space.", call. = FALSE)
-        }
-        if (!grepl("\\.(vcf|vcf\\.gz|vcf\\.bgz)$", resolved, ignore.case = TRUE)) {
-            stop("The file must end in .vcf, .vcf.gz or .vcf.bgz.", call. = FALSE)
-        }
-        resolved
-    }
 
     # Private-space projects: projects/VariantAnnotation/<name> (shared convention)
     source("nasqar-project.R", local = TRUE)

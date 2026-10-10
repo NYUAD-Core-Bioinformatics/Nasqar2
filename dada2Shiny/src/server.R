@@ -22,15 +22,6 @@ server <- function(input, output, session) {
         shinyjs::runjs("$('input[name=data_file_type][value=hpc_scratch_directory]').closest('.radio').remove()")
     }
 
-    resolve_hpc_path <- function(path) {
-        if (is.null(data_root)) stop("This instance has no private space configured.")
-        root <- normalizePath(data_root, mustWork = TRUE)
-        resolved <- normalizePath(path, mustWork = TRUE)
-        allowed <- nasqar_path_inside_roots(resolved)
-        if (!allowed) stop("The directory must be in the private space.")
-        if (!dir.exists(resolved)) stop("The FASTQ path must be a directory.")
-        resolved
-    }
 
     # Private-space projects: projects/DADA2/<name> (shared convention)
     source("nasqar-project.R", local = TRUE)

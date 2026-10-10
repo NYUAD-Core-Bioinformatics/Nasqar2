@@ -38,14 +38,6 @@ server <- function(input, output, session) {
       shinyjs::runjs("$('input[name=data_file_type][value=hpcScratch]').closest('.radio').remove()")
   }
 
-  resolve_hpc_path <- function(path) {
-    if (is.null(data_root)) stop("This instance has no private space configured.")
-    root <- normalizePath(data_root, mustWork = TRUE)
-    resolved <- normalizePath(path, mustWork = TRUE)
-    allowed <- nasqar_path_inside_roots(resolved)
-    if (!allowed) stop("The path must be in the private space.")
-    resolved
-  }
 
   # Private-space projects: projects/SeuratV5/<name> (shared convention); the
   # name comes from the app's own "projectname" input.

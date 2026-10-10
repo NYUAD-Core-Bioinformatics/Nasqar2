@@ -155,15 +155,6 @@ server <- shinyServer(function(input, output, session) {
       shinyjs::runjs("$('input[name=data_source][value=hpc]').closest('.radio').remove()")
   }
 
-  resolve_hpc_path <- function(path) {
-    if (is.null(data_root)) stop("This instance has no private space configured.")
-    root <- normalizePath(data_root, mustWork = TRUE)
-    resolved <- normalizePath(path, mustWork = TRUE)
-    allowed <- nasqar_path_inside_roots(resolved)
-    if (!allowed) stop("The file must be in the private space.")
-    if (dir.exists(resolved)) stop("Select a Seurat .rds or .RData file, not a directory.")
-    resolved
-  }
 
   # Private-space projects: projects/Monocle3/<name> (shared convention)
   source("nasqar-project.R", local = TRUE)
@@ -287,7 +278,7 @@ server <- shinyServer(function(input, output, session) {
   observeEvent(input$load_hpc, {
     validate(need(nzchar(trimws(input$hpc_input_path)), "Enter a Seurat object path in the private space."))
     path <- tryCatch(
-      resolve_hpc_path(input$hpc_input_path),
+      nasqar_private_path(input$hpc_input_path, what = "Seurat .rds or .RData file"),
       error = function(e) {
         validate(need(FALSE, e$message))
       }

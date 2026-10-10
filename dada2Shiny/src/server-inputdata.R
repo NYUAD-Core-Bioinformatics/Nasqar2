@@ -189,7 +189,7 @@ input_files_reactive <- eventReactive(input$initFastq, {
     } else if (identical(input$data_file_type, "hpc_scratch_directory")) {
         shiny::validate(need(nzchar(trimws(input$hpc_fastq_directory)), "Enter a FASTQ directory in the private space."))
         base_dir <- tryCatch(
-            resolve_hpc_path(input$hpc_fastq_directory),
+            nasqar_private_path(input$hpc_fastq_directory, directory = TRUE, what = "FASTQ directory"),
             error = function(e) {
                 shiny::validate(need(FALSE, e$message))
             }
