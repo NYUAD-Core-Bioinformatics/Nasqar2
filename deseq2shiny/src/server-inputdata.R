@@ -71,7 +71,7 @@ inputFileReactive <- reactive({
 
         inFile <- inFile$datapath
     } else if (input$data_file_type == "hpcFile") {
-        inFile <- tryCatch(resolve_hpc_file(input$hpc_counts_path),
+        inFile <- tryCatch(nasqar_private_path(input$hpc_counts_path, what = "counts file"),
                            error = function(e) shiny::validate(need(FALSE, conditionMessage(e))))
     } else if (input$data_file_type == "examplecounts") {
         inFile <- "www/exampleData/wang_count_table.csv"

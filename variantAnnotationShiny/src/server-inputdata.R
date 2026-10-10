@@ -234,7 +234,7 @@ resolve_input_source <- function() {
         list(path = path, index = NULL, project = current_project_name(), label = "chr22.vcf.gz",
              type = "example_vcf", copy_indexed = FALSE)
     } else {
-        path <- resolve_hpc_file(input$hpc_vcf_path)
+        path <- nasqar_private_path(input$hpc_vcf_path, what = "VCF file")
         list(path = path, index = NULL, project = current_project_name(), label = basename(path),
              type = "hpc_vcf_file", copy_indexed = FALSE)
     }

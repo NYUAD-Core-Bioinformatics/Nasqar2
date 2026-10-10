@@ -110,7 +110,7 @@ inputDataReactive <- reactive({
       if (identical(input$data_file_type, "hpcScratch")) {
         req(input$load_hpc_data > 0)
         validate(need(nzchar(trimws(input$hpc_data_path)), "Enter a path in the private space."))
-        hpc_path <- resolve_hpc_path(input$hpc_data_path)
+        hpc_path <- nasqar_private_path(input$hpc_data_path, directory = NA, what = "counts file or 10x directory")
         js$addStatusIcon("datainput", "loading")
         if (dir.exists(hpc_path)) {
           seqdata <- read_10x_directory(hpc_path)

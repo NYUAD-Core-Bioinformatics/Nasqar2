@@ -69,7 +69,7 @@ inputDataReactive <- reactive({
 
     # A file in the private space is read in place.
     if (identical(input$data_file_type, "hpcfile")) {
-        path <- tryCatch(resolve_hpc_path(input$hpc_file_path),
+        path <- tryCatch(nasqar_private_path(input$hpc_file_path, what = "results table"),
                          error = function(e) shiny::validate(need(FALSE, conditionMessage(e))))
         data <- normalize_enrichment_columns(
             nasqar_read_table(path, de_table_expected, check = de_table_check,
