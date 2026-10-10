@@ -25,7 +25,7 @@ tabItem(tabName = "finishTab",
                        downloadButton('downloadRObj', 'Download Seurat Obj', class = "button button-3d button-block button-pill button-action button-large")
                      )
                    ),
-                   textOutput("hpcSeuratPath")
+                   textOutput("privateSeuratPath")
              ),
             column(
               12,

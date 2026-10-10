@@ -77,7 +77,7 @@ inputDataReactive <- reactive({
 
   # Check if example selected, or if not then ask to upload a file.
   shiny:: validate(
-    need( identical(input$data_file_type,"examplecounts")|identical(input$data_file_type,"hpcScratch")|(!is.null(input$datafile))|(!is.null(query[['countsdata']])),
+    need( identical(input$data_file_type,"examplecounts")|identical(input$data_file_type,"privateSpace")|(!is.null(input$datafile))|(!is.null(query[['countsdata']])),
          message = "Please select a file")
   )
 
@@ -107,23 +107,23 @@ inputDataReactive <- reactive({
     tryCatch({
       scriptCommands = c()
 
-      if (identical(input$data_file_type, "hpcScratch")) {
-        req(input$load_hpc_data > 0)
-        validate(need(nzchar(trimws(input$hpc_data_path)), "Enter a path in the private space."))
-        hpc_path <- nasqar_private_path(input$hpc_data_path, directory = NA, what = "counts file or 10x directory")
+      if (identical(input$data_file_type, "privateSpace")) {
+        req(input$load_private_data > 0)
+        validate(need(nzchar(trimws(input$private_data_path)), "Enter a path in the private space."))
+        private_path <- nasqar_private_path(input$private_data_path, directory = NA, what = "counts file or 10x directory")
         js$addStatusIcon("datainput", "loading")
-        if (dir.exists(hpc_path)) {
-          seqdata <- read_10x_directory(hpc_path)
+        if (dir.exists(private_path)) {
+          seqdata <- read_10x_directory(private_path)
           scriptCommands$readCounts <- sprintf(
             "counts.data <- Read10X(data.dir = %s)",
-            dQuote(hpc_path)
+            dQuote(private_path)
           )
         } else {
-          seqdata <- read_counts_matrix(hpc_path, check.names = FALSE)
-          separator <- counts_separator(hpc_path)
+          seqdata <- read_counts_matrix(private_path, check.names = FALSE)
+          separator <- counts_separator(private_path)
           scriptCommands$readCounts <- sprintf(
             "counts.data <- read.csv(%s, header=TRUE, sep=%s, row.names=1)",
-            dQuote(hpc_path),
+            dQuote(private_path),
             dQuote(separator)
           )
         }

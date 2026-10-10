@@ -234,9 +234,9 @@ resolve_input_source <- function() {
         list(path = path, index = NULL, project = current_project_name(), label = "chr22.vcf.gz",
              type = "example_vcf", copy_indexed = FALSE)
     } else {
-        path <- nasqar_private_path(input$hpc_vcf_path, what = "VCF file")
+        path <- nasqar_private_path(input$private_vcf_path, what = "VCF file")
         list(path = path, index = NULL, project = current_project_name(), label = basename(path),
-             type = "hpc_vcf_file", copy_indexed = FALSE)
+             type = "private_vcf_file", copy_indexed = FALSE)
     }
 }
 
@@ -316,7 +316,7 @@ observeEvent(input$loadVcf, {
     vcf_ready(TRUE)
 
     if (private_space) {
-        source_path <- if (identical(outcome$source$type, "hpc_vcf_file")) outcome$source$path else outcome$prepared$path
+        source_path <- if (identical(outcome$source$type, "private_vcf_file")) outcome$source$path else outcome$prepared$path
         nasqar_project_state_write(
             outcome$project_dir, project_app, basename(outcome$project_dir), "loaded",
             input_label = outcome$label,

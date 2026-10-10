@@ -70,7 +70,7 @@ observe({
 
 # A new upload or another source replaces the restored table.
 observeEvent(input$datafile, restored_input(NULL), ignoreInit = TRUE)
-observeEvent(input$hpc_file_path, restored_input(NULL), ignoreInit = TRUE)
+observeEvent(input$private_file_path, restored_input(NULL), ignoreInit = TRUE)
 observeEvent(input$data_file_type, {
     if (!identical(input$data_file_type, restored_file_type())) restored_input(NULL)
 }, ignoreInit = TRUE)
@@ -94,8 +94,8 @@ inputDataReactive <- reactive({
     }
 
     # A file in the private space is read in place.
-    if (identical(input$data_file_type, "hpcfile")) {
-        path <- tryCatch(nasqar_private_path(input$hpc_file_path, what = "results table"),
+    if (identical(input$data_file_type, "privatefile")) {
+        path <- tryCatch(nasqar_private_path(input$private_file_path, what = "results table"),
                          error = function(e) shiny::validate(need(FALSE, conditionMessage(e))))
         data <- normalize_enrichment_columns(
             nasqar_read_table(path, de_table_expected, check = de_table_check,
@@ -109,7 +109,7 @@ inputDataReactive <- reactive({
     # Check if example selected, or if not then ask to upload a file.
     shiny::validate(
         need(!is.null(query[["countsdata"]]) | !is.null(query[["gene_names"]]) | identical(input$data_file_type, "examplecounts") | (!is.null(input$datafile)) |
-             (identical(input$data_file_type, "hpcfile") && !is.null(input$hpc_file_path) && nzchar(trimws(input$hpc_file_path))),
+             (identical(input$data_file_type, "privatefile") && !is.null(input$private_file_path) && nzchar(trimws(input$private_file_path))),
             message = "Please select a file"
         )
     )

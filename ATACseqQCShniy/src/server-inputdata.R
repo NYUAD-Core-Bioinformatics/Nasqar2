@@ -66,24 +66,24 @@ scratch_root <- if (nzchar(configured_scratch_root)) {
 # Server-side browser jailed to the private data root; it only fills the path box.
 if (!is.null(scratch_root)) {
     browse_roots <- nasqar_browse_roots()
-    shinyFiles::shinyDirChoose(input, "browse_scratch_directory", roots = browse_roots, session = session)
-    observeEvent(input$browse_scratch_directory, {
-        selected <- tryCatch(shinyFiles::parseDirPath(browse_roots, input$browse_scratch_directory), error = function(e) character(0))
+    shinyFiles::shinyDirChoose(input, "browse_private_directory", roots = browse_roots, session = session)
+    observeEvent(input$browse_private_directory, {
+        selected <- tryCatch(shinyFiles::parseDirPath(browse_roots, input$browse_private_directory), error = function(e) character(0))
         if (length(selected) == 1L && nzchar(selected)) {
-            updateTextInput(session, "scratch_directory", value = as.character(selected))
+            updateTextInput(session, "private_directory_path", value = as.character(selected))
         }
     }, ignoreInit = TRUE)
 } else {
-    removeUI(selector = "#browse_scratch_directory")
-    shinyjs::runjs("$('input[name=data_file_type][value=hpc_scratch_directory]').closest('.radio').remove()")
+    removeUI(selector = "#browse_private_directory")
+    shinyjs::runjs("$('input[name=data_file_type][value=private_directory]').closest('.radio').remove()")
 }
 
-observeEvent(input$scratch_directory, {
+observeEvent(input$private_directory_path, {
     my_values$scratch_dir <- NULL
 }, ignoreInit = TRUE)
 
-observeEvent(input$load_scratch_directory, {
-    if (!nzchar(trimws(input$scratch_directory))) {
+observeEvent(input$load_private_directory, {
+    if (!nzchar(trimws(input$private_directory_path))) {
         showNotification("Enter a directory containing BAM and BAI files.", type = "error")
         return()
     }
@@ -93,7 +93,7 @@ observeEvent(input$load_scratch_directory, {
     }
 
     requested_dir <- tryCatch(
-        normalizePath(input$scratch_directory, winslash = "/", mustWork = TRUE),
+        normalizePath(input$private_directory_path, winslash = "/", mustWork = TRUE),
         error = function(error) NULL
     )
 
@@ -164,7 +164,7 @@ input_files_reactive <- reactive({
     # )
 
     shiny::validate(
-        need(identical(input$data_file_type, "example_bam_file") | identical(input$data_file_type, "hpc_scratch_directory") | (identical(input$data_file_type, "upload_bam_file") & !is.null(input$bam_files) & length(input$bam_files$name) > 1),
+        need(identical(input$data_file_type, "example_bam_file") | identical(input$data_file_type, "private_directory") | (identical(input$data_file_type, "upload_bam_file") & !is.null(input$bam_files) & length(input$bam_files$name) > 1),
             message = "Please upload both .bam and .bai files "
         )
     )
@@ -174,7 +174,7 @@ input_files_reactive <- reactive({
 
 
     shiny::validate(
-        need(identical(input$data_file_type, "example_bam_file") | identical(input$data_file_type, "upload_bam_file") | (identical(input$data_file_type, "hpc_scratch_directory") & !is.null(my_values$scratch_dir)),
+        need(identical(input$data_file_type, "example_bam_file") | identical(input$data_file_type, "upload_bam_file") | (identical(input$data_file_type, "private_directory") & !is.null(my_values$scratch_dir)),
             message = "Enter a scratch directory and select Load directory."
         )
     )
@@ -216,7 +216,7 @@ input_files_reactive <- reactive({
         # Filter BAM and BMI files
         bam_files <- files[grepl(".bam$", files)]
         bai_files <- files[grepl(".bai$", files)]
-    } else if (identical(input$data_file_type, "hpc_scratch_directory")) {
+    } else if (identical(input$data_file_type, "private_directory")) {
         base_dir <- my_values$scratch_dir
         # Get the list of files in the directory
         files <- list.files(base_dir, full.names = FALSE)

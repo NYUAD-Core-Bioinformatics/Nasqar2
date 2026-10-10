@@ -21,11 +21,11 @@ observeEvent(inputDataReactive(), {
     )
   }
   dir <- seurat_project_directory(project_name)
-  label <- if (identical(input$data_file_type, "hpcScratch")) basename(input$hpc_data_path) else input$data_file_type
+  label <- if (identical(input$data_file_type, "privateSpace")) basename(input$private_data_path) else input$data_file_type
   nasqar_project_state_write(
     dir, project_app, basename(dir), "loaded",
     input_label = label, source_type = input$data_file_type,
-    hpc_data_path = input$hpc_data_path, projectname = project_name,
+    private_data_path = input$private_data_path, projectname = project_name,
     mincells = input$mincells, mingenes = input$mingenes
   )
   project_refresh(basename(dir))
@@ -42,7 +42,7 @@ observeEvent(inputDataReactive(), {
       }
       myValues$finalData = list('pbmc'=pbmc)
       myValues$filepath <- pending$object_file
-      myValues$hpcOutputPath <- pending$object_file
+      myValues$privateOutputPath <- pending$object_file
       shinyjs::show(selector = "a[data-value=\"finishTab\"]")
       showNotification("The project's saved Seurat object is available on the Download R Object tab.", type = "message", duration = 8)
     }
@@ -51,15 +51,16 @@ observeEvent(inputDataReactive(), {
 
 restore_project <- function(state, dir) {
   if (!identical(state$app, project_app)) return("this is not a Seurat v5 project")
-  if (!identical(state$source_type, "hpcScratch")) return("this project was made from uploaded files; upload them again to rerun it")
-  if (is.null(state$hpc_data_path) || !file.exists(state$hpc_data_path)) return("the project's input data is no longer available")
-  updateRadioButtons(session, "data_file_type", selected = "hpcScratch")
-  updateTextInput(session, "hpc_data_path", value = state$hpc_data_path)
+  if (!isTRUE(state$source_type %in% c("privateSpace", "hpcScratch"))) return("this project was made from uploaded files; upload them again to rerun it")
+  data_path <- state$private_data_path %||% state$hpc_data_path   # older projects
+  if (is.null(data_path) || !file.exists(data_path)) return("the project's input data is no longer available")
+  updateRadioButtons(session, "data_file_type", selected = "privateSpace")
+  updateTextInput(session, "private_data_path", value = data_path)
   updateTextInput(session, "projectname", value = state$projectname %||% basename(dir))
   if (!is.null(state$mincells)) updateNumericInput(session, "mincells", value = state$mincells)
   if (!is.null(state$mingenes)) updateNumericInput(session, "mingenes", value = state$mingenes)
   restore_pending(list(stage = state$stage, object_file = state$object_file))
-  shinyjs::delay(800, shinyjs::click("load_hpc_data"))
+  shinyjs::delay(800, shinyjs::click("load_private_data"))
   NULL
 }
 

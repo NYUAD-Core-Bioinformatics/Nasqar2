@@ -25,7 +25,7 @@ observe({
       #v3
       saveRDS(pbmc, file = filepath)
       myValues$filepath <- filepath
-      myValues$hpcOutputPath <- if (private_space) filepath else NULL
+      myValues$privateOutputPath <- if (private_space) filepath else NULL
       if (private_space) {
         nasqar_project_state_write(
           output_dir, project_app, basename(output_dir), "seurat",
@@ -50,9 +50,9 @@ output$seuratFileExists <-
   })
 outputOptions(output, 'seuratFileExists', suspendWhenHidden=FALSE)
 
-output$hpcSeuratPath <- renderText({
-  req(myValues$hpcOutputPath)
-  paste("Saved persistently in the private space:", myValues$hpcOutputPath)
+output$privateSeuratPath <- renderText({
+  req(myValues$privateOutputPath)
+  paste("Saved persistently in the private space:", myValues$privateOutputPath)
 })
 
 

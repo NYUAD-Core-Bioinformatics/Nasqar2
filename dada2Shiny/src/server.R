@@ -14,12 +14,12 @@ server <- function(input, output, session) {
         observeEvent(input$browse_fastq_directory, {
             selected <- tryCatch(shinyFiles::parseDirPath(browse_roots, input$browse_fastq_directory), error = function(e) character(0))
             if (length(selected) == 1L && nzchar(selected)) {
-                updateTextInput(session, "hpc_fastq_directory", value = as.character(selected))
+                updateTextInput(session, "private_fastq_directory", value = as.character(selected))
             }
         }, ignoreInit = TRUE)
     } else {
         removeUI(selector = "#browse_fastq_directory")
-        shinyjs::runjs("$('input[name=data_file_type][value=hpc_scratch_directory]').closest('.radio').remove()")
+        shinyjs::runjs("$('input[name=data_file_type][value=private_directory]').closest('.radio').remove()")
     }
 
 

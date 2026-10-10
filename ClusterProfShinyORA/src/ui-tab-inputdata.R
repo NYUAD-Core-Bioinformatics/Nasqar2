@@ -14,18 +14,18 @@ tabItem(
                     c(
                         "Upload .CSV" = "csvfile",
                         "Example Data" = "examplecounts",
-                        "Use a file in the private space" = "hpcfile"
+                        "Use a file in the private space" = "privatefile"
                     ),
                     selected = "csvfile"
                 ),
                 conditionalPanel(
-                    condition = "input.data_file_type=='hpcfile'",
+                    condition = "input.data_file_type=='privatefile'",
                     div(
                         style = "display:flex; gap:8px; align-items:flex-end;",
                         div(style = "flex:1;",
-                            textInput("hpc_file_path", "Table (.csv/.txt) in the private space", value = "")
+                            textInput("private_file_path", "Table (.csv/.txt) in the private space", value = "")
                         ),
-                        div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_hpc_file", "Browse...", "Choose a table in the private space", multiple = FALSE))
+                        div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_private_file", "Browse...", "Choose a table in the private space", multiple = FALSE))
                     ),
                     helpText("The file is read in place; nothing is uploaded.")
                 ),

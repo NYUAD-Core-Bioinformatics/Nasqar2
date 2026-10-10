@@ -22,15 +22,15 @@ server <- function(input, output, session) {
     data_root <- if (nzchar(data_root)) normalizePath(data_root, winslash = "/", mustWork = FALSE) else NULL
     if (!is.null(data_root)) {
         browse_roots <- nasqar_browse_roots()
-        shinyFiles::shinyFileChoose(input, "browse_hpc_file", roots = browse_roots, session = session,
+        shinyFiles::shinyFileChoose(input, "browse_private_file", roots = browse_roots, session = session,
                                     filetypes = c("csv", "txt", "tsv", "gz"))
-        observeEvent(input$browse_hpc_file, {
-            selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_hpc_file), error = function(e) NULL)
-            if (!is.null(selected) && nrow(selected)) updateTextInput(session, "hpc_file_path", value = as.character(selected$datapath[1]))
+        observeEvent(input$browse_private_file, {
+            selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_private_file), error = function(e) NULL)
+            if (!is.null(selected) && nrow(selected)) updateTextInput(session, "private_file_path", value = as.character(selected$datapath[1]))
         }, ignoreInit = TRUE)
     } else {
-        removeUI(selector = "#browse_hpc_file")
-        shinyjs::runjs("$('input[name=data_file_type][value=hpcfile]').closest('.radio').remove()")
+        removeUI(selector = "#browse_private_file")
+        shinyjs::runjs("$('input[name=data_file_type][value=privatefile]').closest('.radio').remove()")
     }
 
     source("exchange-helpers.R", local = TRUE)

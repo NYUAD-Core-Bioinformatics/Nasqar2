@@ -18,24 +18,24 @@ server <- function(input, output, session) {
   # Server-side browser jailed to the private data root; it only fills the path box.
   if (!is.null(data_root)) {
       browse_roots <- nasqar_browse_roots()
-      shinyFiles::shinyDirChoose(input, "browse_hpc_dir", roots = browse_roots, session = session)
-      observeEvent(input$browse_hpc_dir, {
-          selected <- tryCatch(shinyFiles::parseDirPath(browse_roots, input$browse_hpc_dir), error = function(e) character(0))
+      shinyFiles::shinyDirChoose(input, "browse_private_dir", roots = browse_roots, session = session)
+      observeEvent(input$browse_private_dir, {
+          selected <- tryCatch(shinyFiles::parseDirPath(browse_roots, input$browse_private_dir), error = function(e) character(0))
           if (length(selected) == 1L && nzchar(selected)) {
-              updateTextInput(session, "hpc_data_path", value = as.character(selected))
+              updateTextInput(session, "private_data_path", value = as.character(selected))
           }
       }, ignoreInit = TRUE)
-      shinyFiles::shinyFileChoose(input, "browse_hpc_file", roots = browse_roots, session = session, filetypes = c("csv", "tsv", "txt", "gz", "rds"))
-      observeEvent(input$browse_hpc_file, {
-          selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_hpc_file), error = function(e) NULL)
+      shinyFiles::shinyFileChoose(input, "browse_private_file", roots = browse_roots, session = session, filetypes = c("csv", "tsv", "txt", "gz", "rds"))
+      observeEvent(input$browse_private_file, {
+          selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_private_file), error = function(e) NULL)
           if (!is.null(selected) && nrow(selected)) {
-              updateTextInput(session, "hpc_data_path", value = as.character(selected$datapath[1]))
+              updateTextInput(session, "private_data_path", value = as.character(selected$datapath[1]))
           }
       }, ignoreInit = TRUE)
   } else {
-      removeUI(selector = "#browse_hpc_dir")
-      removeUI(selector = "#browse_hpc_file")
-      shinyjs::runjs("$('input[name=data_file_type][value=hpcScratch]').closest('.radio').remove()")
+      removeUI(selector = "#browse_private_dir")
+      removeUI(selector = "#browse_private_file")
+      shinyjs::runjs("$('input[name=data_file_type][value=privateSpace]').closest('.radio').remove()")
   }
 
 

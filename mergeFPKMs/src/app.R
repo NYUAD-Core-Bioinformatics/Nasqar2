@@ -24,16 +24,16 @@ ui <- tagList(
                     h4("Upload all FPKM files"),
                     h4("(select at least 2 csv files)"),
                     radioButtons("counts_source", "Count files",
-                        c("Upload files" = "upload", "Use files in the private space" = "hpc_dir"),
+                        c("Upload files" = "upload", "Use files in the private space" = "private_files"),
                         selected = "upload"),
                     conditionalPanel(
-                        condition = "input.counts_source=='hpc_dir'",
+                        condition = "input.counts_source=='private_files'",
                         div(
                             style = "display:flex; gap:8px; align-items:flex-end;",
                             div(style = "flex:1;",
-                                textAreaInput("hpc_counts_files", "Selected files in the private space (one per line)", value = "", rows = 4)
+                                textAreaInput("private_fpkm_files", "Selected files in the private space (one per line)", value = "", rows = 4)
                             ),
-                            div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_hpc_fpkm_dir", "Browse...", "Choose the count files in the private space (Shift/Ctrl-click or Ctrl-A for several)", multiple = TRUE))
+                            div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_private_fpkm_files", "Browse...", "Choose the count files in the private space (Shift/Ctrl-click or Ctrl-A for several)", multiple = TRUE))
                         ),
                         helpText("Pick the files to merge with Browse (several at once) or paste their paths; files are read in place.")
                     ),
@@ -217,7 +217,7 @@ server <- function(input, output, session) {
     )
 
     inputDataReactive <- reactive({
-        inFile <- if (identical(input$counts_source, "hpc_dir")) data_root_files() else input$datafile
+        inFile <- if (identical(input$counts_source, "private_files")) data_root_files() else input$datafile
         if (is.null(inFile)) {
             return(NULL)
         }
@@ -240,20 +240,20 @@ server <- function(input, output, session) {
     data_root <- if (nzchar(data_root)) normalizePath(data_root, winslash = "/", mustWork = FALSE) else NULL
     if (!is.null(data_root)) {
         browse_roots <- nasqar_browse_roots()
-        shinyFiles::shinyFileChoose(input, "browse_hpc_fpkm_dir", roots = browse_roots, session = session)
-        observeEvent(input$browse_hpc_fpkm_dir, {
-            selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_hpc_fpkm_dir), error = function(e) NULL)
+        shinyFiles::shinyFileChoose(input, "browse_private_fpkm_files", roots = browse_roots, session = session)
+        observeEvent(input$browse_private_fpkm_files, {
+            selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_private_fpkm_files), error = function(e) NULL)
             if (!is.null(selected) && nrow(selected)) {
-                updateTextAreaInput(session, "hpc_counts_files", value = paste(as.character(selected$datapath), collapse = "\n"))
+                updateTextAreaInput(session, "private_fpkm_files", value = paste(as.character(selected$datapath), collapse = "\n"))
             }
         }, ignoreInit = TRUE)
     } else {
-        removeUI(selector = "#browse_hpc_fpkm_dir")
-        shinyjs::runjs("$('input[name=counts_source][value=hpc_dir]').closest('.radio').remove()")
+        removeUI(selector = "#browse_private_fpkm_files")
+        shinyjs::runjs("$('input[name=counts_source][value=private_files]').closest('.radio').remove()")
     }
     # Selected data-root files, in the same shape as a multi-file upload.
     data_root_files <- function() {
-        lines <- trimws(unlist(strsplit(input$hpc_counts_files %||% "", "\n", fixed = TRUE)))
+        lines <- trimws(unlist(strsplit(input$private_fpkm_files %||% "", "\n", fixed = TRUE)))
         lines <- lines[nzchar(lines)]
         shiny::validate(need(length(lines) > 0, "Select at least one file in the private space."))
         files <- vapply(lines, function(path) {

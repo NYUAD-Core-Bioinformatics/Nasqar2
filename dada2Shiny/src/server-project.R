@@ -8,7 +8,7 @@ observeEvent(input_files_reactive(), {
     samples <- input_files_reactive()
     if (!private_space || is.null(my_values$work_dir) || is.null(samples) || !nrow(samples)) return()
     label <- switch(input$data_file_type,
-        hpc_scratch_directory = basename(my_values$base_dir %||% ""),
+        private_directory = basename(my_values$base_dir %||% ""),
         example_fastq_file = "MiSeq_SOP example",
         "uploaded FASTQ files")
     nasqar_project_state_write(
@@ -60,14 +60,14 @@ observeEvent(reactiveTaxonomyData$taxa, {
 
 restore_project <- function(state, dir) {
     if (!identical(state$app, project_app)) return("this is not a DADA2 project")
-    if (!identical(state$source_type, "hpc_scratch_directory")) {
+    if (!isTRUE(state$source_type %in% c("private_directory", "hpc_scratch_directory"))) {
         return("this project was made from uploaded or example files; load them again to rerun it (its caches are kept)")
     }
     if (is.null(state$base_dir) || !dir.exists(state$base_dir)) {
         return("the project's FASTQ directory is no longer available")
     }
-    updateRadioButtons(session, "data_file_type", selected = "hpc_scratch_directory")
-    updateTextInput(session, "hpc_fastq_directory", value = state$base_dir)
+    updateRadioButtons(session, "data_file_type", selected = "private_directory")
+    updateTextInput(session, "private_fastq_directory", value = state$base_dir)
     updateRadioButtons(session, "seq_type", selected = state$seq_type %||% "paired")
     updateTextInput(session, "forward_pattern", value = state$forward_pattern %||% "_R1_001.fastq")
     updateTextInput(session, "reverse_pattern", value = state$reverse_pattern %||% "_R2_001.fastq")

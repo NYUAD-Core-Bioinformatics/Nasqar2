@@ -1,17 +1,17 @@
 # Browse dialog for the private data root (private instance only).
 if (!is.null(data_root)) {
     browse_roots <- nasqar_browse_roots()
-    shinyFiles::shinyFileChoose(input, "browse_hpc_counts", roots = browse_roots, session = session,
+    shinyFiles::shinyFileChoose(input, "browse_private_counts", roots = browse_roots, session = session,
                                 filetypes = c("csv", "txt", "tsv", "gz"))
-    observeEvent(input$browse_hpc_counts, {
-        selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_hpc_counts), error = function(e) NULL)
+    observeEvent(input$browse_private_counts, {
+        selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_private_counts), error = function(e) NULL)
         if (!is.null(selected) && nrow(selected)) {
-            updateTextInput(session, "hpc_counts_path", value = as.character(selected$datapath[1]))
+            updateTextInput(session, "private_counts_path", value = as.character(selected$datapath[1]))
         }
     }, ignoreInit = TRUE)
 } else {
-    removeUI(selector = "#browse_hpc_counts")
-    shinyjs::runjs("$('input[name=data_file_type][value=hpcFile]').closest('.radio').remove()")
+    removeUI(selector = "#browse_private_counts")
+    shinyjs::runjs("$('input[name=data_file_type][value=privateFile]').closest('.radio').remove()")
 }
 
 observe({
@@ -43,7 +43,7 @@ inputFileReactive <- reactive({
     # Check if example selected, or if not then ask to upload a file.
     shiny::validate(
         need(identical(input$data_file_type, "examplecounts") | identical(input$data_file_type, "examplecountsfactors") | (!is.null(input$datafile)) | (!is.null(query[["countsdata"]])) |
-             (identical(input$data_file_type, "hpcFile") && !is.null(input$hpc_counts_path) && nzchar(trimws(input$hpc_counts_path))),
+             (identical(input$data_file_type, "privateFile") && !is.null(input$private_counts_path) && nzchar(trimws(input$private_counts_path))),
             message = "Please select a file"
         )
     )
@@ -70,8 +70,8 @@ inputFileReactive <- reactive({
         }
 
         inFile <- inFile$datapath
-    } else if (input$data_file_type == "hpcFile") {
-        inFile <- tryCatch(nasqar_private_path(input$hpc_counts_path, what = "counts file"),
+    } else if (input$data_file_type == "privateFile") {
+        inFile <- tryCatch(nasqar_private_path(input$private_counts_path, what = "counts file"),
                            error = function(e) shiny::validate(need(FALSE, conditionMessage(e))))
     } else if (input$data_file_type == "examplecounts") {
         inFile <- "www/exampleData/wang_count_table.csv"
@@ -95,7 +95,7 @@ inputFileReactive <- reactive({
     # instead of crashing the session.
     # The gene-alias radio is only offered for uploaded (or handed-off) files;
     # the example data sets have no symbol column.
-    geneAliasMode <- if (!is.null(query[["countsdata"]]) || isTRUE(input$data_file_type %in% c("countsFile", "hpcFile"))) {
+    geneAliasMode <- if (!is.null(query[["countsdata"]]) || isTRUE(input$data_file_type %in% c("countsFile", "privateFile"))) {
         input$gene_alias
     } else {
         "notincluded"
@@ -258,7 +258,7 @@ csvDataReactive <- eventReactive(input$submit, {
 
     sampleN <- colnames(fileContent)
 
-    if (input$data_file_type %in% c("countsFile", "hpcFile")) {
+    if (input$data_file_type %in% c("countsFile", "privateFile")) {
         if (input$no_replicates) {
             sampleConditions <- sampleN
 
@@ -311,7 +311,7 @@ outputOptions(output, "noreplicates", suspendWhenHidden = FALSE)
 
 
 observe({
-    if (isTRUE(input$data_file_type %in% c("examplecountsfactors", "countsFile", "hpcFile"))) {
+    if (isTRUE(input$data_file_type %in% c("examplecountsfactors", "countsFile", "privateFile"))) {
         updateCheckboxInput(session, "no_replicates", value = F)
         inputFileReactive()
     }
