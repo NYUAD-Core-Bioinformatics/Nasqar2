@@ -54,17 +54,11 @@ observe({
 
 
 my_values <- reactiveValues()
-my_values$private_dir <- NULL
+my_values$private_dir <- NULL          # the loaded BAM directory in the private space
 
-configured_private_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
-private_root <- if (nzchar(configured_private_root)) {
-    normalizePath(configured_private_root, winslash = "/", mustWork = FALSE)
-} else {
-    NULL
-}
-
-# Server-side browser jailed to the private data root; it only fills the path box.
-if (!is.null(private_root)) {
+# Server-side browser jailed to the private space; it only fills the path box.
+private_space <- nzchar(Sys.getenv("NASQAR_DATA_ROOT", unset = ""))
+if (private_space) {
     browse_roots <- nasqar_browse_roots()
     shinyFiles::shinyDirChoose(input, "browse_private_directory", roots = browse_roots, session = session)
     observeEvent(input$browse_private_directory, {
@@ -83,33 +77,11 @@ observeEvent(input$private_directory_path, {
 }, ignoreInit = TRUE)
 
 observeEvent(input$load_private_directory, {
-    if (!nzchar(trimws(input$private_directory_path))) {
-        showNotification("Enter a directory containing BAM and BAI files.", type = "error")
-        return()
-    }
-    if (is.null(private_root)) {
-        showNotification("This instance has no private space configured.", type = "error")
-        return()
-    }
-
     requested_dir <- tryCatch(
-        normalizePath(input$private_directory_path, winslash = "/", mustWork = TRUE),
-        error = function(error) NULL
+        nasqar_private_path(input$private_directory_path, directory = TRUE, what = "BAM directory"),
+        error = function(e) { showNotification(conditionMessage(e), type = "error"); NULL }
     )
-
-    if (is.null(requested_dir) || !dir.exists(requested_dir)) {
-        showNotification("Directory does not exist or is not readable.", type = "error")
-        return()
-    }
-
-    inside_private <- nasqar_path_inside_roots(requested_dir)
-    if (!inside_private) {
-        showNotification(
-            "Directory must be in the private space.",
-            type = "error"
-        )
-        return()
-    }
+    if (is.null(requested_dir)) return()
 
     files <- list.files(requested_dir, full.names = FALSE)
     if (!any(grepl("\\.bam$", files, ignore.case = TRUE))) {
