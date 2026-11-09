@@ -244,19 +244,43 @@ output$rlogData <- renderDataTable(
     options = list(scrollX = TRUE, pageLength = 5)
 )
 
+# The on-screen heatmap and the downloaded figure share one palette and one
+# clustering (complete linkage on the sample distances), so they show the
+# same picture.
+sample_distance_colors <- function() {
+    grDevices::colorRampPalette(
+        rev(RColorBrewer::brewer.pal(9, "Blues"))
+    )(255)
+}
+
 transformed_distance_plot <- function(matrix) {
     validate(need(!is.null(matrix), "Run DESeq2 before exporting this figure."))
     sample_distances <- stats::dist(t(matrix))
     sample_matrix <- as.matrix(sample_distances)
-    colors <- grDevices::colorRampPalette(
-        rev(RColorBrewer::brewer.pal(9, "Blues"))
-    )(255)
     pheatmap::pheatmap(
         sample_matrix,
         clustering_distance_rows = sample_distances,
         clustering_distance_cols = sample_distances,
-        color = colors,
+        color = sample_distance_colors(),
         border_color = NA,
+        main = "Sample distance heatmap"
+    )
+}
+
+transformed_distance_plotly <- function(matrix) {
+    sample_distances <- stats::dist(t(matrix))
+    sample_matrix <- as.matrix(sample_distances)
+    dend <- stats::as.dendrogram(stats::hclust(sample_distances))
+    # heatmaply draws columns in reverse dendrogram order; reversing the
+    # column dendrogram puts the samples in the same top-left to bottom-right
+    # order that pheatmap uses in the download.
+    heatmaply::heatmaply(
+        sample_matrix,
+        Rowv = dend,
+        Colv = rev(dend),
+        symm = FALSE,
+        revC = FALSE,
+        colors = sample_distance_colors(),
         main = "Sample distance heatmap"
     )
 }
@@ -280,24 +304,15 @@ transformed_pca_plot <- function(transformed, intgroup) {
         ggplot2::labs(
             x = sprintf("PC1: %.1f%% variance", percent_var[1] * 100),
             y = sprintf("PC2: %.1f%% variance", percent_var[2] * 100),
-            color = intgroup
+            color = intgroup,
+            title = "PCA Plot"
         ) +
         ggplot2::theme_classic(base_size = 12)
 }
 
 output$rlogPlot <- renderPlotly({
     if (!is.null(myValues$rlogMat)) {
-        sampleDists <- dist(t(myValues$rlogMat))
-        print("rlogPlot")
-        print(myValues$rldColNames)
-        sampleDistMatrix <- as.matrix(sampleDists)
-        rownames(sampleDistMatrix) <- paste(myValues$rldColNames)
-        colnames(sampleDistMatrix) <- NULL
-        colors <- colorRampPalette(rev(brewer.pal(9, "Blues")))(255)
-        # rlogHeat = pheatmap(sampleDistMatrix,clustering_distance_rows=sampleDists,clustering_distance_cols=sampleDists,col=colors)
-        # browser()
-        # rlogHeat
-        heatmaply::heatmaply(sampleDistMatrix, showticklabels = c(F, T))
+        transformed_distance_plotly(myValues$rlogMat)
     }
 })
 
@@ -352,6 +367,8 @@ output$rlogPcaPlot <- renderPlotly({
             x = ~PC1, 
             y = ~PC2,
             color = ~group,
+            # ggplot's default hue palette, the same colours as the download
+            colors = scales::hue_pal()(nlevels(factor(pca_data$group))),
             text = hover_text,
             hoverinfo = "text",
             type = "scatter",
@@ -397,19 +414,7 @@ output$rlogPcaPlot <- renderPlotly({
 
 output$vsdPlot <- renderPlotly({
     if (!is.null(myValues$vstMat)) {
-        print("vsdPlot")
-        print(myValues$rldColNames)
-        print(myValues$vsdColNames)
-        sampleDists <- dist(t(myValues$vstMat))
-        sampleDistMatrix <- as.matrix(sampleDists)
-        rownames(sampleDistMatrix) <- paste(myValues$vsdColNames)
-        colnames(sampleDistMatrix) <- paste(myValues$vsdColNames)
-        colors <- colorRampPalette(rev(brewer.pal(9, "Blues")))(255)
-        # vstHeat <- pheatmap(sampleDistMatrix,clustering_distance_rows=sampleDists,clustering_distance_cols=sampleDists,col=colors)
-        # vstHeat
-        # heatmaply::heatmaply(sampleDistMatrix, showticklabels = c(F,T))
-        # label both axes
-        heatmaply::heatmaply(sampleDistMatrix, showticklabels = c(F, T))
+        transformed_distance_plotly(myValues$vstMat)
     }
 })
 
@@ -465,6 +470,8 @@ output$vsdPcaPlot <- renderPlotly({
             x = ~PC1, 
             y = ~PC2,
             color = ~group,
+            # ggplot's default hue palette, the same colours as the download
+            colors = scales::hue_pal()(nlevels(factor(pca_data$group))),
             text = hover_text,
             hoverinfo = "text",
             type = "scatter",
