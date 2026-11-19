@@ -84,17 +84,16 @@ Select the **reference genome**. Only genomes whose BSgenome, TxDb and
 organism packages are installed appear in the list. When the dbSNP `SNPlocs`
 package for that genome is installed, rsIDs are added automatically.
 
-Human hg38 and hg19 ship with NASQAR2. To work with another species, open
-**Install another reference genome**, pick it from the catalog (mouse, rat,
-zebrafish, fruit fly, nematode, yeast, chicken, pig, cow, dog, rhesus macaque,
-chimpanzee) and press **Install**. The packages are downloaded from
-Bioconductor in the background and installed into the instance's R library.
-The server needs internet access for this. The panel is shown only when the
-instance allows installing packages.
+**Human hg38 and hg19 are the reference genomes that come with NASQAR2.** A
+VCF of another species can be annotated only where its reference genome has
+been added, which is possible on a private instance.
 
 Files that are not bgzip-compressed and tabix-indexed are converted once into
 a working copy; the source file is never modified. The VCF must be
 coordinate-sorted.
+
+**One VCF at a time, sorted by chromosome and position.** A file that is not
+sorted cannot be indexed and is refused with an explanation.
 
 Press **Load VCF**. An overview of the file appears next to the form, and the
 next steps appear in the sidebar. The sidebar marks each finished step with a
@@ -105,8 +104,9 @@ check mark and the step to do next with a **Next** badge.
 Shows the header (INFO and FORMAT definitions, samples) and the number of
 records per contig taken from the tabix index. **Record statistics** stream
 through the file once, reading only the fixed columns and `INFO/DP`, and report
-variant types, FILTER values and QUAL/DP distributions. Small files are
-summarised automatically; for a large file, press the button to start.
+variant types, FILTER values and QUAL/DP distributions. Files with
+**up to {{summary_limit}} records** are summarised automatically; for a larger
+file, press **Compute record statistics**.
 
 ### 3. Filter Variants
 
@@ -136,9 +136,8 @@ written straight to a compressed, indexed VCF, so a file of any size can be
 filtered. Restricting chromosomes, regions or genes still makes a whole-genome
 run much faster.
 
-For files with at most 50 samples the `GT` genotype field is read so that
-per-sample counts can be plotted. Larger cohorts are annotated from the fixed
-columns only.
+Genotypes are read, and per-sample counts plotted, only for files with **at
+most 50 samples**. Larger cohorts are annotated without per-sample counts.
 
 ### 4. Annotate
 
@@ -166,8 +165,8 @@ Press **Annotate variants** to start. The **Annotation report** then gives
 the totals: records, alleles annotated, coding alleles and genes with variants.
 In the **Annotated variants** table, switch between one row per variant and
 one row per variant and transcript, and use the box above each column to
-filter it. The table on screen shows the first rows of each; the complete
-tables are available under Downloads.
+filter it. The table on screen shows **the first {{table_preview_rows}} rows**
+of each; the complete tables are always available under Downloads.
 
 Severity order: frameshift > nonsense > nonsynonymous > splice site > coding
 (unpredicted) > not translated > synonymous > promoter > 5' UTR > 3' UTR >
@@ -216,6 +215,19 @@ runs without rsIDs and the report says so.
 > genetic variants. *Bioinformatics* 30(14):2076–2078 (2014).
 > https://doi.org/10.1093/bioinformatics/btu168
 
+<div class="nasqar-public-only">
+<h3 style="font-size:20px; font-weight:600; margin:34px 0 6px;">Working with large or sensitive data?</h3>
+<p>NASQAR2 can also run as a private instance on your own server or cluster. A private instance adds:</p>
+<ul>
+<li><strong>Saved work.</strong> Every analysis is kept automatically and can be reopened later exactly as you left it.</li>
+<li><strong>No uploads.</strong> Large files are read where they already are on the server.</li>
+<li><strong>Your data stays with you.</strong> Nothing leaves your own machines.</li>
+<li><strong>Other species.</strong> Reference genomes beyond human, such as mouse, rat, zebrafish or fruit fly, can be added from within the app.</li>
+<li><strong>Room to grow.</strong> The limits mentioned in this guide can be raised by your administrator.</li>
+</ul>
+<p>The NASQAR2 installation guide explains how to set one up.</p>
+</div>
+
 <div class="nasqar-project-private">
 <h3 style="font-size:20px; font-weight:600; margin:34px 0 6px;">Saving and reopening your work</h3>
 <p>On this instance your analysis is saved for you, so you can come back to it later.</p>
@@ -224,5 +236,6 @@ runs without rsIDs and the report says so.
 <li><strong>To continue later</strong>, choose <strong>Reopen a saved project</strong> on the Input Data tab, pick your project and press <strong>Open project</strong>. Everything comes back as you left it, without running the analysis again.</li>
 <li><strong>To use a file that is already on the server</strong> instead of uploading one, choose <strong>VCF in the private space</strong> and press <strong>Browse</strong>.</li>
 <li><strong>Your figures and tables</strong> are collected on the <strong>Project files</strong> page. <strong>Save all to project</strong> stores all of them in one click.</li>
+<li><strong>To work with another species</strong>, open <strong>Install another reference genome</strong> on the Input Data tab, pick it from the list (mouse, rat, zebrafish, fruit fly, nematode, yeast, chicken, pig, cow, dog, rhesus macaque, chimpanzee) and press <strong>Install</strong>. It is downloaded once and stays available afterwards. The server needs internet access for this.</li>
 </ul>
 </div>
