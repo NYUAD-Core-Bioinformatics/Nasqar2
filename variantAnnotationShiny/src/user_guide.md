@@ -209,11 +209,12 @@ runs without rsIDs and the report says so.
 > https://doi.org/10.1093/bioinformatics/btu168
 
 <div class="nasqar-project-private">
-<h3 style="font-size:20px; font-weight:600; margin:34px 0 6px;">Private instance: projects</h3>
-<p>This instance has a private space, so two more choices appear under <strong>Where is your data?</strong> and your work is kept as a project.</p>
+<h3 style="font-size:20px; font-weight:600; margin:34px 0 6px;">Saving and reopening your work</h3>
+<p>On this instance your analysis is saved for you, so you can come back to it later.</p>
 <ul>
-<li><strong>VCF in the private space</strong>: a VCF already on the server, chosen with <strong>Browse</strong>. It is read in place; nothing is uploaded.</li>
-<li><strong>Reopen a saved project</strong>: pick a project and press <strong>Open project</strong>. The loaded VCF, the reference genome, the filters and the annotation results come back in seconds, without recomputing. A project is not reopened when its source VCF changed since it was made.</li>
+<li><strong>It is saved automatically</strong> under the name in the <strong>Project name</strong> box on the Input Data tab.</li>
+<li><strong>To continue later</strong>, choose <strong>Reopen a saved project</strong> on the Input Data tab, pick your project and press <strong>Open project</strong>. Everything comes back as you left it, without running the analysis again.</li>
+<li><strong>To use a file that is already on the server</strong> instead of uploading one, choose <strong>VCF in the private space</strong> and press <strong>Browse</strong>.</li>
+<li><strong>Your figures and tables</strong> are collected on the <strong>Project files</strong> page. <strong>Save all to project</strong> stores all of them in one click.</li>
 </ul>
-<p>Every run belongs to a project, named in the <strong>Project name</strong> box. It keeps the indexed VCF, the filtered VCF, the annotation tables, their caches and the settings you used, so the analysis can be reopened later. Figures and tables you download are kept in the project too. The <strong>Project files</strong> page lists them with a preview, and its <strong>Save all to project</strong> button writes every figure and table that exists at that moment into the project without downloading them.</p>
 </div>
