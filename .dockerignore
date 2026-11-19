@@ -8,6 +8,13 @@
 **/*.log
 **/screenlog.*
 *.zip
+**/*.zip
 *.tar.gz
 docs
 hpc/build
+.claude
+data
+# Downloaded into the image by common/fetch-app-data.sh, not copied from here.
+**/www/exampleData
+**/www/taxonomy
+**/testData

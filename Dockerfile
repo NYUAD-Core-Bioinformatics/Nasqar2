@@ -92,6 +92,16 @@ RUN set -e; \
 COPY strip-source-maps.sh /tmp/strip-source-maps.sh
 RUN sh /tmp/strip-source-maps.sh && rm /tmp/strip-source-maps.sh
 
+# Example data and the SILVA taxonomy references are kept out of git; download
+# them into the applications' www/ directories (about 430 MB). The application
+# COPY lines below merge into these directories and leave the data in place.
+ARG NASQAR_DATA_URL=https://github.com/NYUAD-Core-Bioinformatics/Nasqar2/releases/download/data-v1/data.zip
+ARG NASQAR_DATA_SHA256=ca37041d16855f61cc20ed1be5e5c8113bd12c9911463f5d5d68a831ebb034d7
+COPY common/fetch-app-data.sh /tmp/fetch-app-data.sh
+RUN bash /tmp/fetch-app-data.sh --dest /srv/shiny-server \
+      --url "$NASQAR_DATA_URL" --sha256 "$NASQAR_DATA_SHA256" && \
+    rm /tmp/fetch-app-data.sh
+
 # Application sources change far more often than the environments and data
 # packages above, so copy them last to keep those layers cached.
 COPY animalcules /srv/shiny-server/animalcules
