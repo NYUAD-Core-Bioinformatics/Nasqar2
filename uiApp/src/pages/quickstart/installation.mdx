@@ -146,6 +146,9 @@ Reopening restores the project without recomputing: cached results are reused, a
 | `NASQAR_PROJECT_ROOT` | All NASQAR2 applications | Private-space projects, one folder per application and project name (`projects/<App>/<name>`), each restorable from the app |
 | `NASQAR_DADA2_WORK_DIR` | DADA2 | Optional; set by the HPC job only. Fast node-local disk for the filtered FASTQs of a run (default: `work/` in the project) |
 | `R_LIBS_USER` | All | Writable R library, so packages installed on the fly survive container restarts |
+| `NASQAR_VARIANT_YIELD_SIZE` | Variant Annotation | Optional. Records read per chunk while summarising and filtering a VCF (default 100000); files below it are summarised automatically |
+| `NASQAR_VARIANT_ANNOTATION_CHUNK` | Variant Annotation | Optional. Records annotated per chunk (default 50000); lower it to use less memory |
+| `NASQAR_VARIANT_TABLE_PREVIEW` | Variant Annotation | Optional. Rows of each annotation table shown on screen (default 10000); the downloads are always complete |
 
 Applications only accept paths under `NASQAR_DATA_ROOT`, so mount the narrowest directory that holds your inputs rather than your home directory.
 
