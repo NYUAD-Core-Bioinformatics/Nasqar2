@@ -101,9 +101,8 @@ coordinate-sorted.
 Shows the header (INFO and FORMAT definitions, samples) and the number of
 records per contig taken from the tabix index. **Record statistics** stream
 through the file once, reading only the fixed columns and `INFO/DP`, and report
-variant types, FILTER values and QUAL/DP distributions. Files with fewer
-records than the chunk size are summarised automatically; larger files start on
-request.
+variant types, FILTER values and QUAL/DP distributions. Small files are
+summarised automatically; for a large file, press the button to start.
 
 ### 3. Filter Variants
 
@@ -123,11 +122,10 @@ Genomic restriction:
   symbols** (mapped to gene bodies plus a flank). Region and chromosome names
   are converted between `chr1` and `1` styles automatically.
 
-Large files are read in tiles or streamed in chunks (`NASQAR_VARIANT_YIELD_SIZE`,
-default 100,000 records). Records that pass the filters are not held in
-memory: they are written straight to a bgzip-compressed, tabix-indexed VCF on disk,
-so any number of records can be kept. Restricting
-chromosomes, regions or genes still makes a whole-genome run much faster.
+Large files are read piece by piece, and the records that pass the filters are
+written straight to a compressed, indexed VCF, so a file of any size can be
+filtered. Restricting chromosomes, regions or genes still makes a whole-genome
+run much faster.
 
 For files with at most 50 samples the `GT` genotype field is read so that
 per-sample counts can be plotted. Larger cohorts are annotated from the fixed
@@ -147,27 +145,22 @@ columns only.
   allele matches the dbSNP record, whenever the dbSNP package for the genome
   is installed.
 
-Annotation streams the filtered VCF in chunks (`NASQAR_VARIANT_ANNOTATION_CHUNK`,
-default 50,000 records), so memory use depends on the chunk size rather than
-on the number of filtered variants; a cohort-sized VCF annotates in bounded
-memory, it only takes longer. Two tables are produced and written to disk
-as CSV while the run proceeds:
+Annotation also works through the filtered VCF piece by piece, so a large
+file does not run out of memory; it only takes longer. Two tables are
+produced:
 
 * **Per variant and transcript**: one row for every allele–transcript pair.
 * **Per variant**: one row per allele keeping the most severe effect, with the
   number of transcripts and all overlapping genes.
 
-The interactive table shows the first 10,000 rows of each
-(`NASQAR_VARIANT_TABLE_PREVIEW`); the complete tables are available under
-Downloads.
+The table on screen shows the first rows of each; the complete tables are
+available under Downloads.
 
 Severity order: frameshift > nonsense > nonsynonymous > splice site > coding
 (unpredicted) > not translated > synonymous > promoter > 5' UTR > 3' UTR >
 intron > intergenic.
 
-Results are cached. The cache key covers the VCF path,
-size and modification time, all filter and annotation settings, and the versions
-of VariantAnnotation and the genome packages, so re-running the same settings is
+Results are remembered: running the same file with the same settings again is
 instant.
 
 ### 5. Summary Plots
