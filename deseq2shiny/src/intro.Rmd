@@ -51,7 +51,7 @@
 <figure class="guide-figure"><a class="pop"><img src="www/heatmap.png" alt="Gene expression heatmap"/></a><figcaption><strong>Interactive heatmap</strong><br/>The most variable genes, or a set you choose. Drag over an area to zoom into it as a sub-heatmap.</figcaption></figure>
 <figure class="guide-figure"><a class="pop"><img src="www/boxplot.png" alt="Gene expression boxplot"/></a><figcaption><strong>Gene boxplot</strong><br/>Expression of individual genes across your conditions.</figcaption></figure>
 </div>
-<p class="guide-sub" style="margin-top:14px;">The Volcano Plot and UpSet Plot tabs work on saved comparisons: press <em>mark it for further analysis</em> under the results table on the DE Results tab. The volcano plot needs one saved comparison, the UpSet plot at least two.</p>
+<p class="guide-sub" style="margin-top:14px;">The Volcano Plot and UpSet Plot tabs work on saved comparisons: press <strong>Save comparison</strong> on the DE Results tab. The volcano plot needs one saved comparison, the UpSet plot at least two.</p>
 
 <h3>Comparing gene lists: UpSet plot and set operations</h3>
 <p>The UpSet Plot tab answers questions such as "which genes respond to the treatment but not to the knockout?". It compares the significant genes of the comparisons you saved, and it is not limited to a handful of them the way a Venn diagram is.</p>
@@ -86,7 +86,7 @@
 <li>A file can also carry both: gene IDs in the first column and gene symbols in the second. Choose <em>My matrix contains GeneIDs and GeneSymbols</em> on the Input Data tab, and you can then search and label genes by either.</li>
 <li>Every other column is one sample of raw integer read counts. Do not use normalised values such as TPM or FPKM.</li>
 <li>Use only letters, digits and underscores in sample names.</li>
-<li>If each sample has its own counts file, combine them first with <a href="http://nasqar.abudhabi.nyu.edu/GeneCountMerger" target="_blank">Gene Count Merger</a>.</li>
+<li>If each sample has its own counts file, combine them first with <a href="../GeneCountMerger/" target="_blank">Gene Count Merger</a>.</li>
 </ul>
 <div class="guide-grid">
 <figure class="guide-figure guide-table"><img src="www/sampleTable_reps.png" alt="Counts table with replicates"/><figcaption><strong>With replicates</strong><br/>Name samples as condition, underscore, replicate number (CT6_1, CT6_2) and the conditions are filled in for you.</figcaption></figure>

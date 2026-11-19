@@ -122,7 +122,7 @@ tabItem(
                                         )
                                     )
                                 ),
-                                downloadButton("download_boxplot", "Download Plot", class = "btn-success", style = "width: 100%; margin-top: 10px;")
+                                downloadButton("download_boxplot", "Download plot", class = "btn-success", style = "width: 100%; margin-top: 10px; color:#fff;")
                             )
 
                             

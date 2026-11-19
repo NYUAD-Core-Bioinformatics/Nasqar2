@@ -54,9 +54,9 @@ tabItem(
                             "output.heatmapComputed",
                             downloadButton(
                                 "downloadHighResHeatmap",
-                                "Download Heatmap (PDF)",
-                                class = "btn btn-warning",
-                                style = "width:100%;"
+                                "Download (PDF)",
+                                class = "btn btn-success",
+                                style = "width:100%; color:#fff;"
                             )
                         )
                     ),

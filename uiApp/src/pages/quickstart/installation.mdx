@@ -4,7 +4,7 @@
 NASQAR2 can be deployed through Docker, application-specific Conda
 environments, or an unprivileged Singularity container inside a Slurm compute
 allocation.
-The quick guide below should help you decide, which option best fits your needs/setup.
+The table below should help you decide which option fits your setup.
 
 <div style={{marginTop: '1.5rem'}}>
 <table style={{width: '100%', borderCollapse: 'collapse', border: '1px solid #e5e7eb'}}>
@@ -58,7 +58,7 @@ For a Slurm deployment, continue to the
 
 ## Installation Options using Docker
 
-In order to deploy NASQAR2 using the various Docker based installation option, please ensure you have already installed [Docker](https://www.docker.com/products/docker-desktop/)
+All Docker options need [Docker](https://www.docker.com/products/docker-desktop/) installed first.
 
 ### [Option 1: Pull Prebuilt Docker from Cloud](#option-1-pull-prebuilt-docker-from-cloud) (Recommended - Fastest)
 Pull and run the complete NASQAR2 suite with all applications in a single Docker container. No building required - just pull and run!
@@ -133,9 +133,9 @@ The same variables work with an image built from source (`nasqar2-all`). Leave `
 
 A private instance adds the same controls to every application; a public instance shows none of them:
 
-- **Where is your data?** on the input tab gains two choices. *A file in the private space* reads a file that is already on the server, chosen with Browse, without uploading it. **Reopen a saved project** lists the projects of that app with their input, stage and date.
+- **Where is your data?** on the input tab gains two choices. One is named after the input of the app, such as *Counts file in the private space* or *FASTQ folder in the private space*, and reads data that is already on the server, chosen with Browse, without uploading it. **Reopen a saved project** lists the projects of that app with their input, stage and date.
 - **Project name** on the input tab names the project a new analysis is saved under.
-- **Project files** in the sidebar lists the saved figures and tables with a preview. **Save all to project** writes every figure and table that exists at that moment into the project without downloading them.
+- **Project files** lists the saved figures and tables of the project with a preview. In DESeq2 this page is called **Export and files**, and its **Save all to project** button writes every figure and table that exists at that moment into the project without downloading them.
 
 Reopening restores the project without recomputing: cached results are reused, and a restore is refused when the source data changed since the project was made. The older per-application variables (`NASQAR_DESEQ2_STATE_DIR`, `NASQAR_*_PROJECT_DIR`, `NASQAR_ATAC_CACHE_DIR`) are still honoured as overrides.
 
@@ -211,10 +211,12 @@ NASQAR2 includes the following applications that can be built individually:
 - `dada2Shiny` - 16S/ITS amplicon sequencing analysis
 - `DEBrowser` - Differential expression analysis browser
 - `deseq2shiny` - DESeq2 differential expression analysis
-- `GeneCountMerger` - Merge gene count matrices
+- `GeneCountMerger` - Merge gene count files and matrices
+- `mergeFPKMs` - Merge FPKM files
 - `monocle3` - Single-cell trajectory analysis
 - `SeuratV5Shiny` - Single-cell RNA-seq analysis
-- `tsar_nasqar` - Time series analysis
+- `tsar_nasqar` - START, RNA-seq analysis and visualisation
+- `variantAnnotationShiny` - VCF filtering and variant annotation
 
 ### Build Individual Docker from Source
 
@@ -259,8 +261,6 @@ Access the application at `http://localhost:9001/`
 ---
 
 ## Local Installation with Anaconda
-
-In order to deploy NASQAR2 using Conda, please ensure you have installed [Conda/MiniConda/Anaconda] on your system.
 
 Run individual applications directly on your system without Docker. Each application has its own conda environment with specific dependencies.
 

@@ -1,4 +1,4 @@
-## Enrichment analysis
+## Enrichment
 
 NASQAR2 provides two clusterProfiler-based applications for functional interpretation of differential-expression results. Choose GSEA for a ranked list of all tested genes, or ORA for a selected list of significant genes.
 
@@ -32,8 +32,8 @@ NASQAR2 provides two clusterProfiler-based applications for functional interpret
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        minHeight: "44px",
-        padding: "10px 16px",
+        minHeight: "40px",
+        padding: "8px 18px",
         backgroundColor: "#2563eb",
         color: "#ffffff",
         fontWeight: 600,
@@ -41,11 +41,11 @@ NASQAR2 provides two clusterProfiler-based applications for functional interpret
         borderRadius: "6px"
       }}
     >
-      Launch ClusterProfShinyGSEA
+      Launch GSEA
     </a>
   </section>
 
-  <section style={{ borderTop: "3px solid #16a34a", paddingTop: "1rem" }}>
+  <section style={{ borderTop: "3px solid #2563eb", paddingTop: "1rem" }}>
     <h3 style={{ marginTop: 0 }}>Over-Representation Analysis</h3>
     <p>
       <strong>ORA</strong> tests whether GO terms or KEGG pathways occur more
@@ -67,16 +67,16 @@ NASQAR2 provides two clusterProfiler-based applications for functional interpret
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        minHeight: "44px",
-        padding: "10px 16px",
-        backgroundColor: "#15803d",
+        minHeight: "40px",
+        padding: "8px 18px",
+        backgroundColor: "#2563eb",
         color: "#ffffff",
         fontWeight: 600,
         textDecoration: "none",
         borderRadius: "6px"
       }}
     >
-      Launch ClusterProfShinyORA
+      Launch ORA
     </a>
   </section>
 </div>
@@ -92,15 +92,20 @@ Both applications provide searchable result tables and publication-ready plots. 
 
 For complete method details, see the [clusterProfiler documentation](https://yulab-smu.top/biomedical-knowledge-mining-book/).
 
-#In a private instance, **Use a file in the private space** reads the gene table in place (with a Browse dialog) instead of uploading it.
+## Where it fits
 
-## Private-space projects
+Enrichment is the second step of the bulk RNA-seq workflow. A comparison made
+in [DESeq2](/applications/rna_seq/bulk_rna/deseq2) can be opened directly in
+either application, or you can upload any differential-expression table.
 
-In a private instance every run belongs to a project, `projects/ClusterProfShinyORA` and `ClusterProfShinyGSEA/<name>`,
-holding the input table, every parameter and the cached enrichment results plus a `state.rds` of the settings and the stage reached.
-**Restore an existing project** on the input tab reopens it without
-recomputing; cached results are reused and the restore is refused if the
-source data changed. Public instances have no private space and no projects.
+## On a private instance
+
+On a private instance you can also choose **Table in the private space** to
+read the results table from your own storage instead of uploading it. Every
+analysis is saved under a project name, and **Reopen a saved project** on the
+Input Data tab returns to it without running the enrichment again. The public
+site has no private space and no saved projects.
+See [Run as a private instance](/quickstart/installation#run-as-a-private-instance-with-your-own-data) to set one up.
 
 ## Citation
 

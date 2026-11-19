@@ -6,7 +6,7 @@ tabItem(
             div(
                 style = "margin:15px; padding:16px 20px; border:1px solid #cfe2f3; border-left:4px solid #3c8dbc; border-radius:4px; background:#f4f8fb;",
                 h4(style = "margin-top:0;", icon("circle-info"), " Save at least two comparisons first"),
-                p(style = "margin-bottom:6px;", "The UpSet plot compares the significant genes of saved comparisons. On the DE Results tab, get the results for a comparison and press 'mark it for further analysis' under the table, then repeat for each comparison you want to include."),
+                p(style = "margin-bottom:6px;", "The UpSet plot compares the significant genes of saved comparisons. On the DE Results tab, get the results for a comparison and press Save comparison, then repeat for each comparison you want to include."),
                 p(style = "margin:0; color:#666;", "Saved so far: ", textOutput("saved_comparison_note_upset", inline = TRUE))
             )
         ),
