@@ -6,7 +6,7 @@ tabItem(
             div(
                 style = "margin:15px; padding:16px 20px; border:1px solid #cfe2f3; border-left:4px solid #3c8dbc; border-radius:4px; background:#f4f8fb;",
                 h4(style = "margin-top:0;", icon("circle-info"), " Save a comparison first"),
-                p(style = "margin-bottom:6px;", "The volcano plot is drawn from a saved comparison. On the DE Results tab, get the results for a comparison and press 'mark it for further analysis' under the table. One saved comparison is enough."),
+                p(style = "margin-bottom:6px;", "The volcano plot is drawn from a saved comparison. On the DE Results tab, get the results for a comparison and press Save comparison. One saved comparison is enough."),
                 p(style = "margin:0; color:#666;", "Saved so far: ", textOutput("saved_comparison_note_volcano", inline = TRUE))
             )
         ),

@@ -1,36 +1,29 @@
+import { LaunchButton } from '../../../../components/launch-button'
+
 ## ATACseqQC
 
-ATACseqQC is a tool specifically designed for the quality control (QC) analysis of ATAC-seq (Assay for Transposase-Accessible Chromatin using sequencing) data. It offers a range of functions and metrics to assess the quality and reliability of ATAC-seq experiments. ATAC-seq is a powerful technique used to study chromatin accessibility, which provides insights into the regulatory regions of the genome.
+The ATACseqQC application checks the quality of ATAC-seq experiments with the
+Bioconductor package [ATACseqQC](https://bioconductor.org/packages/release/bioc/html/ATACseqQC.html).
+It reports library complexity, the fragment size distribution, signal around
+transcription start sites and transcription factor footprints.
 
-We provide an interactive web-based application for ATAC-seq quality control analysis.
+<LaunchButton path="/ATACseqQCShniy/">Launch ATACseqQC</LaunchButton>
 
-For more information about ATACseqQC, visit the [official documentation](https://bioconductor.org/packages/release/bioc/html/ATACseqQC.html).
+## What you need
 
-<a href={`${process.env.NEXT_PUBLIC_NASQAR_BASE_PATH || ''}/ATACseqQCShniy/`} target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
-  Launch ATACseqQC
-</a>
+- Aligned reads as BAM files, **each with its BAI index**.
+- The reference genome the reads were aligned to, chosen in the application.
 
-## Private instance use
+An example data set is included to try the steps first.
 
-When NASQAR2 runs as a private instance with a data root configured, choose
-**Use a directory in the private space** to load matching BAM and BAI
-files directly from that read-only directory instead of uploading them.
-Browser upload and bundled example data remain available.
+## On a private instance
 
-Core, nucleosome, and footprint results are cached by BAM path, file size,
-modification time, reference genome, chromosome, and motif. The cache persists
-across sessions and jobs; on Slurm, PT, NFR, and TSSE scoring can use the
-allocated CPUs.
-
-See [Run as a private instance](/quickstart/installation#run-as-a-private-instance-with-your-own-data) for Docker and the [HPC deployment guide](/quickstart/hpc) for Slurm.
-
-## Private-space projects
-
-In a private instance every run belongs to a project, `projects/ATACseqQC/<name>`,
-holding BAM directory, genome and the per-project result caches plus a `state.rds` of the settings and the stage reached.
-**Reopen a saved project** on the Input Data tab reopens it without
-recomputing; cached results are reused and the restore is refused if the
-source data changed. Public instances have no private space and no projects.
+On a private instance you can also choose **BAM folder in the private space**
+to read BAM and BAI files from your own storage instead of uploading them.
+Results of such a run are saved under a project name, so **Reopen a saved
+project** shows them again without recomputing. The public site has no private
+space and no saved projects.
+See [Run as a private instance](/quickstart/installation#run-as-a-private-instance-with-your-own-data) to set one up.
 
 ## Citation
 

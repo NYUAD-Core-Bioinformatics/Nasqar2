@@ -1,21 +1,29 @@
+import { LaunchButton } from '../../../components/launch-button'
+
 ## Merge FPKMs
 
-This is a simple preprocessing tool to merge individual gene FPKM files (e.g., FPKM files from cufflinks).
+Merge FPKMs combines the FPKM files of individual samples, such as the gene
+FPKM tables written by Cufflinks, into one table with a column per sample.
 
-We provide an interactive web-based application for merging FPKM files.
+<LaunchButton path="/mergeFPKMs/">Launch Merge FPKMs</LaunchButton>
 
-**Note**: The first column must contain the genes. If the gene columns do not match in all files, this tool will not work.
+## What you need
 
-<a href={`${process.env.NEXT_PUBLIC_NASQAR_BASE_PATH || ''}/mergeFPKMs/`} target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
-  Launch Merge FPKMs
-</a>
+- One FPKM file per sample.
+- **The first column of every file must hold the genes, and the genes must be
+  the same in all files.** Files with different gene lists cannot be merged.
 
-In a private instance, **Use files in the private space** lets you pick the FPKM files to merge in a Browse dialog (several at once, or paste their paths); they are read in place.
+## Where it fits
 
-## Private-space projects
+Merge FPKMs is a preprocessing step. **FPKM values are normalised, so the
+merged table is not a valid input for DESeq2**, which needs raw counts. Use
+[Gene Count Merger](/applications/data_preprocessing_and_qc/gene_count_merger)
+for raw counts.
 
-In a private instance every run belongs to a project, `projects/mergeFPKMs/<name>`,
-holding the merged table plus a `state.rds` of the settings and the stage reached.
-**Reopen a saved project** under *Where is your data?* reopens it without
-recomputing; cached results are reused and the restore is refused if the
-source data changed. Public instances have no private space and no projects.
+## On a private instance
+
+On a private instance you can also choose **Files in the private space** and
+pick the FPKM files from your own storage instead of uploading them, and
+**Reopen a saved project** to return to an earlier merge. The public site has
+no private space and no saved projects.
+See [Run as a private instance](/quickstart/installation#run-as-a-private-instance-with-your-own-data) to set one up.

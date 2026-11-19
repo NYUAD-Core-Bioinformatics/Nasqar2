@@ -17,7 +17,7 @@ compareReactive <- reactive({
                         js$addStatusIcon("resultsTab", "loading")
 
                         myValues$vsResults <- results(myValues$dds, contrast = list(input$resultNamesInput))
-                        factorsStr <- paste(list(input$resultNamesInput))
+                        factorsStr <- paste(input$resultNamesInput, collapse = " + ")
                     } else if (input$resultNameOrFactor == "Factors") {
                         validate(
                             need((input$condition1 != input$condition2), message = "condition 1 must be different from condition 2")
@@ -25,7 +25,7 @@ compareReactive <- reactive({
                         js$addStatusIcon("resultsTab", "loading")
 
                         myValues$vsResults <- results(myValues$dds, contrast = c(input$factorNameInput, input$condition1, input$condition2))
-                        factorsStr <- paste(input$factorNameInput, " : ", input$condition1, input$condition2)
+                        factorsStr <- paste0(input$factorNameInput, ": ", input$condition1, " vs ", input$condition2)
                     }
                 }
 

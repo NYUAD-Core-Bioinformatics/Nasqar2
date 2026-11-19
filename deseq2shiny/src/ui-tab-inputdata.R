@@ -96,23 +96,22 @@ tabItem(
                     checkboxInput("no_replicates", "No Replicates", FALSE),
                     conditionalPanel(
                         "!output.noreplicates",
-                        p("* For convenience, if this is a single-factor experiment and column names are denoted by underscore replicate number (eg. sampleX_1,sampleX_2, etc ...)"),
-                        p("the sample names will be parsed automatically and the conditions table will be set for the next step.")
+                        p("Tip: in a single-factor experiment with samples named condition, underscore, replicate number (for example CT6_1, CT6_2), the conditions are filled in for you in the next step.")
                     ),
                     conditionalPanel("output.noreplicates",
                         p("Experiments without replicates do not allow for estimation of the dispersion of counts
                                                         around the expected value for each group, which is critical for differential expression analysis."),
-                        span("For more details, click ", a("here", href = "https://www.rdocumentation.org/packages/DESeq2/versions/1.12.3/topics/DESeq", target = "_blank")),
+                        span("For more details, see the ", a("DESeq2 documentation", href = "https://www.rdocumentation.org/packages/DESeq2/versions/1.12.3/topics/DESeq", target = "_blank")),
                         style = "color:#f56a6a;"
                     ),
                     tags$div(
                         class = "BoxArea2",
                         numericInput("minRowCount",
-                            label = "(Optional) Minimum number of counts to include for each gene (Default 0, to include all)",
+                            label = "Minimum total count per gene (optional; 0 keeps every gene)",
                             min = 0, value = 0
                         ),
                         actionButton("prefilterCounts", "Filter"),
-                        p("This step is not necessary, but can speed up the processing time")
+                        p("Removes genes whose counts, summed over all samples, are below this number. Optional, but it speeds up the analysis.")
                     ),
                     hr(),
                     actionButton("submit", "Next: Conditions", class = "btn btn-primary")

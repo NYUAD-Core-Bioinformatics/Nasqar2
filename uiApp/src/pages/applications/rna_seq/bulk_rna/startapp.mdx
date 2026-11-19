@@ -1,18 +1,23 @@
-## START App
+import { LaunchButton } from '../../../../components/launch-button'
 
-START (Shiny Transcriptome Analysis Resource Tool) is a web-based RNA-seq analysis and visualization resource.
+## START
 
-We provide an interactive web-based application for START analysis.
+START (Shiny Transcriptome Analysis Resource Tool) is a web-based resource for
+analysing and visualising RNA-seq data. It is an alternative to the DESeq2
+application for exploring a count matrix.
 
-<a href={`${process.env.NEXT_PUBLIC_NASQAR_BASE_PATH || ''}/tsar_nasqar/`} target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
-  Launch START App
-</a>
+<LaunchButton path="/tsar_nasqar/">Launch START</LaunchButton>
+
+## Where it fits
+
+A matrix merged in [Gene Count Merger](/applications/data_preprocessing_and_qc/gene_count_merger)
+can be opened directly in START.
 
 ## Citation
 
-When using START App in your analysis, please cite the following publication:
+When using START in your analysis, please cite the following publication:
 
 > **The START App: a web-based RNAseq analysis and visualization resource**
-> 
-> Nelson, J.W., Sklenar, J., Barnes, A.P. & Minnier, J. The START App: a web-based RNAseq analysis and visualization resource. *Bioinformatics* 33, 447–449 (2017).  
+>
+> Nelson, J.W., Sklenar, J., Barnes, A.P. & Minnier, J. The START App: a web-based RNAseq analysis and visualization resource. *Bioinformatics* 33, 447–449 (2017).
 > https://doi.org/10.1093/bioinformatics/btw624

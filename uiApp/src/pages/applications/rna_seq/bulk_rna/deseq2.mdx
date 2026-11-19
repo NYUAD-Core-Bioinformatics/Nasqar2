@@ -1,46 +1,62 @@
+import { LaunchButton } from '../../../../components/launch-button'
+
 ## DESeq2
 
-This Shiny app is a wrapper around DESeq2, an R package for "Differential gene expression analysis based on the negative binomial distribution".
+The DESeq2 application runs differential expression analysis on a table of raw
+RNA-seq counts with [DESeq2](https://bioconductor.org/packages/release/bioc/html/DESeq2.html),
+without any R programming. Single-factor and multi-factor designs are
+supported, as is exploratory analysis without replicates.
 
-We provide an interactive web-based application for DESeq2 analysis.
+<LaunchButton path="/deseq2shiny/">Launch DESeq2</LaunchButton>
 
-For more information about DESeq2, visit the [official documentation](https://bioconductor.org/packages/release/bioc/html/DESeq2.html).
+For a step-by-step walkthrough with figures, see
+[Example: RNA-seq with DESeq2](/quickstart/deseq2).
 
-<a href={`${process.env.NEXT_PUBLIC_NASQAR_BASE_PATH || ''}/deseq2shiny/`} target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
-  Launch DESeq2
-</a>
+## What you need
 
-## Save and restore in a private instance
+- A table of raw counts (`.csv` or `.txt`) with one gene per row and one
+  sample per column. The first column holds gene IDs or gene names; a second
+  column of gene symbols is optional.
+- **Counts must be raw integer read counts, not normalised values such as TPM
+  or FPKM.**
+- **DESeq2 needs replicates to test for differential expression.** Without
+  replicates only exploratory analysis is possible.
+- For a multi-factor experiment, a sample metadata table with one row per
+  sample and one column per factor. It can also be typed in on the page.
 
-On the Input Data tab, **Where is your data?** decides what the box shows.
-For a new analysis (an uploaded file, a file in the private space or the
-example data) it asks for a **Project name**. Loading counts records the
-project; once DESeq2 has run, the full application state
-(`projects/DESeq2Shiny/<name>/state.RData`) is saved automatically and saved
-again whenever you change settings. Choosing **Reopen a saved project** shows
-the saved projects of the instance instead; **Open project** reloads all data,
-results and plot settings as you left them, without recomputing.
+## What you get
 
-**Export and files** in the sidebar holds both ways out of the app: **Export R
-code** bundles the reproducible R script with every figure, and the list next to
-it shows the plots and tables downloaded in the current project (the export is
-kept there like any other download).
-There is no separate state-file download or upload: projects are the only way
-to save and reopen an analysis, and public instances have no private space and
-no projects.
+- PCA plot and sample distance heatmap of the VST or rlog values.
+- Results table and MA plot for every comparison you choose.
+- Volcano plot of a saved comparison.
+- UpSet plot and set operations to compare the gene lists of several saved
+  comparisons.
+- Gene boxplots and an interactive heatmap.
+- **Export R code**, which reproduces every figure outside the application.
 
-## Private-space projects
+## Where it fits
 
-In a private instance every run belongs to a project, `projects/DESeq2Shiny/<name>`,
-holding the full application state (`state.RData`) plus a `state.rds` of the
-settings and the stage reached. A project that only has loaded counts cannot be
-reopened yet: run DESeq2 first.
+DESeq2 is the first step of the bulk RNA-seq workflow. Counts usually come
+from [Gene Count Merger](/applications/data_preprocessing_and_qc/gene_count_merger),
+and a comparison can be opened directly in the
+[enrichment applications](/applications/rna_seq/bulk_rna/enrichment).
+
+## On a private instance
+
+On a private instance you can also choose **Counts file in the private space**
+to read a counts file from your own storage instead of uploading it. Every
+analysis is saved under a project name, and **Reopen a saved project** brings
+back the data, results and plot settings as you left them. **A project can be
+reopened only after DESeq2 has run in it.** The **Export and files** page lists
+the figures and tables saved in the project. The public site has no private
+space and no saved projects.
+See [Run as a private instance](/quickstart/installation#run-as-a-private-instance-with-your-own-data) to set one up.
 
 ## Citation
 
 When using DESeq2 in your analysis, please cite the following publication:
 
 > **Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2**
-> 
-> Love, M.I., Huber, W. & Anders, S. Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2. *Genome Biology* 15, 550 (2014).  
+>
+> Love, M.I., Huber, W. & Anders, S. Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2. *Genome Biology* 15, 550 (2014).
 > https://doi.org/10.1186/s13059-014-0550-8

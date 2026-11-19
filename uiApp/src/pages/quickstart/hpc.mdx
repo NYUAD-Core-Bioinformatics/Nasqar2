@@ -146,16 +146,15 @@ for Docker on a workstation; see
 
 - **ATACseqQC** loads BAM/BAI pairs directly from the allowed data root and
   caches chromosome-, genome-, and motif-specific results.
-- **DESeq2Shiny** saves and restores application states as projects in the
-  private space while retaining browser download and upload.
+- **DESeq2** saves every analysis as a project in the private space and
+  reopens it with its data, results and plot settings.
 - **DADA2** loads FASTQ files directly, processes temporary files in node-local
   storage, caches parameter-aware results, and writes persistent projects.
-- **Seurat v5** loads count matrices or Seurat objects from the data root and
+- **Seurat v5** loads 10x folders or count matrices from the data root and
   writes project outputs to the persistent project space.
 - **Monocle 3** loads Seurat objects from the data root and writes trajectory
   outputs to the persistent project space.
-- **DESeq2Shiny**, **ClusterProfShinyORA**, **ClusterProfShinyGSEA**, **Gene Count
-  Merger** and **mergeFPKMs** read their count or result tables, or a selection
+- **DESeq2**, **ORA**, **GSEA**, **Gene Count Merger** and **Merge FPKMs** read their count or result tables, or a selection
   of per-sample count files, in place from the data root.
 - **Variant Annotation** reads VCF files in place from the data root, writes a
   bgzip-compressed and indexed copy only when needed, and keeps filtered VCFs,

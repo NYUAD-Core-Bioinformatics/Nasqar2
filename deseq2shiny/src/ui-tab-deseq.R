@@ -3,40 +3,40 @@ tabItem(
     fluidRow(
         column(
             11,
-            h3("Run DESeq"),
+            h3("Run DESeq2"),
             hr(),
             box(
-                title = "DESeq run settings:", solidHeader = T, status = "success", width = 12,
+                title = "DESeq2 run settings", solidHeader = T, status = "success", width = 12,
                 column(
                     6,
                     wellPanel(
-                        p("The DESeq function performs Differential Expression analysis based on the Negative Binomial Distribution using the following steps:"),
-                        tags$ul(
-                            tags$li("1. estimation of size factors"),
-                            tags$li("2. estimation of dispersion"),
-                            tags$li("3. Negative Binomial GLM fitting and Wald statistics")
+                        p("DESeq2 tests for differential expression with a negative binomial model, in three steps:"),
+                        tags$ol(
+                            tags$li("Estimation of size factors"),
+                            tags$li("Estimation of dispersion"),
+                            tags$li("Negative binomial GLM fitting and Wald statistics")
                         ),
-                        checkboxInput("computeVST", "Compute VST transfomation", value = T),
-                        checkboxInput("computeRlog", "Compute RLog transfomation (may take a long time)", value = F)
+                        checkboxInput("computeVST", "Compute the VST transformation", value = T),
+                        checkboxInput("computeRlog", "Compute the rlog transformation (may take a long time)", value = F)
                     ),
                     actionButton("run_deseq2", "Run DESeq2",
                         class = "btn btn-success",
-                        style = "width:100%;height:60px;"
+                        style = "width:100%;height:60px;color:#fff;"
                     )
                 ),
                 column(
                     6,
                     tags$div(
                         class = "BoxArea",
-                        p(strong("Design Formula: "), textOutput("ddsDesignFormula")),
+                        p(strong("Design formula: "), textOutput("ddsDesignFormula")),
                         conditionalPanel(
                             "output.hasExcludedSamples",
                             hr(),
-                            p(strong("Excluded Samples: "), style = "color: #d9534f;"),
+                            p(strong("Excluded samples: "), style = "color: #d9534f;"),
                             p(textOutput("excludedSamplesList2"), style = "font-size: 12px; color: #d9534f; margin-left: 15px;")
                         ),
                         hr(),
-                        p("Showing only the first 5 rows of ", strong("colData"), " table:"),
+                        p("First 5 rows of the sample metadata:"),
                         tableOutput("ddsColData")
                     )
                 ),
@@ -57,12 +57,11 @@ tabItem(
             box(
                 title = "(Optional) Surrogate Variable Analysis (SVA)", solidHeader = T, status = "primary", width = 6,
                 wellPanel(
-                    p("Run Surrogate Variable Analysis (for hidden batch detection)"),
-                    p("You may choose to include computed Surrogate Variables (SVs) in your design formula for downstream differential expression analysis")
+                    p("If you suspect a hidden batch effect, estimate surrogate variables first. You can then add them to the design formula before running DESeq2.")
                 ),
-                actionButton("goto_svaTab", "Goto Surrogate Variable Analysis (SVA)",
+                actionButton("goto_svaTab", "Go to Surrogate Variable Analysis (SVA)",
                     class = "btn btn-primary",
-                    style = "width:100%;height:60px;"
+                    style = "width:100%;height:60px;color:#fff;"
                 )
             )
         )

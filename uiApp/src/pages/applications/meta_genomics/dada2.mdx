@@ -1,37 +1,36 @@
+import { LaunchButton } from '../../../components/launch-button'
+
 ## DADA2
 
-DADA2 is a tool for modeling and correcting Illumina-sequenced amplicon errors. It provides high-resolution inference of amplicon sequence variants from amplicon data.
+The DADA2 application processes amplicon sequencing reads with
+[DADA2](https://benjjneb.github.io/dada2/): it filters and trims the reads,
+corrects sequencing errors, infers amplicon sequence variants, removes
+chimeras and assigns taxonomy, then summarises diversity and abundance.
 
-We provide an interactive web-based application for DADA2 analysis.
+<LaunchButton path="/DADA2Shiny/">Launch DADA2</LaunchButton>
 
-For more information about DADA2, visit the [official documentation](https://benjjneb.github.io/dada2/).
+## What you need
 
-<a href={`${process.env.NEXT_PUBLIC_NASQAR_BASE_PATH || ''}/DADA2Shiny/`} target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
-  Launch DADA2
-</a>
+- Demultiplexed FASTQ files, single-end or paired-end, one file (or pair) per
+  sample.
 
-## Private instance use
+An example data set (mothur MiSeq SOP) is included to try the steps first.
 
-In a private instance, choose **Use a directory in the private space** to
-load paired FASTQ files directly from the configured read-only data root. Give
-the run a project name so filtered reads, sequence tables, taxonomy results,
-and downloadable outputs persist under the DADA2 project directory.
+## Where it fits
 
-Filtered FASTQs are written to `work/` in the project and removed when the run
-finishes; on HPC the job sets `NASQAR_DADA2_WORK_DIR` to put them on fast
-node-local disk instead. Parameter-aware caches include the input paths
-and file metadata, DADA2 parameters, and package version. On Slurm, parallel
-steps derive available workers from `SLURM_CPUS_PER_TASK`.
+DADA2 is the first step of the metagenomics workflow.
+[Animalcules](/applications/meta_genomics/animalcules) continues with
+interactive microbiome analysis.
 
-See [Run as a private instance](/quickstart/installation#run-as-a-private-instance-with-your-own-data) for Docker and the [HPC deployment guide](/quickstart/hpc) for Slurm.
+## On a private instance
 
-## Private-space projects
-
-In a private instance every run belongs to a project, `projects/DADA2/<name>`,
-holding FASTQ directory, patterns, DADA2 parameters, results and taxonomy caches plus a `state.rds` of the settings and the stage reached.
-**Reopen a saved project** on the Input Data tab reopens it without
-recomputing; cached results are reused and the restore is refused if the
-source data changed. Public instances have no private space and no projects.
+On a private instance you can also choose **FASTQ folder in the private
+space** to read the reads from your own storage instead of uploading them.
+Every run is saved under a project name, and **Reopen a saved project**
+returns to it without running DADA2 again. **Only projects made from a FASTQ
+folder in the private space can be reopened.** The public site has no private
+space and no saved projects.
+See [Run as a private instance](/quickstart/installation#run-as-a-private-instance-with-your-own-data) to set one up.
 
 ## Citation
 

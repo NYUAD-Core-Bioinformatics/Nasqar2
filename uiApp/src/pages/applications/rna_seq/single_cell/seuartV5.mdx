@@ -1,39 +1,42 @@
-## Seurat V5
+import { LaunchButton } from '../../../../components/launch-button'
 
-Seurat is an R package designed for QC, analysis, and exploration of single-cell RNA-seq data. Seurat aims to enable users to identify and interpret sources of heterogeneity from single-cell transcriptomic measurements, and to integrate diverse types of single-cell data.
+## Seurat v5
 
-We provide an interactive web-based application for Seurat V5 analysis.
+The Seurat v5 application takes single-cell RNA-seq counts through quality
+control, filtering, normalisation, PCA, clustering and marker detection with
+[Seurat](https://satijalab.org/seurat/), without any R programming.
 
-For more information about Seurat, visit the [official documentation](https://satijalab.org/seurat/).
+<LaunchButton path="/SeuratV5Shiny/">Launch Seurat v5</LaunchButton>
 
-<a href={`${process.env.NEXT_PUBLIC_NASQAR_BASE_PATH || ''}/SeuratV5Shiny/`} target="_blank" style={{display: 'inline-block', padding: '8px 16px', marginTop: '1rem', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', borderRadius: '6px', fontSize: '14px'}}>
-  Launch Seurat V5
-</a>
+## What you need
 
-## Private instance use
+One of:
 
-In a private instance, **Use a path in the private space** loads supported
-count matrices or Seurat objects directly from the configured read-only data
-root. Give the project a name for outputs that must remain available
-after the container or Slurm job ends. On Slurm, worker availability is
-derived from `SLURM_CPUS_PER_TASK`.
+- a count matrix as a `.csv` file, or
+- the files of a 10x Genomics run.
 
-Use the direct Seurat v5 to Monocle 3 handoff for compatible processed objects,
-or save the object in persistent project storage. See [Run as a private instance](/quickstart/installation#run-as-a-private-instance-with-your-own-data) for Docker and the [HPC deployment guide](/quickstart/hpc) for Slurm.
+An example data set (PBMC) is included to try the steps first.
 
-## Private-space projects
+## Where it fits
 
-In a private instance every run belongs to a project, `projects/SeuratV5/<name>`,
-holding input path, initial parameters and the generated Seurat object plus a `state.rds` of the settings and the stage reached.
-**Reopen a saved project** on the Input Data tab reopens it without
-recomputing; cached results are reused and the restore is refused if the
-source data changed. Public instances have no private space and no projects.
+Seurat v5 is the first step of the single-cell workflow. The finished Seurat
+object can be downloaded, or opened directly in
+[Monocle 3](/applications/rna_seq/single_cell/monocle3) for trajectory analysis.
+
+## On a private instance
+
+On a private instance you can also choose **Data in the private space** to
+read a 10x folder or a count matrix from your own storage instead of uploading
+it. Every analysis is saved under a project name, and **Reopen a saved
+project** returns to it. **Only projects made from data in the private space
+can be reopened.** The public site has no private space and no saved projects.
+See [Run as a private instance](/quickstart/installation#run-as-a-private-instance-with-your-own-data) to set one up.
 
 ## Citation
 
-When using Seurat V5 in your analysis, please cite the following publication:
+When using Seurat v5 in your analysis, please cite the following publication:
 
-> **Seurat V5 - Dictionary learning for integrative, multimodal and scalable single-cell analysis**
+> **Seurat v5 - Dictionary learning for integrative, multimodal and scalable single-cell analysis**
 > 
 > Hao, Y., Stuart, T., Kowalski, M.H., Choudhary, S., Hoffman, P., Hartman, A., Srivastava, A., Molla, G., Madad, S., Fernandez-Granda, C. & Satija, R. Dictionary learning for integrative, multimodal and scalable single-cell analysis. *Nature Biotechnology* (2023).  
 > https://doi.org/10.1038/s41587-023-01767-y

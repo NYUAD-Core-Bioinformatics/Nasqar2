@@ -4,13 +4,11 @@
 
 # Overview
 
-Welcome to our platform! Here, we offer a diverse range of web-based Bioinformatics analysis and visualization applications. Whether you prefer running apps online or downloading them to run on your local machine, we provide both options.
+NASQAR2 is a collection of web-based applications for analysing and visualising high-throughput sequencing data. Each application wraps a widely used R package in a point-and-click interface, so you can explore your data interactively without programming.
 
-To install NASQAR2 on your local system, please follow the instructions on our [Installation Guide](/quickstart/installation) or visit our [GitHub page](https://github.com/NYUAD-Core-Bioinformatics/Nasqar2).
+The applications cover count preprocessing, bulk and single-cell RNA-seq, enrichment analysis, metagenomics, ATAC-seq quality control and variant annotation. Several of them are connected, so the result of one step opens directly in the next.
 
-The field of high-throughput sequencing is continually evolving, resulting in a rapid increase in both the quantity and diversity of sequence-based data. This growth necessitates the development of new software libraries and tools for effective data analysis and visualization. However, utilizing these tools often requires computational skills beyond the expertise of the average researcher.
-
-To address this challenge, we introduce NASQAR2, a dynamic web-based platform designed to lower the computational barrier. NASQAR2 features an intuitive interface that enables users to easily and efficiently explore their data interactively. Our platform integrates popular tools tailored for various applications, including Transcriptome Data Preprocessing, RNAseq Analysis (including Single-cell RNAseq), Metagenomics, and Gene Enrichment. Explore your data seamlessly and unlock insights with NASQAR2.
+You can use NASQAR2 on this site, or install it on your own computer or cluster: see the [Installation Guide](/quickstart/installation) or our [GitHub page](https://github.com/NYUAD-Core-Bioinformatics/Nasqar2).
 
 
 ## Applications
@@ -25,7 +23,7 @@ import { AppStampsGrid } from '../components/app-stamps'
 ## Citation
 
 
-When incorporating any of the apps from our portal into a publication, kindly ensure to include the proper citation for NASQAR2, as detailed below:
+When you use any of the applications in a publication, please cite NASQAR2:
 
 > **NASQAR2: A web-based platform for High-throughput sequencing data analysis and visualization**
 > 
@@ -33,7 +31,7 @@ When incorporating any of the apps from our portal into a publication, kindly en
 > 
 > bioRxiv 709980; doi: https://doi.org/10.1101/709980
 
-Additionally, please remember to include the appropriate citation for the open-source apps hosted on our platform, which are prominently displayed on the individual app pages or GitHub repositories.
+Please also cite the underlying tool of each application you used. The citation is given on the application's page.
 
 
 
@@ -57,8 +55,8 @@ See [Run as a private instance](/quickstart/installation#run-as-a-private-instan
 
 **Connected workflows**
 
-* **Gene Count Merger → DESeq2Shiny or START** for bulk RNA-seq analysis
-* **DESeq2Shiny → ORA or GSEA** with the selected contrast transferred automatically
+* **Gene Count Merger → DESeq2 or START** for bulk RNA-seq analysis
+* **DESeq2 → ORA or GSEA** with the selected contrast transferred automatically
 * **DADA2 → Animalcules** with ASV and taxonomy results transferred automatically
 * **Seurat v5 → Monocle 3** with a compatible processed single-cell object
 * **Variant Annotation → ORA** with the genes carrying variants transferred automatically
@@ -66,15 +64,15 @@ See [Run as a private instance](/quickstart/installation#run-as-a-private-instan
 **Major module enhancements**
 
 * **Gene Count Merger** - Merges HTSeq/featureCounts files, Kallisto estimated counts, or existing matrices; supports gene-symbol annotation and custom gene-ID mappings
-* **DESeq2Shiny** - Design metadata, multiple contrasts, PCA, volcano and MA plots, interactive heatmaps, UpSet comparisons with set operations, publication-ready downloads, and reproducible R-code export
-* **ClusterProfShinyGSEA and ClusterProfShinyORA** - GO/KEGG tables and plots, identifier conversion, direct DESeq2 handoff, online KEGG viewing, and downloadable Pathview PNG/PDF output
+* **DESeq2** - Sample metadata, multiple contrasts, PCA, volcano and MA plots, interactive heatmaps, UpSet comparisons with set operations, publication-ready downloads, and reproducible R-code export
+* **GSEA and ORA** - GO/KEGG tables and plots, identifier conversion, direct DESeq2 handoff, online KEGG viewing, and downloadable Pathview PNG/PDF output
 * **DADA2** - Taxonomy downloads, publication-ready figures, and direct Animalcules handoff
 * **ATACseqQC** - Core QC plus on-demand nucleosome and footprint analyses with publication-ready figure downloads
-* **Seurat v5 and Monocle 3** - Allocated-worker support, and direct trajectory-analysis handoff
+* **Seurat v5 and Monocle 3** - Direct handoff of a finished Seurat object to trajectory analysis
 
 
 
 ## Data Privacy
 
 Although data uploaded for analysis on the online instance of 
-NASQAR2 (at http://nasqar2.abudhabi.nyu.edu/) is by default discarded after a users session ends, this does not guarantee total data privacy. In cases where data privacy is a concern (e.g. patient or pilot data), it is recommended that NASQAR2 is deployed on a local intranet for private users, or on a personal computer. A Docker image of NASQAR2 is publicly available through DockerHub and can be used to deploy the application seamlessly on any system with Docker installed, whether a local computer, a public internet server, or a private server (e.g. research institutions intranet).
+NASQAR2 (at http://nasqar2.abudhabi.nyu.edu/) is by default discarded after a user's session ends, this does not guarantee total data privacy. In cases where data privacy is a concern (e.g. patient or pilot data), it is recommended that NASQAR2 is deployed on a local intranet for private users, or on a personal computer. A Docker image of NASQAR2 is publicly available through DockerHub and can be used to deploy the application seamlessly on any system with Docker installed, whether a local computer, a public internet server, or a private server (e.g. a research institution's intranet).
