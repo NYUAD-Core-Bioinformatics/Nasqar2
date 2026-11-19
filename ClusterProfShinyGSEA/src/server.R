@@ -33,6 +33,12 @@ server <- function(input, output, session) {
         shinyjs::runjs("$('input[name=data_file_type][value=privatefile]').closest('.radio').remove()")
     }
 
+    # Reopening a project and its files page exist in a private instance only.
+    if (!private_space) {
+        shinyjs::runjs("$('input[name=data_file_type][value=savedProject]').closest('.radio').remove()")
+        shinyjs::runjs("$('a[data-value=projectFilesTab]').closest('li').remove()")
+    }
+
     source("exchange-helpers.R", local = TRUE)
     source("plot-helpers.R",     local = TRUE)
     source("server-inputData.R", local = TRUE)

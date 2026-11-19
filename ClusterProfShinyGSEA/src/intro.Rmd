@@ -1,174 +1,86 @@
----
-title: "Intro"
-author: "Nabil Rahiman"
-date: "June 10, 2023"
-output: html_document
-runtime: shiny
----
+<style>
+.guide { max-width: 1040px; color: #333; font-size: 15px; line-height: 1.6; }
+.guide h3 { font-size: 20px; font-weight: 600; margin: 34px 0 6px; }
+.guide h3:first-child { margin-top: 6px; }
+.guide .guide-lead { font-size: 16px; color: #444; margin-bottom: 4px; }
+.guide .guide-sub { color: #6b7280; margin: 0 0 16px; }
+.guide .guide-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.guide .guide-grid.guide-plots { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.guide .guide-card { border: 1px solid #e3e6ea; border-radius: 6px; background: #fff; padding: 14px 16px; }
+.guide .guide-card h4 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+.guide .guide-card p { margin: 0; color: #555; font-size: 14px; }
+.guide .guide-step { display: inline-block; width: 24px; height: 24px; line-height: 24px; border-radius: 50%; background: #3c8dbc; color: #fff; text-align: center; font-size: 13px; font-weight: 600; margin-right: 8px; }
+.guide .guide-figure { border: 1px solid #e3e6ea; border-radius: 6px; background: #fff; padding: 10px; margin: 0; }
+.guide .guide-figure img { width: 100%; height: 150px; object-fit: contain; display: block; }
+.guide .guide-figure.guide-table img { height: auto; }
+.guide .guide-figure figcaption { font-size: 13px; color: #555; margin-top: 8px; }
+.guide .guide-figure figcaption strong { color: #333; }
+.guide a.pop { cursor: zoom-in; display: block; }
+.guide ul { padding-left: 20px; margin-bottom: 14px; }
+.guide li { margin-bottom: 5px; }
+.guide .guide-note { border-left: 3px solid #3c8dbc; background: #f4f8fb; padding: 10px 14px; margin: 14px 0; font-size: 14px; }
+.guide code { background: #f1f3f5; color: #333; padding: 1px 5px; border-radius: 3px; }
+</style>
+<div class="guide">
 
-## **Introduction**
+<h3>Gene set enrichment analysis of GO terms and KEGG pathways</h3>
+<p class="guide-lead">Start from a table of differential expression results and find the GO terms and KEGG pathways whose genes sit together at the top or the bottom of the ranking. No R programming is needed.</p>
+<p class="guide-sub">The analysis is run by <a href="https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html" target="_blank">clusterProfiler</a>. GSEA uses all your genes, ranked by log2 fold change, so there is no significance cutoff to choose and small coordinated changes can still be detected.</p>
 
----
-
-This is a web-based interactive application that wraps the popular <a href="https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html" target="_blank"><strong>clusterProfiler</strong></a> package which implements methods to analyze and visualize functional profiles of genomic coordinates, gene and gene clusters.
-
-Users can upload their own differential gene expression (DGE) data from <a href="https://bioconductor.org/packages/release/bioc/html/DESeq2.html" target="_blank"><strong>DESeq2</strong></a> or import data from the upstream <a href="http://nasqar.abudhabi.nyu.edu/deseq2shiny/" target="_blank"><strong>Deseq2Shiny</strong></a> app.
-
-This app allows for quick and easy **Gene Set Enrichment Analysis (GSEA)** of GO-Terms and KEGG pathways.
-
-It is meant to provide an intuitive interface for researchers to easily **upload and perform GSEA on RNA-seq data** interactively with no prior programming knowledge in R.
-
-Visuals produced include dot plots, category net plots, enrichment map plots, GO induced graphs, gsea plots, and enriched KEGG pathway plots using the  <a href="https://bioconductor.org/packages/release/bioc/html/pathview.html" target="_blank"><strong>Pathview package</strong></a>.
-
-The application follows this <a href="https://learn.gencore.bio.nyu.edu/rna-seq-analysis/gene-set-enrichment-analysis/" target="_blank">tutorial</a> <link>
-
-See **Figure 1** below for example output plots (Click on image to enlarge).
-
-<div class="col-md-12"><hr ></div>
-
-<div class="col-md-12">
-<p><strong><em>Figure 1: Example plots</em></strong></p>
+<h3>How it works</h3>
+<p class="guide-sub">The result tabs appear in the sidebar once the enrichment has run.</p>
+<div class="guide-grid">
+<div class="guide-card"><h4><span class="guide-step">1</span>Input data</h4><p>Upload a results table, start from the example data, or arrive from DESeq2 Shiny with a comparison already loaded.</p></div>
+<div class="guide-card"><h4><span class="guide-step">2</span>Select genes</h4><p>Choose the gene identifier column and the log2 fold change column that ranks the genes.</p></div>
+<div class="guide-card"><h4><span class="guide-step">3</span>Enrichment parameters</h4><p>Choose the organism, the key type of your gene identifiers and the ontology, then create the gseGO object.</p></div>
+<div class="guide-card"><h4><span class="guide-step">4</span>Explore</h4><p>Browse the gseGO and gseKEGG tables, plot the terms you care about, and download tables and figures.</p></div>
 </div>
 
-<div class="">
-<div class="row">
-
-
-<div class="col-md-4">
-<a href="#" class="pop">
-    <div class="BoxArea4" style="width: 100%;max-width:300px;margin: 0 auto;display: block;">
-    <h5 class="text-center">Dot plot</h5>
-    <img src="www/dotplot.png" alt="dotplot" style="width: 100%;max-width:300px;margin: 0 auto;display: block;"/>
-    </div>
-</a>
+<h3>What you get</h3>
+<p class="guide-sub">Figures from the example data. Click a figure to enlarge it.</p>
+<div class="guide-grid guide-plots">
+<figure class="guide-figure"><a class="pop"><img src="www/dotplot.png" alt="Dot plot"/></a><figcaption><strong>Dot plot</strong><br/>Enriched terms with their gene ratio and significance.</figcaption></figure>
+<figure class="guide-figure"><a class="pop"><img src="www/ridgeplot.png" alt="Ridge plot"/></a><figcaption><strong>Ridge plot</strong><br/>The fold change distribution of the genes in each term.</figcaption></figure>
+<figure class="guide-figure"><a class="pop"><img src="www/gseaplot.png" alt="GSEA plot"/></a><figcaption><strong>GSEA plot</strong><br/>The running enrichment score of a term along the ranked gene list.</figcaption></figure>
+<figure class="guide-figure"><a class="pop"><img src="www/emapplot.png" alt="Enrichment map"/></a><figcaption><strong>Enrichment map</strong><br/>Terms linked when their gene sets overlap.</figcaption></figure>
+<figure class="guide-figure"><a class="pop"><img src="www/cnetplot.png" alt="Category-gene network"/></a><figcaption><strong>Category-gene network</strong><br/>Terms and the genes that drive them, coloured by fold change.</figcaption></figure>
+<figure class="guide-figure"><a class="pop"><img src="www/membership.png" alt="Gene membership chart"/></a><figcaption><strong>Gene membership</strong><br/>Which genes the displayed terms share. Click a bar to list them.</figcaption></figure>
+<figure class="guide-figure"><a class="pop"><img src="www/pathview.png" alt="Pathview plot"/></a><figcaption><strong>Pathview</strong><br/>Your fold changes drawn onto a KEGG pathway map.</figcaption></figure>
+<figure class="guide-figure"><a class="pop"><img src="www/pubmed.png" alt="PubMed trends"/></a><figcaption><strong>PubMed trends</strong><br/>How often the enriched terms appear in the literature over time.</figcaption></figure>
 </div>
-
-<div class="col-md-4">
-<a href="#" class="pop">
-    <div class="BoxArea4" style="width: 100%;max-width:300px;margin: 0 auto;display: block;">
-    <h5 class="text-center">Category Netplot</h5>
-    <img src="www/cnetplot.png" alt="catplot" style="width: 100%;max-width:300px;margin: 0 auto;display: block;"/>
-    </div>
-</a>
-</div>
-
-<div class="col-md-4">
-<a href="#" class="pop">
-    <div class="BoxArea4" style="width: 100%;max-width:300px;margin: 0 auto;display: block;">
-    <h5 class="text-center">Ridge Plot</h5>
-    <img src="www/ridgeplot.png" alt="ridgeplot" style="width: 100%;max-width:300px;margin: 0 auto;display: block;"/>
-    </div>
-</a>
-</div>
-
-</div>
-
-<div class="row">
-
-<div class="col-md-4">
-<a href="#" class="pop">
-    <div class="BoxArea4" style="width: 100%;max-width:300px;margin: 0 auto;display: block;">
-    <h5 class="text-center">GO induced graph</h5>
-    <img src="www/goplot.png" alt="go" style="width: 100%;max-width:300px;margin: 0 auto;display: block;"/>
-    </div>
-</a>
-</div>
-
-<div class="col-md-4">
-<a href="#" class="pop">
-    <div class="BoxArea4" style="width: 100%;max-width:300px;margin: 0 auto;display: block;">
-    <h5 class="text-center">Pathview plot</h5>
-    <img src="www/pathview.png" alt="pathview" style="width: 100%;max-width:300px;margin: 0 auto;display: block;"/>
-    </div>
-</a>
-</div>
-
-<div class="col-md-4">
-<a href="#" class="pop">
-    <div class="BoxArea4" style="width: 100%;max-width:300px;margin: 0 auto;display: block;">
-    <h5 class="text-center">PubMed Trends</h5>
-    <img src="www/pubmed.png" alt="pubmed" style="width: 100%;max-width:300px;margin: 0 auto;display: block;"/>
-    </div>
-</a>
-</div>
-
-</div>
-</div>
-<div class="modal fade" id="imagemodal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">              
-      <div class="modal-body">
-      	<button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
-        <img src="" class="imagepreview" style="width: 100%;" >
-      </div>
-    </div>
-  </div>
-</div>
-
-
-<div class="col-md-12"><hr style="border-top: none;"></div>
-
-## **Input Data Types**
-
----
-
-This application accepts the following types of input data:
-
-### 1. Example data (Demo):
-
-- For demo purposes, you can select "Example data"
-
-- You can follow the steps afterwards to run the analysis mirroring the <a href="https://learn.gencore.bio.nyu.edu/rna-seq-analysis/over-representation-analysis/" target="_blank">tutorial</a> in order to get familiar with the app
-
-### 2. Upload your own data (gene counts):
-
-<div class="row">
-
-<div class="col-md-6">
+<p class="guide-sub" style="margin-top:14px;">The KEGG Plots tab offers the same plots for KEGG pathways. The gseGO and gseKEGG tables can be downloaded as well.</p>
+<h3>Preparing your results table</h3>
 <ul>
-<li><p>A .csv/.txt file that contains a <strong>table of differential gene expression (DGE) data</strong></p></li>
-<li><p>Eg. the output of DESeq2 </p></li>
-<li><p>The file can be either <strong>comma or tab delimited</strong></p></li>
-<li><p>The required columns are <strong>Gene name/id, Log2 Fold Change, p-adjusted values </strong></p></li>
-<li><p>You will have to select the column names that match the above required columns </strong></p></li>
-<li><p>For a sample file, click <a href="www/exampleData/drosphila_example_de.csv" target="_blank">here</a></p></li>
+<li>A plain-text table, comma or tab delimited (.csv or .txt), with a header row and one gene per row.</li>
+<li>A gene identifier column: ENSEMBL, SYMBOL, ENTREZID or another type you can choose as the key type in step 3. The unnamed first column that DESeq2 writes is accepted.</li>
+<li>A numeric log2 fold change column, which is the ranking statistic.</li>
+<li>Other columns, such as baseMean or pvalue, are allowed and ignored.</li>
 </ul>
+<div class="guide-grid">
+<figure class="guide-figure guide-table"><img src="www/sampleTable.png" alt="Example results table"/><figcaption><strong>Example table</strong><br/>A differential expression table as written by DESeq2.</figcaption></figure>
+<div></div>
+</div>
+<div class="guide-note">Coming from DESeq2 Shiny? The enrichment buttons under its results table open this app with that comparison already loaded, so there is nothing to upload.</div>
+<h3>Choosing the terms to plot</h3>
+<p>The plot tabs show the top terms by default. To plot specific ones, select their rows in the gseGO or gseKEGG results table first; the plot tabs then use your selection. On the plot tabs, the interactive gene membership chart shows which genes the displayed terms share: click a bar to list its genes.</p>
+
+<h3>Good to know</h3>
+<ul>
+<li>The organisms offered are the annotation databases installed on this instance.</li>
+<li>KEGG analysis uses NCBI Gene IDs; the app converts your identifiers from the key type you chose.</li>
+<li>Genes without a fold change are left out of the ranking.</li>
+<li><em>Simplify GO results</em> removes redundant GO terms that are very similar to a more significant one.</li>
+</ul>
+<p>The app follows this <a href="https://learn.gencore.bio.nyu.edu/rna-seq-analysis/gene-set-enrichment-analysis/" target="_blank">gene set enrichment analysis tutorial</a>.</p>
 </div>
 
-
-<div class="col-md-6">
-
-<p><strong><em>Figure 2: Eg. DGE data file</em></strong></p>
-<div class="BoxArea4" style="width: 100%;margin: 0 auto;display: block;">
-    <img src="www/sampleTable.png" alt="Sample file" style="width: 100%;"/>
+<div class="modal fade" id="imagemodal" tabindex="-1" role="dialog" aria-hidden="true">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-body">
+<button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+<img src="" class="imagepreview" style="width: 100%;" >
 </div>
-
-
 </div>
-
 </div>
-
-
-<div class="col-md-12"><hr style="border-top: none;"></div>
-## **Run Results**
----
-### 1. Data Output
-The output results will be either displayed and/or is downloadable
-- EnrichGo results table
-- EnrichKEGG results table
-
-### 2. Visualization
-Various forms of visualizations are included for either Go/KEGG:
-
-* Dot Plot
-* Ridge Plot
-* Enrichment Plot Map
-* GSEA Plot
-* Enriched GO induced graph (goplot, GO only)
-* Enriched GO induced graph (cnetplot)
-* Pathview Plots (KEGG)
-* PubMed Enrichment Trends Plot
-
-
----
-
+</div>

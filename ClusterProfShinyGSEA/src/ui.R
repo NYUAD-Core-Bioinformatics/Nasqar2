@@ -62,7 +62,9 @@ ui <- tagList(
                 menuItem("Go Plots", tabName = "goplotsTab", icon = icon("bar-chart")),
                 menuItem("KEGG Plots", tabName = "keggPlotsTab", icon = icon("bar-chart")),
                 menuItem("Pathview Plots", tabName = "pathviewTab", icon = icon("bar-chart")),
-                menuItem("PubMed GO Trends", tabName = "pubmedTab", icon = icon("bar-chart"))
+                menuItem("PubMed GO Trends", tabName = "pubmedTab", icon = icon("bar-chart")),
+                # private instance only; removed by the server otherwise
+                menuItem("Project files", tabName = "projectFilesTab", icon = icon("folder-open"))
             )
         ),
         dashboardBody(
@@ -142,7 +144,18 @@ ui <- tagList(
                 source("ui-tab-goplots.R", local = TRUE)$value,
                 source("ui-tab-keggplots.R", local = TRUE)$value,
                 source("ui-tab-pathview.R", local = TRUE)$value,
-                source("ui-tab-pubmed.R", local = TRUE)$value
+                source("ui-tab-pubmed.R", local = TRUE)$value,
+                tabItem(
+                    tabName = "projectFilesTab",
+                    div(
+                        class = "nasqar-project-private",
+                        box(
+                            title = "Saved plots and files of this project", solidHeader = TRUE,
+                            status = "primary", width = 12,
+                            nasqar_project_files_ui()
+                        )
+                    )
+                )
             )
         )
     ),
