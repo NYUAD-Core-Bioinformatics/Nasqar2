@@ -11,7 +11,7 @@ observe({
     updateSelectizeInput(session,'clusterNumVS2',
                          choices=levels(pbmc),selected = input$clusterNumVS2)
     
-    genesToPlot = rownames( GetAssayData(pbmc, slot = "scale.data") )
+    genesToPlot = rownames( GetAssayData(pbmc, layer = "scale.data") )
     
     updateSelectizeInput(session,'genesToPlotVln',
                          choices=genesToPlot)
