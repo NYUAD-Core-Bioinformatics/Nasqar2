@@ -91,7 +91,7 @@ analyzeDataReactive <-
                     shiny::setProgress(value = 0.3, detail = " Applying Filters ...")
 
                     #######
-                    pbmcRawData <- GetAssayData(object = pbmc, slot = "counts")
+                    pbmcRawData <- GetAssayData(object = pbmc, layer = "counts")
                     
                     if(length(myValues$exprList) > 0)
                     {
