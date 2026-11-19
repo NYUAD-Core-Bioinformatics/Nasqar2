@@ -1,132 +1,93 @@
----
-title: "Intro"
-author: "Ayman Y"
-date: "July 15, 2018"
-output: html_document
-runtime: shiny
----
+<style>
+.guide { max-width: 1040px; color: #333; font-size: 15px; line-height: 1.6; }
+.guide h3 { font-size: 20px; font-weight: 600; margin: 34px 0 6px; }
+.guide h3:first-child { margin-top: 6px; }
+.guide .guide-lead { font-size: 16px; color: #444; margin-bottom: 4px; }
+.guide .guide-sub { color: #6b7280; margin: 0 0 16px; }
+.guide .guide-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.guide .guide-grid.guide-plots { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.guide .guide-card { border: 1px solid #e3e6ea; border-radius: 6px; background: #fff; padding: 14px 16px; }
+.guide .guide-card h4 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+.guide .guide-card p { margin: 0; color: #555; font-size: 14px; }
+.guide .guide-step { display: inline-block; width: 24px; height: 24px; line-height: 24px; border-radius: 50%; background: #3c8dbc; color: #fff; text-align: center; font-size: 13px; font-weight: 600; margin-right: 8px; }
+.guide .guide-figure { border: 1px solid #e3e6ea; border-radius: 6px; background: #fff; padding: 10px; margin: 0; }
+.guide .guide-figure img { width: 100%; height: 150px; object-fit: contain; display: block; }
+.guide .guide-figure.guide-table img { height: auto; }
+.guide .guide-figure figcaption { font-size: 13px; color: #555; margin-top: 8px; }
+.guide .guide-figure figcaption strong { color: #333; }
+.guide a.pop { cursor: zoom-in; display: block; }
+.guide ul { padding-left: 20px; margin-bottom: 14px; }
+.guide li { margin-bottom: 5px; }
+.guide .guide-note { border-left: 3px solid #3c8dbc; background: #f4f8fb; padding: 10px 14px; margin: 14px 0; font-size: 14px; }
+.guide code { background: #f1f3f5; color: #333; padding: 1px 5px; border-radius: 3px; }
+</style>
+<div class="guide">
 
-## **Introduction**
+<h3>Guided single-cell RNA-seq analysis and clustering</h3>
+<p class="guide-lead">Load the counts of a single-cell experiment and go step by step from quality control to clusters and their marker genes. You can go back to any step, change a setting and see the effect. No R programming is needed.</p>
+<p class="guide-sub">The analysis is run by <a href="https://satijalab.org/seurat/" target="_blank">Seurat</a> and follows its guided clustering tutorial.</p>
 
----
-
-This is a web-based interactive (wizard style) application to perform a **guided single-cell RNA-seq data analysis and clustering** based on <a href="https://satijalab.org/seurat/" target="_blank"><strong>Seurat</strong></a>. 
-
-The wizard style makes it intuitive to go back between steps and adjust parameters based on different outputs/plots, giving the user the ability to use feedback in order to guide the analysis iteratively.
-
-It is meant to provide an intuitive interface for researchers to easily **upload, analyze, visualize, and explore single-cell RNA-seq data** interactively with no prior programming knowledge in R.
-
-It is based on <a href="https://satijalab.org/seurat/" target="_blank"><strong>Seurat</strong></a>, an R package designed for QC, analysis, and exploration of single cell RNA-seq data.
-
-The application follows the <a href="https://satijalab.org/seurat/pbmc3k_tutorial_v3.html" target="_blank">Seurat - Guided Clustering Tutorial</a> <link> workflow closely. It also provides additional functionalities to further explore and visualize the data.
-
-See **Figure 1** below for a diagram that outlines all the workflow steps and their expected output
-
-<div class="col-md-12"><hr style="border-top: none;"></div>
-
-<p style="width: 100%;max-width:300px;margin: 10px auto;display: block;"><strong><em>Figure 1: Workflow (Click figure to enlarge)</em></strong></p>
-<a href="#" class="pop">
-    <div class="BoxArea4" style="width: 100%;max-width:300px;margin: 0 auto;display: block;">
-    <img src="www/seuratWorkflow.png" alt="Workflow" style="width: 100%;max-width:300px;margin: 0 auto;display: block;"/>
-    </div>
-</a>
-
-<div class="modal fade" id="imagemodal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">              
-      <div class="modal-body">
-      	<button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
-        <img src="" class="imagepreview" style="width: 100%;" >
-      </div>
-    </div>
-  </div>
+<h3>How it works</h3>
+<p class="guide-sub">Each step appears in the sidebar when the one before it has finished.</p>
+<div class="guide-grid">
+<div class="guide-card"><h4><span class="guide-step">1</span>Input data</h4><p>Upload a count matrix or 10X files, or start from the example data. Set the minimum cells per gene and genes per cell.</p></div>
+<div class="guide-card"><h4><span class="guide-step">2</span>QC and filter</h4><p>Flag gene sets such as mitochondrial genes, look at the violin plots, and remove low-quality cells.</p></div>
+<div class="guide-card"><h4><span class="guide-step">3</span>Normalise</h4><p>Normalise, find the variable genes and scale the data, or use SCTransform for all three.</p></div>
+<div class="guide-card"><h4><span class="guide-step">4</span>PCA</h4><p>Run the PCA, inspect the components, and use the elbow plot to decide how many to keep.</p></div>
+<div class="guide-card"><h4><span class="guide-step">5</span>Cluster</h4><p>Cluster the cells and lay them out with UMAP or t-SNE.</p></div>
+<div class="guide-card"><h4><span class="guide-step">6</span>Markers and export</h4><p>Find the marker genes of each cluster, plot them, and download the Seurat object or an R script of your steps.</p></div>
 </div>
 
+<h3>What you get</h3>
+<p class="guide-sub">Figures from the example data, about 2,700 blood cells. Click a figure to enlarge it.</p>
+<div class="guide-grid guide-plots">
+<figure class="guide-figure"><a class="pop"><img src="www/guide-qc.png" alt="QC violin plot"/></a><figcaption><strong>QC violin plots</strong><br/>Genes and counts per cell, used to choose the filtering limits.</figcaption></figure>
+<figure class="guide-figure"><a class="pop"><img src="www/guide-pca.png" alt="PCA plot"/></a><figcaption><strong>PCA plot</strong><br/>Cells on the first principal components.</figcaption></figure>
+<figure class="guide-figure"><a class="pop"><img src="www/guide-pc-heatmap.png" alt="PC heatmap"/></a><figcaption><strong>PC heatmap</strong><br/>The genes that drive each principal component.</figcaption></figure>
+<figure class="guide-figure"><a class="pop"><img src="www/guide-elbow.png" alt="Elbow plot"/></a><figcaption><strong>Elbow plot</strong><br/>How much variation each component explains, to choose how many to keep.</figcaption></figure>
+<figure class="guide-figure"><a class="pop"><img src="www/guide-umap.png" alt="UMAP of clusters"/></a><figcaption><strong>UMAP</strong><br/>The cells in two dimensions, coloured by cluster.</figcaption></figure>
+<figure class="guide-figure"><a class="pop"><img src="www/guide-markers.png" alt="Marker gene violin plot"/></a><figcaption><strong>Marker genes</strong><br/>Expression of chosen genes in each cluster.</figcaption></figure>
+</div>
+<p class="guide-sub" style="margin-top:14px;">Tables to download include the genes of each principal component, the cells of a cluster and the marker genes. Every plot has its own download button.</p>
 
-<div class="col-md-12"><hr style="border-top: none;"></div>
-
-## **Input Data Types**
-
----
-
-This application accepts the following types of input data:
-
-### 1. Example data (Demo):
-
-- For demo purposes, you can select "Example data"
-
-- That will automatically load the PBMC data used in the <a href="https://satijalab.org/seurat/pbmc3k_tutorial_v3.html" target="_blank">tutorial</a>
-
-- You can follow the steps afterwards to run the analysis mirroring the tutorial in order to get familiar with the app
-
-### 2. Upload your own data (gene counts):
-
-<div class="row">
-
-<div class="col-md-6">
+<h3>Preparing your data</h3>
 <ul>
-<li><p>A .csv/.txt file that contains a <strong>table of the gene counts</strong></p></li>
-<li><p>The first column should have gene names/ids followed by columns for sample counts. The file can be either <strong>comma or tab delimited</strong></p></li>
-<li><p>If your counts are not merged, you can use this <a href="http://nasqar.abudhabi.nyu.edu/countMerger">Count Merger</a> to consolidate all your sample count files</p></li>
-<li><p>Make sure cell/column names do <strong>NOT contain underscores _</strong> unless they are <strong>replicates</strong></p></li>
-<li><p>For replicates, denote column names with underscore plus the replicate number (eg. Sample_1)</p></li>
-<li><p>First column can either contain gene.ids or gene.names</p></li>
-<li><p>For a sample file, click <a href="www/sampleCounts.csv" target="_blank">here</a></p></li>
+<li><strong>A count matrix</strong> as a CSV file, with genes in rows and cells in columns.</li>
+<li><strong>10X data</strong> as its three files: one <code>.mtx.gz</code> file and two <code>.tsv.gz</code> files. <strong>Select the three files together in one upload.</strong></li>
+<li><strong>An upload can be at most 400 MB in total.</strong></li>
+<li>The example data is the PBMC data set of the Seurat tutorial, a quick way to see what each step expects.</li>
 </ul>
+
+<h3>Good to know</h3>
+<ul>
+<li>The <strong>Project name</strong> on the Input Data tab is used in the names of the files you download.</li>
+<li><strong>Changing a setting in an earlier step means running the later steps again.</strong> The sidebar marks finished steps with a check mark.</li>
+<li>On the Elbow/JackStraw tab the elbow plot is quick; the JackStraw test takes considerably longer.</li>
+<li>On the last tab, <em>Generate Seurat Robj</em> saves the object as an <code>.rds</code> file you can load in R, and <em>Generate Seurat Script</em> gives an R script of the steps you ran. <strong>Edit the data path in the script before running it.</strong></li>
+<li>With the object saved, you can open it directly in the Monocle 3 app for trajectory analysis.</li>
+</ul>
+
+<h3>On a private instance</h3>
+<p>NASQAR2 can also run as a private instance on your own server or cluster, where your data stays on your own machines. Everything above works the same way there. In addition:</p>
+<ul>
+<li><strong>Large data needs no upload.</strong> Choose <strong>Data in the private space</strong>, browse to a 10X folder or a count matrix that is already on the server, and press <strong>Load data</strong>.</li>
+<li><strong>Your work is saved automatically</strong> under the project name, including the Seurat object once you generate it.</li>
+<li><strong>You can continue later.</strong> Choose <strong>Reopen a saved project</strong> on the Input Data tab, pick your project and press <strong>Open project</strong>. The data comes back and the saved Seurat object is ready to download or send to Monocle 3. <strong>Only projects made from data in the private space can be reopened.</strong></li>
+<li><strong>Your figures and tables are kept together</strong> on the <strong>Project files</strong> page. <strong>Save all to project</strong> stores all of them in one click.</li>
+</ul>
+<p>These options do not appear on the public site.</p>
+
+<h3>Citation</h3>
+<p>Hao Y, Stuart T, Kowalski MH, et al. Dictionary learning for integrative, multimodal and scalable single-cell analysis. <em>Nature Biotechnology</em> 42, 293-304 (2024). <a href="https://doi.org/10.1038/s41587-023-01767-y" target="_blank">https://doi.org/10.1038/s41587-023-01767-y</a></p>
 </div>
 
-
-<div class="col-md-6">
-
-<p><strong><em>Figure 2: Eg. counts file</em></strong></p>
-<div class="BoxArea4" style="width: 100%;margin: 0 auto;display: block;">
-    <img src="www/sampleTable_norep.png" alt="Sample file" style="width: 100%;"/>
+<div class="modal fade" id="imagemodal" tabindex="-1" role="dialog" aria-hidden="true">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-body">
+<button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+<img src="" class="imagepreview" style="width: 100%;" >
 </div>
-
-
 </div>
-
 </div>
-
-<div class="col-md-12"><hr style="border-top: none;"></div>
-### 2. 10X data
-
-- This option requires uploading 3 files: 1 .mtx file, and 2 .tsv files
-
-- See the example in the <a href="https://satijalab.org/seurat/pbmc3k_tutorial_v3.html" target="_blank">tutorial</a>, or click <a href="https://s3-us-west-2.amazonaws.com/10x.files/samples/cell/pbmc3k/pbmc3k_filtered_gene_bc_matrices.tar.gz">here</a> to download the PBMC data.
-
-<div class="col-md-12"><hr style="border-top: none;"></div>
-## **Run Results**
----
-### 1. Data Output
-There will be plenty of output information from major steps, some of which will be displayed and/or downloadable
-- Genes in PCs
-- List of cells in each cluster
-- List of differentially expressed genes
-- Seurat Object (.RObj) containing all steps and computed data output
-
-### 2. Visualization
-Various forms of visualizations are included:
-* **QC/Filter**
-    * Violin Plot
-    * Gene Plot
-    * Dispersion Plot
-* **Dimensionality Reduction**
-    * PCA Plot
-    * Heatmap
-* **Clustering**
-    * Jackstraw / Elbow Plots
-    * tSNE Plot
-* **Gene Expression**
-    * Violin Plot
-    * Feature Plot
-
-## **Acknowledgements**
----
-- Rahul Satija, Andrew Butler and Paul Hoffman (2017). Seurat: Tools for Single Cell Genomics. <a href="https://CRAN.R-project.org/package=Seurat" target="_blank">https://CRAN.R-project.org/package=Seurat</a>
-- <a href="http://satijalab.org/seurat/" target="_blank">Satija Lab</a>
-- <a href="https://github.com/ChristophH/sctransform" target="_blank">Christoph Hafemeister, Rahul Satija (2019). Normalization and variance stabilization of single-cell RNA-seq data using regularized negative binomial regression</a>
-- <a href="https://github.com/maximilianh/cellBrowser" target="_blank">UCSC Single Cell Browser</a>
-
----
-
+</div>

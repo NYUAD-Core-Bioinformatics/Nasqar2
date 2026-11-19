@@ -77,7 +77,9 @@ ui <- tagList(
           "Download Seurat Obj",
           tabName = "finishTab",
           icon = icon("download")
-        )
+        ),
+        # private instance only; removed by the server otherwise
+        menuItem("Project files", tabName = "projectFilesTab", icon = icon("folder-open"))
       )
     ),
     dashboardBody(
@@ -112,7 +114,18 @@ ui <- tagList(
         source("ui-tab-nonLinReductTab.R", local = TRUE)$value,
         source("ui-tab-finish.R", local = TRUE)$value,
         source("ui-tab-findMarkers.R", local = TRUE)$value,
-        source("ui-tab-vizMarkers.R", local = TRUE)$value
+        source("ui-tab-vizMarkers.R", local = TRUE)$value,
+        tabItem(
+          tabName = "projectFilesTab",
+          div(
+            class = "nasqar-project-private",
+            box(
+              title = "Saved plots and files of this project", solidHeader = TRUE,
+              status = "primary", width = 12,
+              nasqar_project_files_ui()
+            )
+          )
+        )
       )
 
     )

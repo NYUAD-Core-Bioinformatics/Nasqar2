@@ -1,6 +1,7 @@
-
-observe({
-
+# Runs on the button only. As a plain observe() it also ran again whenever
+# anything it reads changed afterwards (the project name, the object), writing
+# another full copy of the Seurat object each time.
+observeEvent(input$generateSeuratFile, {
   if(input$generateSeuratFile)
   {
     if (is.null(myValues$finalData$pbmc)) {
