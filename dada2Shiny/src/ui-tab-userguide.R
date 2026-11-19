@@ -2,7 +2,7 @@
             tabName = "userGuideTab",
             fluidRow(
                 box(
-                    title = "DADA2 Pipeline User Guide", 
+                    title = "User Guide", 
                     width = 12, 
                     solidHeader = TRUE, 
                     status = "primary",

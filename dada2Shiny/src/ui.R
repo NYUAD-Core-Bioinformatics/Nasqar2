@@ -53,7 +53,9 @@ ui <- dashboardPage(
             menuItem("Merged Paired Reads", tabName = "margePairedReadsTab", icon = icon("compress-arrows-alt")),
             menuItem("Track Reads", tabName = "trackReadsTab", icon = icon("stream")),
             menuItem("Taxonomy", tabName = "taxanomyTab", icon = icon("sitemap")),
-            menuItem("Diversity & Abundance", tabName = "alphaDiversityTab", icon = icon("chart-pie"))
+            menuItem("Diversity & Abundance", tabName = "alphaDiversityTab", icon = icon("chart-pie")),
+            # private instance only; removed by the server otherwise
+            menuItem("Project files", tabName = "projectFilesTab", icon = icon("folder-open"))
         )
     ),
     dashboardBody(
@@ -97,7 +99,18 @@ ui <- dashboardPage(
             source("ui-tab-mergePairedReads.R", local = TRUE)$value,
             source("ui-tab-trackReads.R", local = TRUE)$value,
             source("ui-tab-alphaDiversity.R", local = TRUE)$value,
-            source("ui-tab-taxonomy.R", local = TRUE)$value
+            source("ui-tab-taxonomy.R", local = TRUE)$value,
+            tabItem(
+                tabName = "projectFilesTab",
+                div(
+                    class = "nasqar-project-private",
+                    box(
+                        title = "Saved plots and files of this project", solidHeader = TRUE,
+                        status = "primary", width = 12,
+                        nasqar_project_files_ui()
+                    )
+                )
+            )
         ),
          # Add a heartbeat function to prevent session from disconnecting
         tags$script(HTML(
