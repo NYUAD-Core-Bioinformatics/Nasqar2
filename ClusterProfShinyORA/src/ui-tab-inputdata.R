@@ -5,18 +5,26 @@ tabItem(
         column(
             6,
             box(
-                title = "Upload Data", solidHeader = T, status = "success", width = 12, collapsible = T, id = "uploadbox",
-
-                # downloadLink("instructionspdf",label="Download Instructions (pdf)"),
-                nasqar_project_ui("ora-project",
-                    help = "The input table and enrichment results are kept under this name in the private space, so the project can be restored later."),
-                radioButtons("data_file_type", "Use example file or upload your own data",
+                title = "1. Input data", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "uploadbox",
+                # One question decides what the rest of the box shows. The two
+                # private-space choices are removed by the server on a public
+                # instance.
+                radioButtons("data_file_type", "Where is your data?",
                     c(
-                        "Upload .CSV" = "csvfile",
-                        "Example Data" = "examplecounts",
-                        "Use a file in the private space" = "privatefile"
+                        "Upload a results table" = "csvfile",
+                        "Table in the private space" = "privatefile",
+                        "Example data" = "examplecounts",
+                        "Reopen a saved project" = "savedProject"
                     ),
                     selected = "csvfile"
+                ),
+                conditionalPanel(
+                    condition = "input.data_file_type=='savedProject'",
+                    div(class = "nasqar-project-private",
+                        nasqar_project_restore_ui(button_label = "Open project", stacked = TRUE),
+                        helpText(style = "margin-top:10px;",
+                                 "The input table and settings come back and the enrichment is run again from the project cache.")
+                    )
                 ),
                 conditionalPanel(
                     condition = "input.data_file_type=='privatefile'",
@@ -31,17 +39,23 @@ tabItem(
                 ),
                 conditionalPanel(
                     condition = "input.data_file_type=='csvfile'",
-                    p("CSV counts file")
+                    fileInput("datafile", "Results table (.csv)", multiple = TRUE)
                 ),
                 conditionalPanel(
-                    condition = "input.data_file_type=='csvfile'",
-                    fileInput("datafile", "Choose File(s) Containing Data", multiple = TRUE)
+                    condition = "input.data_file_type!='savedProject'",
+                    div(class = "nasqar-project-private",
+                        nasqar_project_name_ui(
+                            "ora-project",
+                            label = "Project name",
+                            help = "Saved automatically in the private space under this name: the input table when it is loaded, the settings once the enrichment has run."
+                        )
+                    )
                 )
             ),
             conditionalPanel(
                 "output.fileUploaded",
                 box(
-                    title = "Initialize Parameters", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "iParamsbox",
+                    title = "2. Select genes", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "iParamsbox",
                     wellPanel(
                         column(
                             4,
@@ -92,7 +106,7 @@ tabItem(
                     actionButton("nextInitParams", "Next", class = "btn-info", style = "width: 100%")
                 ),
                 box(
-                    title = "EnrichGO object Parameters", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "createGoBox", collapsed = T,
+                    title = "3. Enrichment parameters", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "createGoBox", collapsed = T,
                     wellPanel(
                         column(
                             6,
