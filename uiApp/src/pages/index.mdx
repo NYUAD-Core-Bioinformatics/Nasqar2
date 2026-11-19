@@ -10,12 +10,12 @@ To install NASQAR2 on your local system, please follow the instructions on our [
 
 The field of high-throughput sequencing is continually evolving, resulting in a rapid increase in both the quantity and diversity of sequence-based data. This growth necessitates the development of new software libraries and tools for effective data analysis and visualization. However, utilizing these tools often requires computational skills beyond the expertise of the average researcher.
 
-To address this challenge, we introduce NASQAR2, a dynamic web-based platform designed to lower the computational barrier. NASQAR2 features an intuitive interface that enables users to easily and efficiently explore their data interactively. Our platform integrates popular tools tailored for various applications, including Transcriptome Data Preprocessing, RNAseq Analysis (including Single-cell RNAseq), Metagenomics, and Gene Enrichment. Explore your data seamlessly and unlock insights with NASQAR.
+To address this challenge, we introduce NASQAR2, a dynamic web-based platform designed to lower the computational barrier. NASQAR2 features an intuitive interface that enables users to easily and efficiently explore their data interactively. Our platform integrates popular tools tailored for various applications, including Transcriptome Data Preprocessing, RNAseq Analysis (including Single-cell RNAseq), Metagenomics, and Gene Enrichment. Explore your data seamlessly and unlock insights with NASQAR2.
 
 
 ## Applications
 
-Quick access to all available applications:
+The groups are in the order of an analysis, and so are the apps inside each group: a numbered app takes the output of the one before it.
 
 import { AppStampsGrid } from '../components/app-stamps'
 
@@ -43,11 +43,8 @@ Additionally, please remember to include the appropriate citation for the open-s
 
 * **R 4.3.3** across the analytical module images
 * Deploy the complete platform as one Docker image or run individual module images
-* Run NASQAR2 as a **private instance**, with Docker on your own machine or as an unprivileged Singularity container in a Slurm compute job
-* Point a private instance at your own data directory: files are read in place without uploading, and results stay permanently on your filesystem
-* **Private-space projects in every NASQAR2 application:** work is kept as `projects/<App>/<name>` with its outputs, caches and settings, and any project can be restored from the app in seconds instead of recomputed (Animalcules, DEBrowser and START are third-party apps and keep their own behaviour)
-* **Private-instance data access in every NASQAR2 application:** each input tab offers *Use a file (or directory) inside the private data root* with a server-side Browse dialog, so counts tables, FASTQ or BAM directories, Seurat objects and VCFs are read in place
-* Public deployments leave the data directory unset, so the host filesystem is never exposed and only browser upload is available
+* Run NASQAR2 as a **private instance** on your own machine or cluster: your data stays where it is, files are read without uploading, and every analysis is saved so it can be reopened later
+* The public site keeps nothing on the server beyond your session and offers browser upload only
 
 See [Run as a private instance](/quickstart/installation#run-as-a-private-instance-with-your-own-data) for Docker and the [HPC Deployment Guide](/quickstart/hpc) for image preparation, job submission, storage configuration, and SSH tunnel instructions.
 
@@ -69,7 +66,7 @@ See [Run as a private instance](/quickstart/installation#run-as-a-private-instan
 **Major module enhancements**
 
 * **Gene Count Merger** - Merges HTSeq/featureCounts files, Kallisto estimated counts, or existing matrices; supports gene-symbol annotation and custom gene-ID mappings
-* **DESeq2Shiny** - Design metadata, multiple contrasts, PCA, volcano and MA plots, interactive heatmaps, Venn comparisons, publication-ready downloads, and reproducible R-code export
+* **DESeq2Shiny** - Design metadata, multiple contrasts, PCA, volcano and MA plots, interactive heatmaps, UpSet comparisons with set operations, publication-ready downloads, and reproducible R-code export
 * **ClusterProfShinyGSEA and ClusterProfShinyORA** - GO/KEGG tables and plots, identifier conversion, direct DESeq2 handoff, online KEGG viewing, and downloadable Pathview PNG/PDF output
 * **DADA2** - Taxonomy downloads, publication-ready figures, and direct Animalcules handoff
 * **ATACseqQC** - Core QC plus on-demand nucleosome and footprint analyses with publication-ready figure downloads

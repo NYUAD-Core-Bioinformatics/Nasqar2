@@ -1,6 +1,6 @@
 {
-  "debrowser": "Debrowser",
-  "deseq2": "DEseq2",
-  "startapp": "STARTApp",
-  "enrichment": "Enrichment"
+  "deseq2": "DESeq2",
+  "enrichment": "Enrichment",
+  "startapp": "START",
+  "debrowser": "DEBrowser"
 }

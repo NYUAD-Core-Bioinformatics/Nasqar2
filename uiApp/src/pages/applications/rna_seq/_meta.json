@@ -1,4 +1,4 @@
 {
-  "single_cell": "Single Cell",
-  "bulk_rna": "Bulk RNA"
+  "bulk_rna": "Bulk RNA-seq",
+  "single_cell": "Single Cell"
 }

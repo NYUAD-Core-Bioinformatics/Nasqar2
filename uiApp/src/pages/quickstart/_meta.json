@@ -1,6 +1,5 @@
 {
   "installation": "Installation",
   "hpc": "HPC deployment",
-  "deseq2": "Example  RNAseq using DESeq2"
- 
+  "deseq2": "Example: RNA-seq with DESeq2"
 }
