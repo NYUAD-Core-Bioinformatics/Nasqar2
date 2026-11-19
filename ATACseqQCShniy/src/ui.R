@@ -46,6 +46,7 @@ ui <- dashboardPage(
     dashboardSidebar(
         sidebarMenu(
             id = "tabs",
+            menuItem("User Guide", tabName = "userGuideTab", icon = icon("book")),
             menuItem("Input Data", tabName = "input_tab", icon = icon("upload")),
             menuItem("Heatmap", tabName = "heatmap_tab"),
             menuItem("Library Complexity", tabName = "librarycomplexity_tab"),
@@ -64,7 +65,9 @@ ui <- dashboardPage(
                 "TF Footprinting",
                 tabName = "footprinting_tab",
                 icon = icon("bullseye")
-            )
+            ),
+            # private instance only; removed by the server otherwise
+            menuItem("Project files", tabName = "projectFilesTab", icon = icon("folder-open"))
         )
     ),
     dashboardBody(
@@ -85,13 +88,25 @@ ui <- dashboardPage(
         
         ),
         tabItems(
+            source("ui-tab-userguide.R", local = TRUE)$value,
             source("ui-tab-inputdata.R", local = TRUE)$value,
             source("ui-tab-heatmap.R", local = TRUE)$value,
             source("ui-tab-librarycomplexity.R", local = TRUE)$value,
             source("ui-tab-fragmentsize.R", local = TRUE)$value,
             source("ui-tab-nucleosomepositioning.R", local = TRUE)$value,
             source("ui-tab-nucleosomeprofiles.R", local = TRUE)$value,
-            source("ui-tab-footprinting.R", local = TRUE)$value
+            source("ui-tab-footprinting.R", local = TRUE)$value,
+            tabItem(
+                tabName = "projectFilesTab",
+                div(
+                    class = "nasqar-project-private",
+                    box(
+                        title = "Saved plots and files of this project", solidHeader = TRUE,
+                        status = "primary", width = 12,
+                        nasqar_project_files_ui()
+                    )
+                )
+            )
             
         )
     )

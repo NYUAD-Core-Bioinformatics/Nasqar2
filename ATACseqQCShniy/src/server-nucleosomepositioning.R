@@ -9,6 +9,11 @@ tx_db_list <- list(
 source("nasqar-project.R", local = TRUE)
 project_app <- "ATACseqQC"
 private_space <- nasqar_project_available(project_app)
+# Reopening a project and its files page exist in a private instance only.
+if (!private_space) {
+    shinyjs::runjs("$('input[name=data_file_type][value=savedProject]').closest('.radio').remove()")
+    shinyjs::runjs("$('a[data-value=projectFilesTab]').closest('li').remove()")
+}
 current_project_name <- function() {
     name <- input$nasqar_project_name
     if (private_space && !is.null(name) && nzchar(trimws(name))) trimws(name) else paste0("session-", session$token)
