@@ -269,15 +269,17 @@ transformed_distance_plotly <- function(matrix) {
     sample_distances <- stats::dist(t(matrix))
     sample_matrix <- as.matrix(sample_distances)
     dend <- stats::as.dendrogram(stats::hclust(sample_distances))
-    # heatmaply draws columns in reverse dendrogram order; reversing the
-    # column dendrogram puts the samples in the same top-left to bottom-right
-    # order that pheatmap uses in the download.
+    # heatmaply draws columns in reverse dendrogram order, so the zero
+    # diagonal runs bottom-left to top-right on screen (the download's
+    # pheatmap runs top-left to bottom-right). Sample names are on the rows
+    # only; the column name is in the hover text.
     heatmaply::heatmaply(
         sample_matrix,
         Rowv = dend,
-        Colv = rev(dend),
+        Colv = dend,
         symm = FALSE,
         revC = FALSE,
+        showticklabels = c(FALSE, TRUE),
         colors = sample_distance_colors(),
         main = "Sample distance heatmap"
     )
