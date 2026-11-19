@@ -1,17 +1,27 @@
 tabItem(tabName = "datainput",
          hr(),
          fluidRow(column(3,
-                         box(title = "Upload Data", solidHeader = T, status = "primary", width = 12, collapsible = T,id = "uploadbox",
+                         box(title = "1. Input data", solidHeader = T, status = "primary", width = 12, collapsible = T,id = "uploadbox",
 
-                             #downloadLink("instructionspdf",label="Download Instructions (pdf)"),
-                             radioButtons('data_file_type','Select count data source',
+                             # One question decides what the rest of the box
+                             # shows. The two private-space choices are removed
+                             # by the server on a public instance.
+                             radioButtons('data_file_type','Where is your data?',
                                           c(
-                                            #'Upload Data (Dropseq)'="uploadDropseq",
-                                            'Upload Data (nonUMI)'="uploadNonUmi",
-                                            'Upload Data (10X)'="upload10x",
-                                            'Example Data (PBMC)'="examplecounts",
-                                            'Use a path in the private space'="privateSpace"
+                                            'Upload a count matrix (.csv)'="uploadNonUmi",
+                                            'Upload 10X files'="upload10x",
+                                            'Data in the private space'="privateSpace",
+                                            'Example data (PBMC)'="examplecounts",
+                                            'Reopen a saved project'="savedProject"
                                           ),selected = "uploadNonUmi"),
+                             conditionalPanel(
+                               condition="input.data_file_type=='savedProject'",
+                               div(class = "nasqar-project-private",
+                                   nasqar_project_restore_ui(button_label = "Open project", stacked = TRUE),
+                                   helpText(style = "margin-top:10px;",
+                                            "The data and the initial parameters come back, and the saved Seurat object is made available for download.",
+                                            "Only projects made from data in the private space can be reopened."))
+                             ),
                              conditionalPanel(
                                condition="input.data_file_type=='privateSpace'",
                                div(
@@ -19,37 +29,34 @@ tabItem(tabName = "datainput",
                                    div(style = "flex:1;",
                                    textInput(
                                      "private_data_path",
-                                     "10X directory or CSV/TSV count matrix in the private space",
+                                     "10X folder or CSV/TSV count matrix in the private space",
                                      value = ""
                                    )
                                    ),
                                    div(style = "margin-bottom:15px;", shinyFiles::shinyDirButton("browse_private_dir", "Browse folder...", "Choose a 10X directory in the private space")),
                                    div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_private_file", "Browse...", "Choose a count matrix in the private space", multiple = FALSE))
                                ),
-                               actionButton("load_private_data", "Load from Data Root", class = "btn btn-primary"),
+                               actionButton("load_private_data", "Load data", icon = icon("play"), class = "btn btn-primary", style = "color:#fff;"),
                                helpText("The input is read directly; it is not copied through the browser.")
                              ),
                              conditionalPanel(condition="input.data_file_type=='upload10x'",
-                                              p("10X Data, 1 .mtx.gz file, and 2 .tsv.gz files")
-                                              #fileInput('datafile', 'Choose File Containing Data (.mtx, .tsv)', multiple = TRUE)
+                                              helpText("Select the three 10X files together: one .mtx.gz file and two .tsv.gz files.")
                              ),
-
                              conditionalPanel(condition="input.data_file_type=='uploadNonUmi'",
-                                              p("CSV counts file")
-
+                                              helpText("One count matrix as a CSV file: genes in rows, cells in columns.")
                              ),
                              conditionalPanel(condition = "input.data_file_type=='uploadNonUmi' || input.data_file_type=='upload10x'",
-                                              fileInput('datafile', 'Choose File(s) Containing Data', multiple = TRUE)
+                                              fileInput('datafile', 'File(s) to upload', multiple = TRUE)
                              )
 
                          ),
-                         nasqar_project_ui(NULL, name_input = FALSE),
                          conditionalPanel("output.fileUploaded",
-                                          box(title = "Initial Parameters", solidHeader = T, status = "primary", width = 12, collapsible = T,id = "uploadbox",
+                                          box(title = "2. Initial parameters", solidHeader = T, status = "primary", width = 12, collapsible = T,
 
                                               textInput("projectname",
-                                                        value = "Project1", label = "Persistent project name"),
-                                              helpText("The final Seurat object and outputs are kept under this name in the private space, so the project can be restored later."),
+                                                        value = "Project1", label = "Project name"),
+                                              div(class = "nasqar-project-private",
+                                                  helpText("The Seurat object and the outputs are saved automatically in the private space under this name.")),
                                               numericInput("mincells",
                                                            label="Minimum number of cells per gene",min=1,max=200,value=3),
                                               numericInput("mingenes",
