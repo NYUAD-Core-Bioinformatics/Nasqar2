@@ -16,7 +16,7 @@ tabItem(
                     "Only genes with coding or splice-site variants", value = TRUE),
                 textOutput("handoff_gene_count"),
                 helpText(
-                    "In ClusterProfShinyORA choose the organism Human and set Keytype to the same",
+                    "In ClusterProfShinyORA choose the organism of your reference genome (Human for hg38 or hg19) and set Keytype to the same",
                     "identifier (SYMBOL or ENTREZID) before running the enrichment."
                 ),
                 uiOutput("handoff_link")

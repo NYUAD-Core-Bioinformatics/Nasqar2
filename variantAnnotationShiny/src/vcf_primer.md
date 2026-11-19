@@ -473,6 +473,4 @@ The **per-variant** table keeps only the most severe row:
 Start with the per-variant table; use the per-transcript table when a specific
 transcript matters.
 
-Annotation tables and caches are also written to a project directory on the
-server. For uploaded files this is a temporary directory that is removed when
-the session ends, so download the files you need.
+Download the files you need before you close the session.
