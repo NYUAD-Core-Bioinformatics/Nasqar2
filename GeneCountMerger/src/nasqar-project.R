@@ -616,6 +616,9 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
         shiny::removeUI(selector = ".nasqar-project-private", multiple = TRUE)
         return(invisible(function() NULL))
     }
+    # the reverse: text meant for a public instance only (e.g. what a private
+    # instance would add) is dropped here
+    shiny::removeUI(selector = ".nasqar-public-only", multiple = TRUE)
     # Keep state.json current: whenever any input changes (settled for 3 s),
     # rewrite the snapshot of the project last written in this session, so the
     # file reflects the settings behind what is on screen, not only the moment
