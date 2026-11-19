@@ -80,15 +80,6 @@ $(document).on('click', '.guide a.pop', function() {
   VariantAnnotation (GRCh37 coordinates, contig name `22`). The hg19
   reference is selected automatically.
 
-<div class="nasqar-project-private" style="border-left:3px solid #3c8dbc; background:#f4f8fb; padding:10px 14px; margin:14px 0;">
-<p><strong>On this private instance</strong> there are two more choices and your work is kept as a project.</p>
-<ul>
-<li><strong>VCF in the private space</strong>: a VCF already on the server, chosen with <strong>Browse</strong>. It is read in place; nothing is uploaded.</li>
-<li><strong>Reopen a saved project</strong>: pick a project and press <strong>Open project</strong>. The loaded VCF, the reference genome, the filters and the annotation results come back in seconds, without recomputing. A project is not reopened when its source VCF changed since it was made.</li>
-</ul>
-<p>Every run belongs to a project, named in the <strong>Project name</strong> box. It keeps the indexed VCF, the filtered VCF, the annotation tables, their caches and the settings you used, so the analysis can be reopened later. Figures and tables you download are kept in the project too. The <strong>Project files</strong> page lists them with a preview, and its <strong>Save all to project</strong> button writes every figure and table that exists at that moment into the project without downloading them.</p>
-</div>
-
 Select the **reference genome**. Only genomes whose BSgenome, TxDb and
 organism packages are installed appear in the list. When the dbSNP `SNPlocs`
 package for that genome is installed, rsIDs are added automatically.
@@ -216,3 +207,13 @@ runs without rsIDs and the report says so.
 > VariantAnnotation: a Bioconductor package for exploration and annotation of
 > genetic variants. *Bioinformatics* 30(14):2076–2078 (2014).
 > https://doi.org/10.1093/bioinformatics/btu168
+
+<div class="nasqar-project-private">
+<h3 style="font-size:20px; font-weight:600; margin:34px 0 6px;">Private instance: projects</h3>
+<p>This instance has a private space, so two more choices appear under <strong>Where is your data?</strong> and your work is kept as a project.</p>
+<ul>
+<li><strong>VCF in the private space</strong>: a VCF already on the server, chosen with <strong>Browse</strong>. It is read in place; nothing is uploaded.</li>
+<li><strong>Reopen a saved project</strong>: pick a project and press <strong>Open project</strong>. The loaded VCF, the reference genome, the filters and the annotation results come back in seconds, without recomputing. A project is not reopened when its source VCF changed since it was made.</li>
+</ul>
+<p>Every run belongs to a project, named in the <strong>Project name</strong> box. It keeps the indexed VCF, the filtered VCF, the annotation tables, their caches and the settings you used, so the analysis can be reopened later. Figures and tables you download are kept in the project too. The <strong>Project files</strong> page lists them with a preview, and its <strong>Save all to project</strong> button writes every figure and table that exists at that moment into the project without downloading them.</p>
+</div>
