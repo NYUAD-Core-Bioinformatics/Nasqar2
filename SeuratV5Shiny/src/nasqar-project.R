@@ -352,6 +352,19 @@ nasqar_project_save_all <- function(session = shiny::getDefaultReactiveDomain(),
     saved
 }
 
+# Body of a "Project files" box: the Save all to project button over the
+# list of saved files. The button is wired by nasqar_project_outputs_server().
+nasqar_project_files_ui <- function() {
+    shiny::tagList(
+        shiny::actionButton("nasqar_project_save_all_btn", "Save all to project", icon = shiny::icon("floppy-disk"),
+                            class = "btn-primary", style = "color:#fff; margin-bottom:6px;"),
+        shiny::helpText("Writes every figure and table that exists right now into the project without downloading them.",
+                        "Saving again replaces the earlier copies."),
+        shiny::tags$hr(),
+        nasqar_project_outputs_ui(heading = FALSE)
+    )
+}
+
 nasqar_project_outputs_ui <- function(heading = TRUE) {
     shiny::div(
         id = "nasqar_project_outputs_panel",
@@ -454,6 +467,30 @@ nasqar_project_outputs_server <- function(input, output, session) {
                               shiny::icon("download"), " Download"),
                 shiny::modalButton("Close"))
         ))
+    }, ignoreInit = TRUE)
+
+    # Save all to project (the button of nasqar_project_files_ui): figures and
+    # tables, stored without the timestamp of their download name so that
+    # saving again replaces them.
+    shiny::observeEvent(input$nasqar_project_save_all_btn, {
+        if (is.null(session$userData$nasqar_project_last_dir)) {
+            shiny::showNotification("There is no project yet: load data first.", type = "warning", duration = 6)
+            return()
+        }
+        saved <- shiny::withProgress(message = "Saving to the project...", value = 0, {
+            nasqar_project_save_all(
+                session,
+                keep = function(name) tolower(tools::file_ext(name)) %in% c("pdf", "png", "csv", "tsv", "txt", "xlsx"),
+                rename = function(name) {
+                    name <- gsub("_[0-9]{8}_[0-9]{6}", "", name)
+                    gsub("[-_]?[0-9]{4}-[0-9]{2}-[0-9]{2}", "", name)
+                },
+                progress = function(i, n, name) shiny::setProgress(value = i / n, detail = name))
+        })
+        shiny::showNotification(
+            if (length(saved)) sprintf("%d files saved to the project.", length(saved))
+            else "Nothing to save yet: run the analysis and draw the plots you want first.",
+            type = if (length(saved)) "message" else "warning", duration = 8)
     }, ignoreInit = TRUE)
 
     output$nasqar_project_outputs <- shiny::renderUI({
