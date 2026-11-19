@@ -483,7 +483,7 @@ nasqar_project_outputs_server <- function(input, output, session) {
                 keep = function(name) tolower(tools::file_ext(name)) %in% c("pdf", "png", "csv", "tsv", "txt", "xlsx"),
                 rename = function(name) {
                     name <- gsub("_[0-9]{8}_[0-9]{6}", "", name)
-                    gsub("[-_][0-9]{4}-[0-9]{2}-[0-9]{2}", "", name)
+                    gsub("[-_]?[0-9]{4}-[0-9]{2}-[0-9]{2}", "", name)
                 },
                 progress = function(i, n, name) shiny::setProgress(value = i / n, detail = name))
         })
