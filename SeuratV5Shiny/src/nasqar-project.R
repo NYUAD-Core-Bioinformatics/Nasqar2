@@ -308,12 +308,12 @@ nasqar_download_handler <- function(filename, content, contentType = NULL, outpu
     )
 }
 
-nasqar_project_outputs_ui <- function() {
+nasqar_project_outputs_ui <- function(heading = TRUE) {
     shiny::div(
         id = "nasqar_project_outputs_panel",
-        shiny::tags$hr(),
-        shiny::tags$strong("Saved plots and files of this project"),
-        shiny::helpText("Every figure or table you download is also kept in the project folder (plots/ and downloads/)."),
+        if (isTRUE(heading)) shiny::tags$hr(),
+        if (isTRUE(heading)) shiny::tags$strong("Saved plots and files of this project"),
+        shiny::helpText("Every figure or table you download is also kept in the project folder (plots/ and downloads/). Click a file to preview it."),
         shiny::uiOutput("nasqar_project_outputs")
     )
 }
@@ -361,6 +361,57 @@ nasqar_project_outputs_server <- function(input, output, session) {
             }
         }
     })
+    # Preview of one saved file in a dialog: figures and PDFs as they are, the
+    # first rows of a table, the contents of a zip, the first lines of a script.
+    # Only names inside the current project's plots/ and downloads/ are accepted.
+    shiny::observeEvent(input$nasqar_project_preview, {
+        dir <- session$userData$nasqar_project_last_dir
+        parts <- strsplit(as.character(input$nasqar_project_preview), "/", fixed = TRUE)[[1]]
+        if (is.null(dir) || length(parts) != 2 || !parts[1] %in% c("plots", "downloads")) return()
+        name <- basename(parts[2])
+        path <- file.path(dir, parts[1], name)
+        if (!file.exists(path)) return()
+        href <- paste0(serve_category(dir, parts[1]), "/", utils::URLencode(name, reserved = TRUE))
+        extension <- tolower(tools::file_ext(name))
+        first_lines <- function(n) shiny::tags$pre(style = "max-height:60vh; overflow:auto;",
+            paste(tryCatch(readLines(path, n = n, warn = FALSE), error = function(e) "This file cannot be read as text."),
+                  collapse = "\n"))
+        body <- if (extension %in% c("png", "jpg", "jpeg", "svg")) {
+            shiny::tags$img(src = href, style = "max-width:100%; display:block; margin:auto;")
+        } else if (extension == "pdf") {
+            shiny::tags$iframe(src = href, style = "width:100%; height:70vh; border:0;")
+        } else if (extension %in% c("csv", "tsv")) {
+            rows <- tryCatch(utils::read.table(path, sep = if (extension == "csv") "," else "\t", header = TRUE,
+                                               nrows = 25, check.names = FALSE, quote = "\"", comment.char = "",
+                                               fill = TRUE, stringsAsFactors = FALSE),
+                             error = function(e) NULL)
+            if (is.null(rows)) first_lines(25) else shiny::tagList(
+                shiny::helpText(sprintf("First %d rows, %d columns.", nrow(rows), ncol(rows))),
+                shiny::div(style = "overflow:auto; max-height:60vh;",
+                    shiny::tags$table(class = "table table-condensed table-striped", style = "font-size:12px;",
+                        shiny::tags$thead(shiny::tags$tr(lapply(names(rows), shiny::tags$th))),
+                        shiny::tags$tbody(lapply(seq_len(nrow(rows)), function(i) {
+                            shiny::tags$tr(lapply(rows[i, , drop = TRUE], function(value) shiny::tags$td(format(value))))
+                        })))))
+        } else if (extension == "zip") {
+            contents <- tryCatch(utils::unzip(path, list = TRUE), error = function(e) NULL)
+            if (is.null(contents)) shiny::helpText("This archive cannot be listed.") else shiny::tagList(
+                shiny::helpText(sprintf("%d files in this archive:", nrow(contents))),
+                shiny::tags$ul(lapply(contents$Name, shiny::tags$li)))
+        } else if (extension %in% c("r", "rmd", "txt", "md", "json", "log")) {
+            first_lines(80)
+        } else {
+            shiny::helpText("There is no preview for this file type; download it to open it.")
+        }
+        shiny::showModal(shiny::modalDialog(
+            title = name, size = "l", easyClose = TRUE, body,
+            footer = shiny::tagList(
+                shiny::tags$a(href = href, target = "_blank", download = name, class = "btn btn-default",
+                              shiny::icon("download"), " Download"),
+                shiny::modalButton("Close"))
+        ))
+    }, ignoreInit = TRUE)
+
     output$nasqar_project_outputs <- shiny::renderUI({
         current <- listing()
         if (is.null(current)) return(shiny::helpText("No project yet: load data first."))
@@ -375,11 +426,18 @@ nasqar_project_outputs_server <- function(input, output, session) {
                 shiny::div(style = "height:140px; display:flex; align-items:center; justify-content:center; color:#888;",
                            shiny::icon(if (f$category == "plots") "file-image" else "file-alt", class = "fa-3x"))
             }
+            open_preview <- sprintf(
+                "Shiny.setInputValue('nasqar_project_preview', %s, {priority: 'event'}); return false;",
+                jsonlite::toJSON(paste0(f$category, "/", f$name), auto_unbox = TRUE))
             shiny::div(style = "width:200px; border:1px solid #ddd; border-radius:4px; padding:6px;",
-                preview,
-                shiny::tags$a(href = href, target = "_blank", download = f$name, f$name,
-                              style = "display:block; margin-top:4px; word-break:break-all; font-size:12px;"),
-                shiny::tags$small(class = "text-muted", format(f$modified, "%Y-%m-%d %H:%M")))
+                shiny::tags$a(href = "#", onclick = open_preview, title = "Preview",
+                              style = "display:block; cursor:zoom-in;", preview),
+                shiny::div(style = "margin-top:4px; word-break:break-all; font-size:12px;", f$name),
+                shiny::div(style = "display:flex; justify-content:space-between; align-items:center; margin-top:2px;",
+                    shiny::tags$small(class = "text-muted", format(f$modified, "%Y-%m-%d %H:%M")),
+                    shiny::span(style = "font-size:12px; white-space:nowrap;",
+                        shiny::tags$a(href = "#", onclick = open_preview, "Preview"), " \u00b7 ",
+                        shiny::tags$a(href = href, target = "_blank", download = f$name, "Download"))))
         })
         shiny::div(style = "display:flex; flex-wrap:wrap; gap:10px;", cards)
     })
@@ -389,8 +447,65 @@ nasqar_project_outputs_server <- function(input, output, session) {
 # Shared UI and server pieces
 # ---------------------------------------------------------------------------
 
-# Project name box plus the restore picker. Both only appear in a private
-# instance; the server side removes them otherwise.
+# The restore picker and the project name box. Both only appear in a private
+# instance; the server side removes them otherwise. nasqar_project_ui() is the
+# stacked panel; an application that lays the pieces out itself calls
+# nasqar_project_restore_ui() / nasqar_project_name_ui() and wraps each in an
+# element of class "nasqar-project-private" so it is removed the same way.
+nasqar_project_restore_ui <- function(button_label = "Restore", help = TRUE, stacked = FALSE) {
+    refresh_button <- shiny::actionButton("nasqar_project_refresh", NULL, icon = shiny::icon("sync"),
+                                          class = "btn-default", title = "Refresh the list")
+    if (isTRUE(stacked)) {
+        # Full-width picker with the project name on one line and its details
+        # (input, stage, date) on a second, then the button underneath: the
+        # one-line labels wrap badly in a narrow column.
+        split_label <- "var m = /^(.*?)\\s{2}\\((.*)\\)$/.exec(item.label || ''), name = m ? m[1] : (item.label || ''), meta = m ? m[2].split(', ').join(' · ') : '';"
+        render <- I(paste0(
+            "{option: function(item, escape) {", split_label,
+            " return '<div style=\"padding:7px 12px;\"><div style=\"font-weight:600;\">' + escape(name) + '</div>'",
+            " + (meta ? '<div style=\"font-size:12px; opacity:0.7;\">' + escape(meta) + '</div>' : '') + '</div>'; },",
+            " item: function(item, escape) {", split_label,
+            " return '<div style=\"line-height:1.35;\"><div style=\"font-weight:600;\">' + escape(name) + '</div>'",
+            " + (meta ? '<div style=\"font-size:12px; opacity:0.7;\">' + escape(meta) + '</div>' : '') + '</div>'; }}"))
+        return(shiny::tagList(
+            shiny::selectizeInput("nasqar_project_restore", "Saved project",
+                                  choices = c("No saved projects yet" = ""), width = "100%",
+                                  options = list(render = render)),
+            shiny::div(
+                style = "display:flex; gap:8px;",
+                shiny::actionButton("nasqar_project_restore_btn", button_label, icon = shiny::icon("folder-open"),
+                                    class = "btn-primary", style = "flex:1; color:#fff;"),
+                refresh_button
+            )
+        ))
+    }
+    shiny::tagList(
+        if (isTRUE(help)) shiny::helpText(
+            "Every analysis run on this instance is saved as a project in the private space.",
+            "Pick one and press ", paste0(button_label, ":"), " its input, settings and results come back",
+            "without recomputing (you can then change settings and rerun)."
+        ),
+        shiny::div(
+            style = "display:flex; gap:8px; align-items:flex-end;",
+            shiny::div(style = "flex:1;",
+                shiny::selectInput("nasqar_project_restore", "Saved projects on this instance",
+                                   choices = c("No saved projects yet" = ""))),
+            shiny::div(style = "margin-bottom:15px; display:flex; gap:6px;",
+                shiny::actionButton("nasqar_project_restore_btn", button_label, class = "btn-primary"),
+                refresh_button)
+        ),
+        shiny::tags$small(class = "text-muted", shiny::textOutput("nasqar_project_root_note", inline = TRUE))
+    )
+}
+
+nasqar_project_name_ui <- function(default_name, label = "Persistent project name",
+                                   help = "Outputs are kept under this name in the private space, so they survive the session and can be restored later.") {
+    shiny::tagList(
+        shiny::textInput("nasqar_project_name", label, value = default_name),
+        shiny::helpText(help)
+    )
+}
+
 nasqar_project_ui <- function(default_name, label = "Persistent project name",
                               help = "Outputs are kept under this name in the private space, so they survive the session and can be restored later.",
                               name_input = TRUE) {
@@ -399,26 +514,10 @@ nasqar_project_ui <- function(default_name, label = "Persistent project name",
             id = "nasqar_project_panel",
             shiny::tags$hr(),
             shiny::tags$strong("Reload a previous analysis"),
-            shiny::helpText(
-                "Every analysis run on this instance is saved as a project in the private space.",
-                "Pick one and press Restore: its input, settings and results come back",
-                "without recomputing (you can then change settings and rerun)."
-            ),
-            shiny::div(
-                style = "display:flex; gap:8px; align-items:flex-end;",
-                shiny::div(style = "flex:1;",
-                    shiny::selectInput("nasqar_project_restore", "Saved projects on this instance",
-                                       choices = c("No saved projects yet" = ""))),
-                shiny::div(style = "margin-bottom:15px; display:flex; gap:6px;",
-                    shiny::actionButton("nasqar_project_restore_btn", "Restore", class = "btn-primary"),
-                    shiny::actionButton("nasqar_project_refresh", NULL, icon = shiny::icon("sync"),
-                                        class = "btn-default", title = "Refresh the list"))
-            ),
-            shiny::tags$small(class = "text-muted", shiny::textOutput("nasqar_project_root_note", inline = TRUE)),
+            nasqar_project_restore_ui(),
             if (isTRUE(name_input)) shiny::tags$hr(),
             if (isTRUE(name_input)) shiny::tags$strong("Start or continue a project"),
-            if (isTRUE(name_input)) shiny::textInput("nasqar_project_name", label, value = default_name),
-            if (isTRUE(name_input)) shiny::helpText(help),
+            if (isTRUE(name_input)) nasqar_project_name_ui(default_name, label, help),
             nasqar_project_outputs_ui()
         )
     )
@@ -433,6 +532,7 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
     root <- nasqar_project_app_root(app, legacy_env)
     if (is.null(root)) {
         shiny::removeUI(selector = "#nasqar_project_panel")
+        shiny::removeUI(selector = ".nasqar-project-private", multiple = TRUE)
         return(invisible(function() NULL))
     }
     # Keep state.json current: whenever any input changes (settled for 3 s),
