@@ -236,6 +236,6 @@ runs without rsIDs and the report says so.
 <li><strong>To continue later</strong>, choose <strong>Reopen a saved project</strong> on the Input Data tab, pick your project and press <strong>Open project</strong>. Everything comes back as you left it, without running the analysis again.</li>
 <li><strong>To use a file that is already on the server</strong> instead of uploading one, choose <strong>VCF in the private space</strong> and press <strong>Browse</strong>.</li>
 <li><strong>Your figures and tables</strong> are collected on the <strong>Project files</strong> page. <strong>Save all to project</strong> stores all of them in one click.</li>
-<li><strong>To work with another species</strong>, open <strong>Install another reference genome</strong> on the Input Data tab, pick it from the list (mouse, rat, zebrafish, fruit fly, nematode, yeast, chicken, pig, cow, dog, rhesus macaque, chimpanzee) and press <strong>Install</strong>. It is downloaded once and stays available afterwards. The server needs internet access for this.</li>
+<li class="genome-install-note"><strong>To work with another species</strong>, open <strong>Install another reference genome</strong> on the Input Data tab, pick it from the list (mouse, rat, zebrafish, fruit fly, nematode, yeast, chicken, pig, cow, dog, rhesus macaque, chimpanzee) and press <strong>Install</strong>. It is downloaded once and stays available afterwards. The server needs internet access for this.</li>
 </ul>
 </div>
