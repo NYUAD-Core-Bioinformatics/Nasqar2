@@ -1,6 +1,6 @@
 output$select_ui <- renderUI({
     selectInput("select_avo_de_file",
-        label = h5("Select DE data"), selected = NULL,
+        label = "Saved comparison", selected = NULL,
         choices = c(c("Select data"), names(filelist$file_list))
     )
 })

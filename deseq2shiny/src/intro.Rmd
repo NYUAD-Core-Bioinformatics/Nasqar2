@@ -1,160 +1,114 @@
----
-title: "Intro"
-author: "Nabil  Y"
-date: "April 1, 2023"
-output: html_document
-runtime: shiny
----
+<style>
+.guide { max-width: 1040px; color: #333; font-size: 15px; line-height: 1.6; }
+.guide h3 { font-size: 20px; font-weight: 600; margin: 34px 0 6px; }
+.guide h3:first-child { margin-top: 6px; }
+.guide .guide-lead { font-size: 16px; color: #444; margin-bottom: 4px; }
+.guide .guide-sub { color: #6b7280; margin: 0 0 16px; }
+.guide .guide-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.guide .guide-card { border: 1px solid #e3e6ea; border-radius: 6px; background: #fff; padding: 14px 16px; }
+.guide .guide-card h4 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+.guide .guide-card p { margin: 0; color: #555; font-size: 14px; }
+.guide .guide-step { display: inline-block; width: 24px; height: 24px; line-height: 24px; border-radius: 50%; background: #3c8dbc; color: #fff; text-align: center; font-size: 13px; font-weight: 600; margin-right: 8px; }
+.guide .guide-figure { border: 1px solid #e3e6ea; border-radius: 6px; background: #fff; padding: 10px; margin: 0; }
+.guide .guide-figure img { width: 100%; height: 150px; object-fit: contain; display: block; }
+.guide .guide-grid.guide-plots { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.guide .guide-figure.guide-table img { height: auto; object-fit: contain; }
+.guide .guide-figure figcaption { font-size: 13px; color: #555; margin-top: 8px; }
+.guide .guide-figure figcaption strong { color: #333; }
+.guide a.pop { cursor: zoom-in; display: block; }
+.guide ul { padding-left: 20px; margin-bottom: 14px; }
+.guide li { margin-bottom: 5px; }
+.guide table.guide-ops { border-collapse: collapse; margin: 16px 0 4px; font-size: 14px; }
+.guide table.guide-ops th, .guide table.guide-ops td { border-bottom: 1px solid #e3e6ea; padding: 7px 18px 7px 0; text-align: left; }
+.guide table.guide-ops th { font-weight: 600; color: #555; }
+.guide code { background: #f1f3f5; color: #333; padding: 1px 5px; border-radius: 3px; }
+.guide .guide-note { border-left: 3px solid #3c8dbc; background: #f4f8fb; padding: 10px 14px; margin: 14px 0; font-size: 14px; }
+</style>
 
-## Introduction
+<div class="guide">
 
----
+<h3>Differential expression analysis with DESeq2</h3>
+<p class="guide-lead">Upload a table of raw RNA-seq counts, describe your samples, and explore differential expression interactively. No R programming is needed.</p>
+<p class="guide-sub">The analysis is run by <a href="https://bioconductor.org/packages/release/bioc/html/DESeq2.html" target="_blank">DESeq2</a>. Single-factor and multi-factor designs are supported, as is exploratory analysis without replicates.</p>
 
-This Shiny app is a wrapper around <a href="https://bioconductor.org/packages/release/bioc/html/DESeq2.html" target="_blank">DESeq2</a>, an R package for **"Differential gene expression analysis based on the negative binomial distribution".**
+<h3>How it works</h3>
+<p class="guide-sub">The steps appear in the sidebar as you complete them.</p>
+<div class="guide-grid">
+<div class="guide-card"><h4><span class="guide-step">1</span>Input data</h4><p>Upload a counts file or start from one of the example data sets. Optionally filter out genes with low counts.</p></div>
+<div class="guide-card"><h4><span class="guide-step">2</span>Design conditions</h4><p>Check or edit the table that assigns each sample to its condition, and choose the design formula.</p></div>
+<div class="guide-card"><h4><span class="guide-step">3</span>Run DESeq2</h4><p>Run the analysis. If you suspect a hidden batch effect, estimate surrogate variables first and add them to the design.</p></div>
+<div class="guide-card"><h4><span class="guide-step">4</span>Explore and export</h4><p>Compare conditions, plot genes, and download tables and figures. Export R code reproduces every figure outside the app.</p></div>
+</div>
 
-It is meant to provide an intuitive interface for researchers to easily **upload, analyze, visualize, and explore RNAseq count data** interactively with no prior programming knowledge in R.
+<h3>What you get</h3>
+<p class="guide-sub">Figures from the multi-factor example data. Click a figure to enlarge it.</p>
+<div class="guide-grid guide-plots">
+<figure class="guide-figure"><a class="pop"><img src="www/pcaplot.png" alt="PCA plot of the samples"/></a><figcaption><strong>PCA plot</strong><br/>Samples on the first two principal components of the VST or rlog values.</figcaption></figure>
+<figure class="guide-figure"><a class="pop"><img src="www/distheatmap.png" alt="Sample distance heatmap"/></a><figcaption><strong>Sample distance heatmap</strong><br/>How similar the samples are to each other, with clustering.</figcaption></figure>
+<figure class="guide-figure"><a class="pop"><img src="www/maplot.png" alt="MA plot"/></a><figcaption><strong>MA plot and results table</strong><br/>Log fold change, p-value and adjusted p-value for the comparison you choose.</figcaption></figure>
+<figure class="guide-figure"><a class="pop"><img src="www/volcanoplot.png" alt="Volcano plot"/></a><figcaption><strong>Volcano plot</strong><br/>Up- and down-regulated genes of a saved comparison, at the thresholds you set.</figcaption></figure>
+<figure class="guide-figure"><a class="pop"><img src="www/upsetplot.png" alt="UpSet plot of two comparisons"/></a><figcaption><strong>UpSet plot and set operations</strong><br/>Genes shared between comparisons, or unique to one of them.</figcaption></figure>
+<figure class="guide-figure"><a class="pop"><img src="www/heatmap.png" alt="Gene expression heatmap"/></a><figcaption><strong>Interactive heatmap</strong><br/>The most variable genes, or a set you choose. Drag over an area to zoom into it as a sub-heatmap.</figcaption></figure>
+<figure class="guide-figure"><a class="pop"><img src="www/boxplot.png" alt="Gene expression boxplot"/></a><figcaption><strong>Gene boxplot</strong><br/>Expression of individual genes across your conditions.</figcaption></figure>
+</div>
+<p class="guide-sub" style="margin-top:14px;">The Volcano Plot and UpSet Plot tabs work on saved comparisons: press <em>mark it for further analysis</em> under the results table on the DE Results tab. The volcano plot needs one saved comparison, the UpSet plot at least two.</p>
 
-This tool supports **simple or multi-factorial** experimental design. It also allows for exploratory analysis when no replicates are available.
+<h3>Comparing gene lists: UpSet plot and set operations</h3>
+<p>The UpSet Plot tab answers questions such as "which genes respond to the treatment but not to the knockout?". It compares the significant genes of the comparisons you saved, and it is not limited to a handful of them the way a Venn diagram is.</p>
+<div class="guide-grid">
+<div class="guide-card"><h4><span class="guide-step">1</span>Pick comparisons</h4><p>Select two or more saved comparisons, choose all, up-regulated or down-regulated genes, set the thresholds and press <em>Plot UpSet</em>.</p></div>
+<div class="guide-card"><h4><span class="guide-step">2</span>Read the plot</h4><p>Each bar counts the genes that are significant in exactly one combination of comparisons. The dots under a bar show which comparisons that is.</p></div>
+<div class="guide-card"><h4><span class="guide-step">3</span>Click a bar</h4><p>The genes of that bar are listed below the plot with their fold change in every comparison, and drawn as a heatmap. Drag over the heatmap to pull out a subset.</p></div>
+<div class="guide-card"><h4><span class="guide-step">4</span>Go further with set operations</h4><p>For a question that is not a single bar, write a set expression. Each comparison has a letter (A, B, C and so on), shown next to its name.</p></div>
+</div>
+<table class="guide-ops">
+<thead><tr><th>Operator</th><th>Meaning</th><th>Example</th><th>Genes returned</th></tr></thead>
+<tbody>
+<tr><td><code>*</code></td><td>Intersection</td><td><code>A*B</code></td><td>Significant in both A and B</td></tr>
+<tr><td><code>+</code></td><td>Union</td><td><code>A+B</code></td><td>Significant in A, in B, or in both</td></tr>
+<tr><td><code>-</code></td><td>Difference</td><td><code>A-B</code></td><td>Significant in A but not in B</td></tr>
+<tr><td><code>( )</code></td><td>Grouping</td><td><code>(A*B)-C</code></td><td>Shared by A and B, but not significant in C</td></tr>
+</tbody>
+</table>
+<div class="guide-note">Expressions are read from left to right and no operator takes priority over another, so use parentheses whenever you mix operators: <code>A-(B+C)</code> is not the same as <code>A-B+C</code>. Clicking a bar fills in the expression for that bar, which is a quick way to see how they are written.</div>
 
-The app also provides svaseq **Surrogate Variable Analysis** for **hidden batch** effect detection. The user can then include Surrogate Variables (SVs) as adjustment factors for downstream analysis (eg. differential expression). For more information on svaseq, go to<a href="https://www.bioconductor.org/packages/devel/workflows/vignettes/rnaseqGene/inst/doc/rnaseqGene.html#using-sva-with-deseq2" target="_blank"> this link</a>
-
-For details on how this package is used for RNASeq count data analysis and visualization, see <a href="https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html" target="_blank">documentation</a>
-<div class="row"><hr style="border-style:none;"/></div>
-## Features
----
-
-Various **visualizations** and **output data** are included:
-
-<p><small><strong><em style="color:#f38686;">* Click image to enlarge</em></strong></small></p>
-<div class="row">
-
-<div class="col-md-6">
-<div class="row BoxArea5">
+<h3>Example data</h3>
+<p>Running an example first is the quickest way to see what each step expects.</p>
 <ul>
-<li>
-<p><strong>Clustering</strong></p>
+<li><strong>Single-factor:</strong> human tissue comparison counts from <a href="https://www.ncbi.nlm.nih.gov/pubmed?term=18978772" target="_blank">this published study</a>. The samples have no replicates.</li>
+<li><strong>Multi-factor:</strong> mouse counts with a sample metadata table from <a href="https://doi.org/10.1038/ni.2710" target="_blank">this published study</a>. You can download the <a href="chenCounts.csv" target="_blank">counts file</a> and the <a href="chenMeta.csv" target="_blank">metadata file</a> to see the expected layout.</li>
+</ul>
+
+<h3>Preparing your counts file</h3>
 <ul>
-<li><strong>R-Log</strong>, <strong>Variance Stabilizing Transformation</strong> (VST) output matrices</li>
-<li><strong>PCA plots</strong>, <strong>Heatmaps</strong></li>
+<li>A plain-text table, comma or tab delimited (.csv or .txt), with a header row.</li>
+<li>The first column holds the gene identifiers, one gene per row. It can be gene IDs or gene names.</li>
+<li>A file can also carry both: gene IDs in the first column and gene symbols in the second. Choose <em>My matrix contains GeneIDs and GeneSymbols</em> on the Input Data tab, and you can then search and label genes by either.</li>
+<li>Every other column is one sample of raw integer read counts. Do not use normalised values such as TPM or FPKM.</li>
+<li>Use only letters, digits and underscores in sample names.</li>
+<li>If each sample has its own counts file, combine them first with <a href="http://nasqar.abudhabi.nyu.edu/GeneCountMerger" target="_blank">Gene Count Merger</a>.</li>
 </ul>
-</li>
-</ul>
+<div class="guide-grid">
+<figure class="guide-figure guide-table"><img src="www/sampleTable_reps.png" alt="Counts table with replicates"/><figcaption><strong>With replicates</strong><br/>Name samples as condition, underscore, replicate number (CT6_1, CT6_2) and the conditions are filled in for you.</figcaption></figure>
+<figure class="guide-figure guide-table"><img src="www/sampleTable_norep.png" alt="Counts table without replicates"/><figcaption><strong>Without replicates</strong><br/>Tick <em>No replicates</em> on the Input Data tab. Only exploratory analysis is possible.</figcaption></figure>
+</div>
+<div class="guide-note">DESeq2 needs replicates to test for differential expression. See <a href="https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#can-i-use-deseq2-to-analyze-a-dataset-without-replicates" target="_blank">the DESeq2 documentation</a> for what is and is not possible without them.</div>
 
-<hr/>
-
-<div class="col-md-2" style="width: 33%">
-<a class="pop">
-<div class="BoxArea4" style="width: 100%;max-width:300px;margin: 0 auto;display: block;">
-<img src="www/pcaplot.png" alt="Workflow" style="width: 100%;max-width:300px;margin: 0 auto;display: block;max-height: 175px;"/>
-</div>
-</a>
-</div>
-<div class="col-md-2" style="width: 33%">
-<a class="pop">
-<div class="BoxArea4" style="width: 100%;max-width:300px;margin: 0 auto;display: block;">
-<img src="www/heatmap.png" alt="Workflow" style="width: 100%;max-width:300px;margin: 0 auto;display: block;max-height: 175px;"/>
-</div>
-</a>
-</div>
-<div class="col-md-2" style="width: 33%">
-<a class="pop">
-<div class="BoxArea4" style="width: 100%;max-width:300px;margin: 0 auto;display: block;">
-<img src="www/distheatmap.png" alt="Workflow" style="width: 100%;max-width:300px;margin: 0 auto;display: block;max-height: 175px;"/>
-</div>
-</a>
-</div>
-</div>
+<h3>Describing your samples</h3>
+<p>On the Design Conditions tab each sample needs a condition. For a single-factor experiment named as above, the table is filled in from the sample names and you only need to check it. For a multi-factor experiment, upload a metadata file (one row per sample, one column per factor) or edit the table on the page.</p>
+<div class="guide-grid">
+<figure class="guide-figure guide-table"><img src="www/conditionTable.png" alt="Condition table"/><figcaption><strong>Condition table</strong><br/>The default table for the samples with replicates shown above.</figcaption></figure>
+<div></div>
 </div>
 
-
-<div class="col-md-6">
-<div class="row BoxArea5">
-<ul>
-<li>
-<p><strong>Differential Expression</strong></p>
-<ul>
-<li>Comparison Data (<strong>logFC, p-value, etc, sample vs sample</strong>, etc …)</li>
-<li>MA plots</li>
-</ul>
-</li>
-</ul>
-<hr/>
-<div class="col-md-2" style="width: 50%">
-<a class="pop">
-<div class="BoxArea4" style="width: 100%;max-width:300px;margin: 0 auto;display: block;">
-<img src="www/maplot.png" alt="Workflow" style="width: 100%;max-width:300px;margin: 0 auto;display: block;max-height: 175px;"/>
-</div>
-</a>
-</div>
+<h3>Hidden batch effects</h3>
+<p>Before running DESeq2 you can estimate surrogate variables with svaseq and include them in the design, which adjusts for unwanted variation that is not in your metadata. See <a href="https://www.bioconductor.org/packages/devel/workflows/vignettes/rnaseqGene/inst/doc/rnaseqGene.html#using-sva-with-deseq2" target="_blank">using SVA with DESeq2</a>.</p>
 
 </div>
-</div>
 
-<hr/>
-
-<div class="col-md-6">
-<div class="row BoxArea5">
-<ul>
-<li>
-<p><strong>Surrogate Variable Analysis</strong></p>
-<ul>
-<li>SV plots</li>
-<li>PCA plots</li>
-</ul>
-</li>
-</ul>
-<hr/>
-<div class="col-md-2" style="width: 50%">
-<a class="pop">
-<div class="BoxArea4" style="width: 100%;max-width:300px;margin: 0 auto;display: block;">
-<img src="www/svplot.png" alt="Workflow" style="width: 100%;max-width:300px;margin: 0 auto;display: block;max-height: 175px;"/>
-</div>
-</a>
-</div>
-
-<div class="col-md-2" style="width: 50%">
-<a class="pop">
-<div class="BoxArea4" style="width: 100%;max-width:300px;margin: 0 auto;display: block;">
-<img src="www/pcasvplot.png" alt="Workflow" style="width: 100%;max-width:300px;margin: 0 auto;display: block;max-height: 175px;"/>
-</div>
-</a>
-</div>
-
-</div>
-</div>
-
-
-
-<div class="col-md-6">
-<div class="row BoxArea5">
-<ul>
-
-<li>
-<p><strong>Gene Expression</strong> </p>
-<ul>
-<li>Gene <strong>Boxplots</strong></li>
-</ul>
-</li>
-</ul>
-<hr/>
-<div class="col-md-2" style="width: 50%">
-<a class="pop">
-<div class="BoxArea4" style="width: 100%;max-width:300px;margin: 0 auto;display: block;">
-<img src="www/boxplot.png" alt="Workflow" style="width: 100%;max-width:300px;margin: 0 auto;display: block;max-height: 175px;"/>
-</div>
-</a>
-</div>
-
-</div>
-</div>
-</div>
-
-
-<div class="row"><hr style="border-style:none;"/></div>
-
-<div class="modal fade" id="imagemodal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
-<div class="modal-dialog">
-<div class="modal-content">              
+<div class="modal fade" id="imagemodal" tabindex="-1" role="dialog" aria-hidden="true">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
 <div class="modal-body">
 <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
 <img src="" class="imagepreview" style="width: 100%;" >
@@ -162,79 +116,3 @@ Various **visualizations** and **output data** are included:
 </div>
 </div>
 </div>
-
-<div class="row"><hr style="border-style:none;"/></div>
-## Input File & Conditions
-
----
-
-### 1. Example data (simple/multi-factorial experiment)
-
-- It is recommended for the user to try oneor both of the pre-loaded example data sets to carry out the analysis and get familiar with the app. Then the user should be able to replicate the analysis on their own datasets.
-
-- The **simple factorial example** loads the **Tissue Comparison Data (Human)** (RNASeq counts) that belongs to <a href="https://www.ncbi.nlm.nih.gov/pubmed?term=18978772" target="_blank">this published study</a>
-
-- The **multi-factorial example** loads the **Mouse Data** (RNASeq counts and experiment design metadata) that belongs to <a href="https://doi.org/10.1038/ni.2710" target="_blank">this published study</a>
-
-
-### 2. Upload your own data (gene counts)
-
-- A .csv/.txt file that contains a **table of the gene counts**
-
-- The first column should have gene names/ids followed by columns for sample counts. The file can be either **comma or tab delimited**
-
-- If your counts are not merged, you can use this <a href="http://nasqar.abudhabi.nyu.edu/GeneCountMerger">Gene Count Merger</a> to consolidate all your sample count files
-
-- For convenience, if this is a simple factor experiment and samples contain **replicates** and sample names are denoted by **underscore** and the replicate number (see **figure 2**), then the conditions will be automatically set by parsing the samples/replicate numbers
-
-- If no replicates, then select **No replicates** option to help set the default experiment conditions for the next step. This is necessary because newer versions of DESeq2 (> 1.22.0) do not work on experiments with no replicates. See  <a href="https://bioconductor.riken.jp/packages/3.8/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#can-i-use-deseq2-to-analyze-a-dataset-without-replicates" target="_blank">here</a> for more details
-
-- Avoid using special characters or spaces in sample names (**figure 1**), other than underscores to denote replicates (**figure 2**)
-
-- First column can either contain gene.ids or gene.names
-
-- Prefilter: You can also set a minimum number of counts per gene to include
-
-- For a **simple-factor experiment** sample counts file, download and view <a href="https://drive.google.com/u/1/uc?id=1Pb-e32KT8M9YM5u8AsI9F46GY4BWnVV_&export=download" target="_blank">sampleCounts.csv</a> file
-
-- For a **multi-factorial experiment** example file, download and view <a href="chenCounts.csv" target="_blank">this</a>  counts file and the following <a href="chenMeta.csv" target="_blank">metadata file</a>. 
-- Experimental design meta data can either be uploaded as a csv file, or constructed in-page with in the "Edit Conditions" step
-
-<div class="col-md-6">
-<p><strong>figure 1 (No Replicates)</strong></p>
-<div class="BoxArea4" style="width: 100%;margin: 0 auto;display: block;">
-<img src="www/sampleTable_norep.png" alt="Sample file" style="width: 100%;"/>
-</div>
-
-</div>
-<div class="col-md-6">
-<p><strong>figure 2 (Replicates)</strong></p>
-<div class="BoxArea4" style="width: 100%;margin: 0 auto;display: block;">
-<img src="www/sampleTable_reps.png" alt="Sample file" style="width: 100%;"/>
-</div>
-
-</div>
-
-<div class="col-md-12"><hr style="border-top: none;"></div>
-### 3. Experiment Conditions
-
-Setup experiment condition table
-
-- By default, if there are replicates, the sample name will be set as the condition for those samples
-
-- For example, if we take samples with replicates **(figure 2)**, the default condition table will be:
-
-<div class="row">
-<div class="col-md-5 col-md-offset-4">
-<p><strong>figure 3 (Condition Table)</strong></p>
-<div class="BoxArea4" style="width: 100%;margin: 0 auto;display: block;">
-<img src="www/conditionTable.png" alt="Sample file" style="width: 100%; display: block;"/>
-</div>
-
-</div>
-</div>
-
-<div class="col-md-12"><hr style="border-top: none;"></div>
-
----
-

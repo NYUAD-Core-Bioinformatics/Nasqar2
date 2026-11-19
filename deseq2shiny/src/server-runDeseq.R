@@ -101,6 +101,8 @@ ddsReactive <- eventReactive(input$run_deseq2, {
         shinyjs::show(selector = "a[data-value=\"boxplotTab\"]")
         shinyjs::show(selector = "a[data-value=\"resultsTab\"]")
         shinyjs::show(selector = "a[data-value=\"heatmapTab\"]")
+        shinyjs::show(selector = "a[data-value=\"volcanoplotTab\"]")
+        shinyjs::show(selector = "a[data-value=\"venndiagramTab\"]")
         if (!is.null(vsd)) {
             shinyjs::show(selector = "a[data-value=\"vstTab\"]")
         }

@@ -284,6 +284,11 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     }
     restoring_project <- reactiveVal(FALSE)
 
+    # Reopening a project exists in a private instance only.
+    if (!private_space) {
+        shinyjs::runjs("$('input[name=data_file_type][value=savedProject]').closest('.radio').remove()")
+    }
+
     project_choices_now <- function() {
         choices <- nasqar_project_choices(nasqar_project_list(project_app, project_legacy_env))
         if (length(choices)) choices else c("No saved projects yet" = "")
@@ -1155,6 +1160,8 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
             shinyjs::show(selector = "a[data-value=\"deseqTab\"]")
             shinyjs::show(selector = "a[data-value=\"resultsTab\"]")
             shinyjs::show(selector = "a[data-value=\"boxplotTab\"]")
+            shinyjs::show(selector = "a[data-value=\"volcanoplotTab\"]")
+            shinyjs::show(selector = "a[data-value=\"venndiagramTab\"]")
             shinyjs::show(selector = "a[data-value=\"heatmapTab\"]")
             shinyjs::show(selector = "a[data-value=\"vstTab\"]")
             
@@ -1356,18 +1363,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
         removeModal()
     }
 
-    # Save state handler
-    output$downloadState <- nasqar_download_handler(
-        filename = function() {
-            paste0("deseq2shiny_state_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".RData")
-        },
-        content = function(file) {
-            save_state_file(file)
-            showNotification("Application state saved successfully!", type = "default", duration = 3)
-        }
-    )
-
-
     # Stages recorded automatically, like the other applications: the loaded
     # counts (state.rds only) and, once DESeq2 has run, the full state.RData.
     observeEvent(myValues$dataCounts, {
@@ -1459,23 +1454,6 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
         }
     )
     
-    # Load state handler
-    observeEvent(input$loadStateFile, {
-        req(input$loadStateFile)
-        restoring_project(TRUE)
-        # cleared on error too, or the autosave observers stay disabled
-        on.exit(later::later(function() restoring_project(FALSE), 8), add = TRUE)
-        tryCatch({
-            load_state_file(input$loadStateFile$datapath)
-        }, error = function(error) {
-            showNotification(
-                paste("Error loading state file:", error$message),
-                type = "error",
-                duration = 5
-            )
-        })
-    })
-
     # Export All Plots handler
     output$download_code_all <- nasqar_download_handler(
         filename = function() {
@@ -1986,7 +1964,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                 if (!is.null(filelist$file_list) && length(filelist$file_list) > 1 &&
                     !is.null(input$select_avo_de_venn_files) && length(input$select_avo_de_venn_files) > 1) {
                     tryCatch({
-                        setProgress(value = current/total_plots, detail = "Exporting Venn Diagram...")
+                        setProgress(value = current/total_plots, detail = "Exporting UpSet Plot...")
                         
                         comparisons <- input$select_avo_de_venn_files
                         
@@ -2013,7 +1991,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                         
                         # Store R code section for combined script
                         all_r_code_sections[["venn"]] <- list(
-                            title = "Venn Diagram",
+                            title = "UpSet Plot",
                             code = r_code,
                             order = 7  # Venn tab, after volcano plots
                         )
@@ -2386,10 +2364,11 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     )
     
 
-    # Save/Load State & Export modal (sidebar entry). Private-space projects are
-    # handled separately on the input tab; this keeps the portable .RData path.
-    observeEvent(input$showStateModal, {
-        canSave <- !is.null(myValues$dataCounts) || !is.null(myValues$dds)
+    # Export R code section of the "Export and files" page. It is rebuilt each
+    # time the page is opened, from the plots that exist at that moment.
+    output$export_code_panel <- renderUI({
+        req(identical(input$tabs, "exportTab"))
+        isolate({
         
         # Check which plots are available (only show buttons when plots are actually configured/visible)
         hasVolcano <- !is.null(input$select_avo_de_file) && 
@@ -2415,64 +2394,8 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
         hasBrushedVennHeatmap <- !is.null(selected_matrix$matrix) && 
                                  nrow(selected_matrix$matrix) > 0
         
-        showModal(modalDialog(
-            title = "Save/Load State & Export R Code",
-            size = "l",
-            easyClose = TRUE,
-            footer = modalButton("Close"),
-            
-            fluidRow(
-                column(6,
-                    # Save State Section
-                    h4(icon("save"), " Save Current State"),
-                    p("Save all your analysis data, results, and plot configurations.", style = "color: #666; margin-bottom: 15px;"),
-                    
-                    if (canSave) {
-                        div(style = "background: linear-gradient(to bottom, #ffffff, #f8f9fa); border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);",
-                            div(style = "text-align: center; margin-bottom: 15px;",
-                                icon("database", class = "fa-3x", style = "color: #28a745; margin-bottom: 10px;"),
-                                div(style = "font-size: 13px; color: #6c757d; margin-top: 10px;",
-                                    "Preserves all data, results, and settings"
-                                )
-                            ),
-                            downloadButton("downloadState", 
-                                         "💾 Download State File (.RData)", 
-                                         class = "btn btn-success", 
-                                         style = "width: 100%; font-weight: bold; font-size: 14px; padding: 10px; border-radius: 6px; box-shadow: 0 2px 6px rgba(40,167,69,0.3);")
-                        )
-                    } else {
-                        div(style = "background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 15px; margin-bottom: 20px;",
-                            div(style = "text-align: center; color: #856404;",
-                                icon("exclamation-triangle", class = "fa-2x", style = "margin-bottom: 10px;"),
-                                div(style = "font-weight: 600; margin-top: 10px;", "No Data Available"),
-                                div(style = "font-size: 12px; margin-top: 5px;", "Please load and analyze data first")
-                            )
-                        )
-                    },
-                    
-                    hr(style = "margin: 25px 0; border-top: 2px solid #dee2e6;"),
-                    
-                    # Load State Section
-                    h4(icon("folder-open"), " Load Previous State"),
-                    p("Restore a previously saved analysis session.", style = "color: #666; margin-bottom: 15px;"),
-                    
-                    div(style = "background: linear-gradient(to bottom, #ffffff, #f8f9fa); border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);",
-                        fileInput("loadStateFile", 
-                                label = div(style = "font-weight: 600; color: #495057; margin-bottom: 10px;",
-                                          icon("upload"), " Choose State File (.RData)"),
-                                accept = c(".RData", ".rdata"),
-                                multiple = FALSE,
-                                width = "100%",
-                                buttonLabel = "Browse...",
-                                placeholder = "No file selected"
-                        ),
-                        div(style = "margin-top: 10px; padding: 10px; background-color: #e7f3ff; border-left: 3px solid #0066cc; border-radius: 4px; font-size: 11px; color: #004085;",
-                            icon("info-circle"), " Loads all data, results, and plot settings from saved session"
-                        )
-                    )
-                ),
-                column(6,
-                    h4(icon("code"), " Export R Code for Publication"),
+        fluidRow(
+                column(12,
                     p("Generate publication-ready R scripts for your plots.", style = "color: #666; margin-bottom: 15px;"),
                     
                     if (hasVolcano || hasBoxplot || hasHeatmap || hasPCA || hasMA || hasVenn) {
@@ -2560,7 +2483,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                                         tagList(
                                             if (hasVenn) {
                                                 downloadButton("download_code_venn", 
-                                                             "Venn Diagram", 
+                                                             "UpSet Plot", 
                                                              class = "btn btn-outline-success btn-sm",
                                                              style = "width: 100%; margin-bottom: 6px; text-align: left; border-radius: 4px; transition: all 0.2s;")
                                             },
@@ -2619,7 +2542,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                     }
                 )
             )
-        ))
+        })
     })
 
 

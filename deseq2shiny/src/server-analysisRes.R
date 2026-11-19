@@ -102,6 +102,17 @@ output$download_ma_plot <- nasqar_download_handler(
 
 
 filelist <- reactiveValues()
+
+# The Volcano Plot and UpSet Plot tabs are always reachable once there are
+# results; each shows what it still needs until enough comparisons are saved.
+output$saved_comparison_count <- reactive(length(names(filelist$file_list)))
+outputOptions(output, "saved_comparison_count", suspendWhenHidden = FALSE)
+saved_comparison_note <- function() {
+    saved <- sub("\\.csv$", "", names(filelist$file_list))
+    if (!length(saved)) "none" else paste0(length(saved), " (", paste(saved, collapse = ", "), ")")
+}
+output$saved_comparison_note_volcano <- renderText(saved_comparison_note())
+output$saved_comparison_note_upset <- renderText(saved_comparison_note())
 filelist$file_list <- list()
 filelist$saved_at <- list()
 contrast_specs <- reactiveValues()
@@ -123,9 +134,53 @@ observeEvent(myValues$dds, {
     myValues$brushed_samples <- NULL
 }, ignoreInit = TRUE)
 
-output$savedFileList <- renderDataTable({
-    data.frame(Saved.Results = as.character(names(filelist$file_list)))
+# Saved comparisons: one row each with its own download, plus all as a zip.
+output$saved_comparisons_ui <- renderUI({
+    saved <- names(filelist$file_list)
+    if (!length(saved)) {
+        return(helpText("None yet. Press Save comparison to keep the current result."))
+    }
+    rows <- lapply(seq_along(saved), function(i) {
+        div(
+            style = "display:flex; justify-content:space-between; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid #eee;",
+            span(style = "word-break:break-all;", sub("\\.csv$", "", saved[i])),
+            downloadLink(paste0("download_saved_", i), label = tagList(icon("download"), ".csv"),
+                         style = "white-space:nowrap;")
+        )
+    })
+    tagList(
+        rows,
+        div(style = "margin-top:12px;",
+            downloadButton("download_saved_all", "Download all (.zip)", class = "btn btn-default btn-sm"))
+    )
 })
+
+# One download per row. A row keeps its position, so the handler looks the
+# file up by position when it is clicked.
+observe({
+    for (i in seq_along(names(filelist$file_list))) {
+        local({
+            index <- i
+            output[[paste0("download_saved_", index)]] <- nasqar_download_handler(
+                filename = function() names(filelist$file_list)[index],
+                content = function(file) {
+                    file.copy(filelist$file_list[[index]], file, overwrite = TRUE)
+                }
+            )
+        })
+    }
+})
+
+output$download_saved_all <- nasqar_download_handler(
+    filename = function() paste0("saved_comparisons_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".zip"),
+    content = function(file) {
+        paths <- unlist(filelist$file_list)
+        req(length(paths) > 0)
+        # "cherry-pick": store the files without their directories
+        zip::zip(zipfile = file, files = paths, mode = "cherry-pick")
+    },
+    contentType = "application/zip"
+)
 
 observeEvent(input$do, {
     req(compareReactive()$results)
@@ -167,11 +222,12 @@ observeEvent(input$do, {
     write.csv(csv, file, row.names = T)
     Saved.Results <- names(filelist$file_list)
     shinyjs::show(selector = "a[data-value=\"volcanoplotTab\"]")
-
-    if (length(Saved.Results) > 1) {
-        shinyjs::show(selector = "a[data-value=\"venndiagramTab\"]")
-    }
+    shinyjs::show(selector = "a[data-value=\"venndiagramTab\"]")
     shinyjs::show(selector = "a[data-value=\"resultsTab\"]")
+    showNotification(
+        sprintf("Saved '%s'. It is now available on the Volcano Plot and UpSet Plot tabs.", sub("\\.csv$", "", filename)),
+        type = "message", duration = 6
+    )
 })
 
 
@@ -252,7 +308,11 @@ output$analysisRes_enrichGo <- renderUI({
 
 output$downloadVsCsv <- nasqar_download_handler(
     filename = function() {
-        paste0(input$condition1, "_vs_", input$condition2, ".csv")
+        if (identical(input$resultNameOrFactor, "Result Names")) {
+            safe_file_name(paste(input$resultNamesInput, collapse = "_"), ".csv")
+        } else {
+            safe_file_name(paste0(input$factorNameInput, "_", input$condition1, "_vs_", input$condition2), ".csv")
+        }
     },
     content = function(file) {
         csv <- myValues$vsResults

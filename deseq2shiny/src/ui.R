@@ -24,18 +24,10 @@ ui <- tagList(
                     menuItem("   VST", tabName = "vstTab", icon = icon("bar-chart")),
                     menuItem("   DE Results", tabName = "resultsTab", icon = icon("chart-column")),
                     menuItem("   Volcano Plot", tabName = "volcanoplotTab"),
-                    menuItem("   Venn Diagram", tabName = "venndiagramTab"),
+                    menuItem("   UpSet Plot", tabName = "venndiagramTab"),
                     menuItem("   Gene Boxplot", tabName = "boxplotTab", icon = icon("bar-chart")),
                     menuItem("   Heatmap", tabName = "heatmapTab", icon = icon("bar-chart")),
-                    tags$li(
-                        tags$a(
-                            href = "#",
-                            onclick = "Shiny.setInputValue('showStateModal', Math.random()); return false;",
-                            icon("save"),
-                            tags$span("Save/Load State & Export")
-                        ),
-                        class = "treeview"
-                    )
+                    menuItem("Export and files", tabName = "exportTab", icon = icon("download"))
                 )
             ),
             dashboardBody(
@@ -71,7 +63,31 @@ ui <- tagList(
                     source("ui-tab-volcanoplot.R", local = TRUE)$value,
                     source("ui-tab-venndiagram.R", local = TRUE)$value,
                     source("ui-tab-boxplot.R", local = TRUE)$value,
-                    source("ui-tab-heatmap.R", local = TRUE)$value
+                    source("ui-tab-heatmap.R", local = TRUE)$value,
+                    tabItem(
+                        tabName = "exportTab",
+                        fluidRow(
+                            column(
+                                5,
+                                box(
+                                    title = "Export R code", solidHeader = TRUE, status = "primary", width = 12,
+                                    uiOutput("export_code_panel")
+                                )
+                            ),
+                            column(
+                                7,
+                                # private instance only; removed by the server otherwise
+                                div(
+                                    class = "nasqar-project-private",
+                                    box(
+                                        title = "Saved plots and files of this project", solidHeader = TRUE,
+                                        status = "primary", width = 12,
+                                        nasqar_project_outputs_ui(heading = FALSE)
+                                    )
+                                )
+                            )
+                        )
+                    )
                 )
             )
         ),

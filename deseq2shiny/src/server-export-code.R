@@ -212,7 +212,7 @@ buildDataLoadSection <- function(mode, use_existing_objects, template_type, para
       code <- paste0(
         "# Use objects from Section 0 (DESeq2 pipeline)\n",
         "# results_list already generated\n",
-        "cat(\"Using results from DESeq2 pipeline for Venn diagram\\n\\n\")\n"
+        "cat(\"Using results from DESeq2 pipeline for the UpSet plot\\n\\n\")\n"
       )
     } else {
       code <- "# Data objects assumed to exist\n"
@@ -256,7 +256,7 @@ buildDataLoadSection <- function(mode, use_existing_objects, template_type, para
         "gene_sets <- list()\n",
         "for (i in 1:length(GENE_FILES)) {\n",
         "  genes <- read.csv(GENE_FILES[i])$gene\n",
-        "  # Use letter labels (A, B, C) for cleaner Venn diagram\n",
+        "  # Use letter labels (A, B, C), as in the app's set expressions\n",
         "  comparison_clean <- sub(\"\\\\.csv$\", \"\", COMPARISONS[i])\n",
         "  gene_sets[[LETTERS[i]]] <- genes\n",
         "  cat(\"Loaded\", length(genes), \"genes for Set\", LETTERS[i], \"(\", comparison_clean, \")\\n\")\n",
@@ -468,8 +468,8 @@ generateVennCode <- function(params, mode = "full", use_existing_objects = FALSE
 }
 
 generateVennCodeSimple <- function(params) {
-  # Use simple template for Venn diagram exports
-  # This template loads pre-filtered gene lists and draws the Venn
+  # Use simple template for UpSet plot exports
+  # This template loads pre-filtered gene lists and draws the UpSet plot
   template <- readTemplate("template_venn_simple")
   code <- replaceTemplateVars(template, params)
   return(code)

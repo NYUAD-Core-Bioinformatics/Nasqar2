@@ -4,17 +4,27 @@ tabItem(
         column(
             4,
             box(
-                title = "Upload Gene Counts", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "uploadbox",
-                # h4("Upload Gene Counts"),
-                h4("(select .CSV)"),
-                radioButtons("data_file_type", "Use example file or upload your own data",
+                title = "Input data", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "uploadbox",
+                # One question decides what the rest of the box shows. The two
+                # private-space choices are removed by the server on a public
+                # instance.
+                radioButtons("data_file_type", "Where is your data?",
                     c(
-                        "Upload Counts File" = "countsFile",
-                        "Example Data (single-factor)" = "examplecounts",
-                        "Example Data (multi-factor)" = "examplecountsfactors",
-                        "Use a counts file in the private space" = "privateFile"
+                        "Upload a counts file" = "countsFile",
+                        "Counts file in the private space" = "privateFile",
+                        "Example data (single-factor)" = "examplecounts",
+                        "Example data (multi-factor)" = "examplecountsfactors",
+                        "Reopen a saved project" = "savedProject"
                     ),
                     selected = "countsFile"
+                ),
+
+                conditionalPanel(condition = "input.data_file_type=='savedProject'",
+                    div(class = "nasqar-project-private",
+                        nasqar_project_restore_ui(button_label = "Open project", stacked = TRUE),
+                        helpText(style = "margin-top:10px;",
+                                 "Input, settings and results come back without recomputing.")
+                    )
                 ),
 
                 conditionalPanel(condition = "input.data_file_type=='privateFile'",
@@ -63,12 +73,16 @@ tabItem(
                         a(href = "https://doi.org/10.1007/978-3-319-07212-8_3", target = "_blank", "this publication")
                     )
                 ),
-                nasqar_project_ui(
-                    "deseq2-project",
-                    help = paste(
-                        "The loaded counts, design, DESeq2 results and plot settings are saved under this",
-                        "name in the private space (state.RData), automatically after DESeq2 runs and again",
-                        "whenever you change settings, so the project can be restored later."
+                conditionalPanel(condition = "input.data_file_type!='savedProject'",
+                    div(class = "nasqar-project-private",
+                        nasqar_project_name_ui(
+                            "deseq2-project",
+                            label = "Project name",
+                            help = paste(
+                                "Saved automatically in the private space under this name: after DESeq2 runs,",
+                                "and again whenever you change settings."
+                            )
+                        )
                     )
                 )
             ),

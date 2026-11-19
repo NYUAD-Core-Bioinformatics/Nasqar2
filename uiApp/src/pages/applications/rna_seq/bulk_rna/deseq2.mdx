@@ -12,24 +12,29 @@ For more information about DESeq2, visit the [official documentation](https://bi
 
 ## Save and restore in a private instance
 
-DESeq2 follows the same project convention as every other NASQAR2 application:
-the Input Data tab carries **Persistent project name**, **Reload a previous
-analysis** and the gallery of saved plots and files. Loading counts records the
+On the Input Data tab, **Where is your data?** decides what the box shows.
+For a new analysis (an uploaded file, a file in the private space or the
+example data) it asks for a **Project name**. Loading counts records the
 project; once DESeq2 has run, the full application state
 (`projects/DESeq2Shiny/<name>/state.RData`) is saved automatically and saved
-again whenever you change settings, so restoring reloads all data, results and
-plot settings as you left them. **Export R code and all plots (zip)** on the
-same tab bundles the reproducible R script with every figure (and is kept in
-the project like any other download). The former Save/Load State view has been
-removed.
+again whenever you change settings. Choosing **Reopen a saved project** shows
+the saved projects of the instance instead; **Open project** reloads all data,
+results and plot settings as you left them, without recomputing.
+
+**Export and files** in the sidebar holds both ways out of the app: **Export R
+code** bundles the reproducible R script with every figure, and the list next to
+it shows the plots and tables downloaded in the current project (the export is
+kept there like any other download).
+There is no separate state-file download or upload: projects are the only way
+to save and reopen an analysis, and public instances have no private space and
+no projects.
 
 ## Private-space projects
 
 In a private instance every run belongs to a project, `projects/DESeq2Shiny/<name>`,
-holding the full application state (`state.RData`), saved from the Save/Load State view plus a `state.rds` of the settings and the stage reached.
-**Restore an existing project** on the input tab reopens it without
-recomputing; cached results are reused and the restore is refused if the
-source data changed. Public instances have no private space and no projects.
+holding the full application state (`state.RData`) plus a `state.rds` of the
+settings and the stage reached. A project that only has loaded counts cannot be
+reopened yet: run DESeq2 first.
 
 ## Citation
 

@@ -9,9 +9,9 @@ expression_set_data <- reactive({
 })
 output$select_venn_ui <- renderUI({
     selectizeInput("select_avo_de_venn_files",
-        label = h5("Select DE data"), selected = NULL, multiple = TRUE,
+        label = "Saved comparisons (two or more)", selected = NULL, multiple = TRUE,
         choices = names(filelist$file_list),
-        options = list(maxItems = 5)
+        options = list(maxItems = 26)
     )
 })
 
@@ -286,18 +286,18 @@ venn_expression_table <- eventReactive(input$evaluateExpression, {
         values[["gene.name"]] <- myValues$genenames[common_genes, ]
     }
 
-    tagnames <- LETTERS[1:length(input$select_avo_de_venn_files)]
+    tagnames <- sub("\\.csv$", "", input$select_avo_de_venn_files)
     j <- 1
     for (f in input$select_avo_de_venn_files) {
         df <- read.csv(filelist$file_list[[f]])
         df[is.na(df)] <- 0
 
         # Index by gene id so every column follows the set-operation order
-        values[[paste0(tagnames[j], ".logFC")]] <- df$log2FoldChange[match(common_genes, df$X)]
+        values[[paste(tagnames[j], "log2FC")]] <- df$log2FoldChange[match(common_genes, df$X)]
         j <- j + 1
     }
 
-    data.frame(values)
+    data.frame(values, check.names = FALSE)
 })
 
 output$venn_expression_result <- renderDataTable(
@@ -319,8 +319,8 @@ avo_venn_frames_data <- reactive({
     venn_log_fold_change_threshold <- isolate(input$venn_log_fold_change_threshold)
     req(length(select_avo_de_venn_files) > 1)
     validate(need(
-        length(select_avo_de_venn_files) <= 5,
-        "Venn diagrams support at most five comparisons."
+        length(select_avo_de_venn_files) <= 26,
+        "At most 26 comparisons can be compared (one letter each)."
     ))
 
 
@@ -379,28 +379,125 @@ avo_venn_frames_data <- reactive({
 })
 
 
-generateBinaryMatrix <- function(set_names) {
-    bits <- length(set_names)
-    values <- c(0, 1)
-    combinations <- expand.grid(replicate(bits, values, simplify = FALSE))
-    colnames(combinations) <- set_names
-    sortedCombinations <- combinations[do.call(order, combinations), ]
-    rownames(sortedCombinations) <- apply(sortedCombinations, 1, function(row) {
-        selectedColumns <- colnames(sortedCombinations)[row == 1]
-        unselectedColumns <- colnames(sortedCombinations)[row == 0]
-        if (length(selectedColumns) != 0) {
-            if (length(unselectedColumns) == 0) {
-                v <- paste0(selectedColumns, collapse = "*")
-            } else {
-                v <- paste0(c(paste0("(", paste0(selectedColumns, collapse = "*"), ")"), paste0("(", paste0(unselectedColumns, collapse = "+"), ")")), collapse = "-")
-            }
+# The non-empty regions of the UpSet plot: every combination of comparisons
+# that some gene is significant in exactly ("distinct" regions, the ones a
+# Venn diagram would show), largest first. Each comes with the set expression
+# that returns its genes: "A*B" when every set is involved, "(A*B)-(C+D)"
+# otherwise. Listing only regions that hold genes keeps this short however
+# many comparisons are selected.
+upset_regions <- function(gene_sets) {
+    labels <- names(gene_sets)
+    genes <- unique(unlist(gene_sets))
+    if (!length(genes)) return(NULL)
+    membership <- matrix(
+        unlist(lapply(gene_sets, function(set) genes %in% set)),
+        nrow = length(genes), dimnames = list(NULL, labels)
+    )
+    region_key <- function(m) apply(m, 1, function(row) paste(as.integer(row), collapse = ""))
+    sizes <- table(region_key(membership))
+    regions <- unique(membership)
+    size <- as.integer(sizes[region_key(regions)])
+    by_size <- order(-size, rowSums(regions))
+    regions <- regions[by_size, , drop = FALSE]
+    expression <- apply(regions, 1, function(inside) {
+        members <- labels[inside]
+        others <- labels[!inside]
+        if (!length(others)) {
+            paste0(members, collapse = "*")
         } else {
-            v <- ""
+            paste0("(", paste0(members, collapse = "*"), ")-(", paste0(others, collapse = "+"), ")")
         }
-
-        return(v)
     })
-    return(sortedCombinations)
+    list(membership = regions, size = size[by_size], expression = as.vector(expression))
+}
+
+upset_colour <- "#2E7BD6"
+upset_set_labels <- function(gene_sets, file_names) {
+    paste0(names(gene_sets), ": ", sub("\\.csv$", "", file_names))
+}
+# What a region is called on screen: "X only", or "X and Y" for an overlap.
+upset_region_labels <- function(regions, file_names) {
+    set_names <- sub("\\.csv$", "", file_names)
+    apply(regions$membership, 1, function(inside) {
+        members <- set_names[inside]
+        if (length(members) == 1) paste(members, "only") else paste(members, collapse = " and ")
+    })
+}
+
+# Interactive UpSet plot for the screen: a bar per region (largest first) over
+# a dot matrix showing which comparisons make up the bar. Clicking a bar (or
+# its dots) lists that region's genes, see the observer below.
+gene_set_upset_plotly <- function(gene_sets, file_names) {
+    regions <- upset_regions(gene_sets)
+    validate(need(
+        !is.null(regions),
+        "No gene passes the thresholds in any of the selected comparisons."
+    ))
+    n_sets <- length(gene_sets)
+    x <- seq_along(regions$size)
+    hover <- sprintf("%s<br>%d genes<br><i>click to list them</i>",
+                     gsub(" and ", "<br>and ", upset_region_labels(regions, file_names)), regions$size)
+    set_labels <- sprintf("%s (%d)", upset_set_labels(gene_sets, file_names), lengths(gene_sets))
+    bare_axis <- list(title = "", showticklabels = FALSE, showgrid = FALSE, zeroline = FALSE,
+                      fixedrange = TRUE, range = c(0.3, max(length(x), 8) + 0.7))
+
+    bars <- plotly::plot_ly(source = "upset_plot") %>%
+        plotly::add_bars(x = x, y = regions$size, marker = list(color = upset_colour),
+                         text = regions$size, textposition = "outside", cliponaxis = FALSE,
+                         hovertext = hover, hoverinfo = "text") %>%
+        plotly::layout(xaxis = bare_axis,
+                       yaxis = list(title = "Genes", showgrid = FALSE, zeroline = FALSE, fixedrange = TRUE))
+
+    grid <- expand.grid(region = x, set = seq_len(n_sets))
+    active <- which(regions$membership, arr.ind = TRUE)
+    dots <- plotly::plot_ly(source = "upset_plot") %>%
+        plotly::add_markers(x = grid$region, y = -grid$set, hoverinfo = "none",
+                            marker = list(color = "#D9DEE5", size = 13))
+    for (region in x[rowSums(regions$membership) > 1]) {
+        members <- which(regions$membership[region, ])
+        dots <- dots %>% plotly::add_segments(
+            x = region, xend = region, y = -min(members), yend = -max(members),
+            line = list(color = upset_colour, width = 3), hoverinfo = "none")
+    }
+    dots <- dots %>%
+        plotly::add_markers(x = active[, 1], y = -active[, 2],
+                            hovertext = hover[active[, 1]], hoverinfo = "text",
+                            marker = list(color = upset_colour, size = 13)) %>%
+        plotly::layout(xaxis = bare_axis,
+                       yaxis = list(title = "", tickvals = -seq_len(n_sets), ticktext = set_labels,
+                                    range = c(-n_sets - 0.6, -0.4), showgrid = FALSE,
+                                    zeroline = FALSE, fixedrange = TRUE))
+
+    plot <- plotly::subplot(bars, dots, nrows = 2, shareX = TRUE, titleY = TRUE,
+                            heights = c(0.45, 0.55), margin = 0.02) %>%
+        plotly::layout(showlegend = FALSE, height = 300 + 30 * n_sets,
+                       plot_bgcolor = "#FFFFFF", margin = list(t = 30)) %>%
+        plotly::config(displayModeBar = FALSE)
+    # subplot() does not carry the source over, and clicks are read by source
+    plot$x$source <- "upset_plot"
+    plotly::event_register(plot, "plotly_click")
+}
+
+# Static UpSet plot for the download, in the same order and colour as the
+# screen; the exported R code makes the same call.
+draw_gene_set_upset <- function(gene_sets, file_names) {
+    validate(need(
+        length(unique(unlist(gene_sets))) > 0,
+        "No gene passes the thresholds in any of the selected comparisons."
+    ))
+    names(gene_sets) <- upset_set_labels(gene_sets, file_names)
+    combinations <- ComplexHeatmap::make_comb_mat(gene_sets, mode = "distinct")
+    combinations <- combinations[ComplexHeatmap::comb_size(combinations) > 0]
+    bar_style <- grid::gpar(fill = upset_colour, col = NA)
+    ComplexHeatmap::draw(ComplexHeatmap::UpSet(
+        combinations,
+        set_order = seq_along(ComplexHeatmap::set_name(combinations)),
+        comb_order = order(-ComplexHeatmap::comb_size(combinations),
+                           ComplexHeatmap::comb_degree(combinations)),
+        comb_col = upset_colour,
+        top_annotation = ComplexHeatmap::upset_top_annotation(combinations, add_numbers = TRUE, gp = bar_style),
+        right_annotation = ComplexHeatmap::upset_right_annotation(combinations, add_numbers = TRUE, gp = bar_style)
+    ), padding = grid::unit(c(2, 14, 2, 2), "mm"))   # room for the left axis title
 }
 
 observeEvent(input$select_expression, {
@@ -414,11 +511,10 @@ output$gene_data_sets <- DT::renderDataTable(
         df <- data.frame("File Name" = d[[2]], "Label" = names(d[[1]]))
         set_names <- as.vector(names(d[[1]]))  # Ensure simple vector
 
-        combinations <- generateBinaryMatrix(set_names)
-        set_expressions <- as.vector(rownames(combinations[-1, ]))  # Ensure simple vector
+        set_expressions <- as.vector(upset_regions(d[[1]])$expression)
         updateSelectInput(session, "select_expression",
             choices = set_expressions,
-            selected = set_expressions[length(set_expressions)]
+            selected = set_expressions[1]
         )
 
 
@@ -430,69 +526,87 @@ output$gene_data_sets <- DT::renderDataTable(
 
 
 
-output$vennDiagram <- renderPlot({
+output$vennDiagram <- plotly::renderPlotly({
     req(input$plotVenn)
     a <- avo_venn_frames_data()
-    df_list <- a[[1]]
-
-    v1 <- venn.diagram(df_list, filename = NULL, fill = rainbow(length(df_list)))
-
-    grid.newpage()
-    grid.draw(v1)
+    gene_set_upset_plotly(a[[1]], a[[2]])
 })
 
-# Download Venn diagram with custom size and format
+# Clicking a bar (or one of its dots) lists the genes of that region: its
+# set expression is filled into the Set operations box and evaluated, which
+# is what draws the table and heatmap below.
+upset_selection <- reactiveVal(NULL)
+observeEvent(input$plotVenn, upset_selection(NULL))
+# This file runs inside a module that works on the root session's inputs, so
+# the root session is named explicitly: the default would be the module's
+# namespaced one, which never sees the plot's click or the button.
+observeEvent(plotly::event_data("plotly_click", source = "upset_plot", session = session), {
+    click <- plotly::event_data("plotly_click", source = "upset_plot", session = session)
+    sets <- avo_venn_frames_data()
+    regions <- upset_regions(sets[[1]])
+    region <- suppressWarnings(as.integer(round(as.numeric(click$x[1]))))
+    if (is.null(regions) || is.na(region) || region < 1 || region > length(regions$expression)) return()
+    upset_selection(list(label = upset_region_labels(regions, sets[[2]])[region],
+                         expression = regions$expression[region]))
+    updateSelectInput(session, "select_expression", selected = regions$expression[region])
+    updateTextInput(session, "venn_set_expression_input", value = regions$expression[region])
+    shinyjs::delay(500, shinyjs::click("evaluateExpression", asis = TRUE))
+})
+
+# Heading of the result: the clicked bar by name, or the typed expression.
+output$upset_selection_title <- renderUI({
+    result <- venn_expression_table()
+    expression <- gsub("\\s", "", isolate(input$venn_set_expression_input))
+    selection <- isolate(upset_selection())
+    label <- if (!is.null(selection) && identical(selection$expression, expression)) {
+        selection$label
+    } else {
+        paste("Expression", expression)
+    }
+    tagList(
+        hr(),
+        h4(strong(label), span(style = "color:#777; font-weight:normal;",
+                               sprintf(" \u2014 %d gene(s)", nrow(result))))
+    )
+})
+
+# Download the UpSet plot with custom size and format
 output$download_venn_plot <- nasqar_download_handler(
     filename = function() {
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
         ext <- input$venn_plot_format
-        paste0("venn_diagram_", timestamp, ".", ext)
+        paste0("upset_plot_", timestamp, ".", ext)
     },
     content = function(file) {
         req(input$plotVenn)
         req(avo_venn_frames_data())
 
         a <- avo_venn_frames_data()
-        df_list <- a[[1]]
 
         plot_width <- input$venn_plot_width
         plot_height <- input$venn_plot_height
         plot_format <- input$venn_plot_format
         plot_dpi <- input$venn_plot_dpi
 
-        # Generate the Venn diagram
-        v1 <- venn.diagram(df_list, filename = NULL, fill = rainbow(length(df_list)))
-
-        # Save with specified format and dimensions
         if (plot_format == "pdf") {
             pdf(file, width = plot_width, height = plot_height)
-            grid.newpage()
-            grid.draw(v1)
-            dev.off()
         } else if (plot_format == "png") {
             png(file, width = plot_width, height = plot_height, units = "in", res = plot_dpi)
-            grid.newpage()
-            grid.draw(v1)
-            dev.off()
         } else if (plot_format == "jpeg") {
             jpeg(file, width = plot_width, height = plot_height, units = "in", res = plot_dpi, quality = 95)
-            grid.newpage()
-            grid.draw(v1)
-            dev.off()
         } else if (plot_format == "tiff") {
             tiff(file, width = plot_width, height = plot_height, units = "in", res = plot_dpi, compression = "lzw")
-            grid.newpage()
-            grid.draw(v1)
-            dev.off()
         }
+        on.exit(dev.off(), add = TRUE)
+        draw_gene_set_upset(a[[1]], a[[2]])
     }
 )
 
-# Export R code for Venn diagram
+# Export R code for the UpSet plot
 output$download_code_venn <- nasqar_download_handler(
     filename = function() {
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-        paste0("venn_diagram_export_", timestamp, ".zip")
+        paste0("upset_plot_export_", timestamp, ".zip")
     },
     content = function(file) {
         req(input$plotVenn)
@@ -542,7 +656,7 @@ output$download_code_venn <- nasqar_download_handler(
         })
 
         temp_dir <- session_dir
-        export_dir <- file.path(temp_dir, paste0("venn_diagram_export_", timestamp))
+        export_dir <- file.path(temp_dir, paste0("upset_plot_export_", timestamp))
         dir.create(export_dir, showWarnings = FALSE, recursive = TRUE)
 
         # Get Venn data
@@ -561,7 +675,7 @@ output$download_code_venn <- nasqar_download_handler(
             gene_filenames <- c(gene_filenames, gene_filename)
         }
 
-        # Create simplified params for Venn diagram
+        # Create simplified params for the UpSet plot
         params <- list(
             num_sets = length(comparisons),
             comparison_names = gsub("\\.csv$", "", comparisons),
@@ -569,7 +683,7 @@ output$download_code_venn <- nasqar_download_handler(
             venn_colors = c("#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8")
         )
 
-        # Use simplified template - just loads gene lists and draws Venn
+        # Use simplified template - just loads gene lists and draws the UpSet plot
         r_code <- generateVennCodeSimple(params)
 
         # Export set operation heatmap data if it exists
@@ -636,15 +750,15 @@ output$download_code_venn <- nasqar_download_handler(
         }
 
         # Write R code
-        code_filename <- paste0("venn_diagram_", timestamp, ".R")
+        code_filename <- paste0("upset_plot_", timestamp, ".R")
         code_file <- file.path(export_dir, code_filename)
         writeLines(combined_code, code_file)
 
         # Create README
         readme_file <- file.path(export_dir, "README.txt")
         readme_text <- paste0(
-            "Venn Diagram R Code Export\n",
-            "==========================\n\n",
+            "UpSet Plot R Code Export\n",
+            "========================\n\n",
             "Generated from DESeq2Shiny on ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
             "Comparisons: ", paste(comparisons, collapse = ", "), "\n"
         )
@@ -664,7 +778,7 @@ output$download_code_venn <- nasqar_download_handler(
 
         readme_text <- paste0(readme_text,
             "\nFiles included:\n",
-            "- ", code_filename, " : R code to generate the Venn diagram",
+            "- ", code_filename, " : R code to generate the UpSet plot",
             if(has_set_heatmap) " and set operation heatmap" else "",
             if(has_brushed_heatmap) " and brushed sub-heatmap" else "",
             "\n",
@@ -690,8 +804,8 @@ output$download_code_venn <- nasqar_download_handler(
             "Instructions:\n",
             "1. Extract all files to the same directory\n",
             "2. Open the R script in RStudio\n",
-            "3. Install VennDiagram package if needed: install.packages('VennDiagram')\n",
-            "4. Run the script to generate the Venn diagram",
+            "3. Install ComplexHeatmap if needed: BiocManager::install('ComplexHeatmap')\n",
+            "4. Run the script to generate the UpSet plot",
             if(has_set_heatmap || has_brushed_heatmap) " and heatmaps" else "",
             "\n\n",
             "Note: All gene filtering (padj, log2FC thresholds) was done by Shiny.\n",
@@ -701,7 +815,7 @@ output$download_code_venn <- nasqar_download_handler(
         writeLines(readme_text, readme_file)
 
         # Create ZIP from the directory
-        zip_file <- file.path(temp_dir, paste0("venn_diagram_export_", timestamp, ".zip"))
+        zip_file <- file.path(temp_dir, paste0("upset_plot_export_", timestamp, ".zip"))
         zip_export_dir(export_dir, zip_file)
 
         # Copy to output
@@ -731,9 +845,9 @@ output$download_code_venn_set_heatmap <- nasqar_download_handler(
             error_msg <- paste0(
                 "Error: Venn Set Heatmap export not available\n\n",
                 "Please configure the Venn Set Operation first:\n",
-                "1. Navigate to the 'Venn Diagram' tab\n",
+                "1. Navigate to the 'UpSet Plot' tab\n",
                 "2. Select 2+ comparison files\n",
-                "3. Enter a set expression (e.g., A&B, A|B, A-B)\n",
+                "3. Enter a set expression (e.g., A*B, A+B, A-B)\n",
                 "4. Click 'Evaluate Expression' and wait for the heatmap to render\n",
                 "5. Then return to export the plot code\n"
             )
@@ -819,7 +933,7 @@ output$download_code_brushed_venn_heatmap <- nasqar_download_handler(
             error_msg <- paste0(
                 "Error: Brushed Venn Heatmap export not available\n\n",
                 "Please brush/select an area on the Venn Set Heatmap first:\n",
-                "1. Navigate to the 'Venn Diagram' tab\n",
+                "1. Navigate to the 'UpSet Plot' tab\n",
                 "2. Generate a Venn Set Operation heatmap\n",
                 "3. Click and drag on the heatmap to select genes\n",
                 "4. Then export the brushed sub-heatmap\n"

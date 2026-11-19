@@ -1,10 +1,10 @@
 ################################################################################
-# Venn Diagram - Generated from DESeq2Shiny
+# UpSet Plot - Generated from DESeq2Shiny
 ################################################################################
 #
-# This script creates a Venn diagram from pre-calculated gene lists.
+# This script creates an UpSet plot from pre-calculated gene lists.
 # All filtering (padj, log2FC thresholds) was done by Shiny.
-# This script just loads the gene lists and draws the diagram.
+# This script just loads the gene lists and draws the plot.
 #
 ################################################################################
 
@@ -21,14 +21,11 @@ COMPARISON_NAMES <- {{comparison_names}}
 # Gene list files
 GENE_LIST_FILES <- {{gene_list_files}}
 
-# Venn diagram colors
-VENN_COLORS <- {{venn_colors}}
-
 ################################################################################
 # Load Required Libraries
 ################################################################################
 
-library(VennDiagram)
+library(ComplexHeatmap)
 library(grid)
 
 ################################################################################
@@ -53,27 +50,32 @@ for (name in names(gene_lists)) {
 }
 
 ################################################################################
-# Create Venn Diagram
+# Create UpSet Plot
 ################################################################################
 
-cat("\nCreating Venn diagram...\n")
+cat("\nCreating UpSet plot...\n")
 
-# Create Venn diagram
-venn_plot <- venn.diagram(
-  gene_lists,
-  filename = NULL,
-  fill = VENN_COLORS[1:NUM_SETS],
-  alpha = 0.5,
-  cex = 1.5,
-  cat.cex = 1.5,
-  cat.fontface = "bold"
+# One column per non-empty region ("distinct" mode: the regions a Venn diagram
+# would show), largest first, one row per comparison, labelled with its letter.
+upset_colour <- "#2E7BD6"
+upset_sets <- gene_lists
+names(upset_sets) <- paste0(names(upset_sets), ": ", sub("\\.csv$", "", COMPARISON_NAMES))
+combinations <- make_comb_mat(upset_sets, mode = "distinct")
+combinations <- combinations[comb_size(combinations) > 0]
+bar_style <- gpar(fill = upset_colour, col = NA)
+upset_plot <- UpSet(
+  combinations,
+  set_order = seq_along(set_name(combinations)),
+  comb_order = order(-comb_size(combinations), comb_degree(combinations)),
+  comb_col = upset_colour,
+  top_annotation = upset_top_annotation(combinations, add_numbers = TRUE, gp = bar_style),
+  right_annotation = upset_right_annotation(combinations, add_numbers = TRUE, gp = bar_style)
 )
 
 # Display
-grid.newpage()
-grid.draw(venn_plot)
+draw(upset_plot, padding = unit(c(2, 14, 2, 2), "mm"))
 
-cat("✓ Venn diagram created\n\n")
+cat("✓ UpSet plot created\n\n")
 
 ################################################################################
 # Save High-Resolution Plots
@@ -82,27 +84,25 @@ cat("✓ Venn diagram created\n\n")
 cat("Saving plots...\n")
 
 # Save as PDF
-pdf("venn_diagram.pdf", width = 10, height = 10)
-grid.newpage()
-grid.draw(venn_plot)
+pdf("upset_plot.pdf", width = 10, height = 8)
+draw(upset_plot, padding = unit(c(2, 14, 2, 2), "mm"))
 dev.off()
 
 # Save as PNG
-png("venn_diagram.png", width = 1200, height = 1200, res = 150)
-grid.newpage()
-grid.draw(venn_plot)
+png("upset_plot.png", width = 1500, height = 1200, res = 150)
+draw(upset_plot, padding = unit(c(2, 14, 2, 2), "mm"))
 dev.off()
 
 cat("✓ Plots saved successfully!\n")
-cat("  - venn_diagram.pdf\n")
-cat("  - venn_diagram.png\n\n")
+cat("  - upset_plot.pdf\n")
+cat("  - upset_plot.png\n\n")
 
 ################################################################################
 # Summary
 ################################################################################
 
-cat("Venn Diagram Summary\n")
-cat("====================\n")
+cat("UpSet Plot Summary\n")
+cat("==================\n")
 cat("Comparisons:", paste(COMPARISON_NAMES, collapse = ", "), "\n")
 cat("Sets:", NUM_SETS, "\n")
 for (i in 1:NUM_SETS) {

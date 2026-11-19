@@ -35,8 +35,7 @@ This export contains everything you need to reproduce your DESeq2 analysis from 
    BiocManager::install("EnhancedVolcano")
    install.packages(c('ggplot2', 'pheatmap', 'RColorBrewer', 
                       'ggrepel', 'tidyr', 'dplyr', 'ComplexHeatmap',
-                      'circlize', 'heatmaply', 'plotly', 'htmlwidgets',
-                      'VennDiagram'))
+                      'circlize', 'heatmaply', 'plotly', 'htmlwidgets'))
 
 3️⃣  RUN THE SCRIPT:
    In R/RStudio, navigate to the extracted directory:
