@@ -93,8 +93,27 @@ ui <- tagList(
                     bsCollapse(
                         id = "input_collapse_panel", open = "data_panel", multiple = FALSE,
                         bsCollapsePanel(
-                            title = "Upload Files", value = "data_panel", style = "primary",
-                            radioButtons("inputType", "Input type:",
+                            title = "1. Input data", value = "data_panel", style = "primary",
+                            # One question decides what the rest of the panel shows.
+                            # The two private-space choices are removed by the
+                            # server on a public instance.
+                            radioButtons("counts_source", "Where is your data?",
+                                c(
+                                    "Upload files" = "upload",
+                                    "Files in the private space" = "private_files",
+                                    "Reopen a saved project" = "savedProject"
+                                ),
+                                selected = "upload"),
+                            conditionalPanel(
+                                condition = "input.counts_source=='savedProject'",
+                                div(class = "nasqar-project-private",
+                                    nasqar_project_restore_ui(button_label = "Open project", stacked = TRUE),
+                                    helpText(style = "margin-top:10px;", "The merged table comes back as you left it.")
+                                )
+                            ),
+                            conditionalPanel(
+                            condition = "input.counts_source!='savedProject'",
+                            radioButtons("inputType", "What are you merging?",
                                 c(
                                     "Raw gene counts" = "raw",
                                     "Kallisto estimated counts (.tsv)"              = "kallisto"
@@ -106,49 +125,59 @@ ui <- tagList(
                             # ---- RAW COUNTS ----
                             conditionalPanel(
                                 "input.inputType == 'raw'",
-                                p("1. Select multiple files containing counts to upload"),
-                                p(strong("Note: "), "File names will be used as sample (column) names in output table"),
-                                radioButtons("mergeType", "",
+                                radioButtons("mergeType", "How are the counts stored?",
                                     c(
-                                        "Merge individual sample counts" = "single",
-                                        "Merge 2 or more matrices"       = "multiple"
+                                        "One file per sample" = "single",
+                                        "Two or more count matrices"       = "multiple"
                                     ),
                                     selected = "single"
                                 ),
                                 checkboxInput("hasHeader", "Files have header row", value = FALSE),
-                                radioButtons("counts_source", "Count files",
-                                    c("Upload files" = "upload", "Use files in the private space" = "private_files"),
-                                    selected = "upload"),
                                 conditionalPanel(
                                     condition = "input.counts_source=='private_files'",
                                     div(
                                         style = "display:flex; gap:8px; align-items:flex-end;",
                                         div(style = "flex:1;",
-                                            textAreaInput("private_count_files", "Selected files in the private space (one per line)", value = "", rows = 4)
+                                            textAreaInput("private_count_files", "Count files in the private space (one per line)", value = "", rows = 4)
                                         ),
-                                        div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_private_count_files", "Browse...", "Choose the count files in the private space (Shift/Ctrl-click or Ctrl-A for several)", multiple = TRUE))
+                                        div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_private_count_files", "Browse...", "Choose the count files in the private space", multiple = TRUE))
                                     ),
                                     helpText("Pick the files to merge with Browse (several at once) or paste their paths; files are read in place.")
                                 ),
-                                fileInput("datafile", "",
-                                    accept = c(
-                                        "text/csv",
-                                        "text/comma-separated-values,text/plain",
-                                        "text/tab-separated-values",
-                                        ".csv", ".txt", ".tsv"
-                                    ), multiple = TRUE
-                                )
+                                conditionalPanel(
+                                    condition = "input.counts_source=='upload'",
+                                    fileInput("datafile", "Count files (.csv, .txt or .tsv), several at once",
+                                        accept = c(
+                                            "text/csv",
+                                            "text/comma-separated-values,text/plain",
+                                            "text/tab-separated-values",
+                                            ".csv", ".txt", ".tsv"
+                                        ), multiple = TRUE
+                                    )
+                                ),
+                                helpText("File names become the sample (column) names of the merged table.")
                             ),
 
                             # ---- KALLISTO ----
                             conditionalPanel(
                                 "input.inputType == 'kallisto'",
-                                p("Upload one Kallisto output file per sample (output of ", code("kallisto quant"), ")."),
-                                p(strong("Note: "), "File names will be used as sample (column) names in output table"),
-                                fileInput("kallistoFiles", "",
+                                conditionalPanel(
+                                    condition = "input.counts_source=='private_files'",
+                                    helpText("Kallisto files are uploaded: they cannot be read from the private space.")
+                                ),
+                                fileInput("kallistoFiles", "Kallisto output files, one per sample (.tsv)",
                                     accept  = c(".tsv", "text/tab-separated-values"),
                                     multiple = TRUE
+                                ),
+                                helpText("File names become the sample (column) names of the merged table.")
+                            ),
+                            div(class = "nasqar-project-private",
+                                nasqar_project_name_ui(
+                                    "counts-project",
+                                    label = "Project name",
+                                    help = "The merged table is saved automatically in the private space under this name."
                                 )
+                            )
                             )
                         ),
 
@@ -158,7 +187,7 @@ ui <- tagList(
                         #   Kallisto    → transcript-to-gene mapping (prebuilt or custom CSV)
                         # ------------------------------------------------------------------ #
                         bsCollapsePanel(
-                            title = "Configure", value = "column_panel", style = "info",
+                            title = "2. Configure and merge", value = "column_panel", style = "info",
 
                             # ---- RAW: column selectors ----
                             conditionalPanel(
@@ -239,11 +268,9 @@ ui <- tagList(
                                     )
                                 )
                             ),
-                            nasqar_project_ui("counts-project",
-                                help = "The merged table is kept under this name in the private space, so the project can be restored later."),
                             conditionalPanel(
                                 "output.filesUploaded",
-                                actionButton("upload_data", "Merge Files", class = "btn-danger")
+                                actionButton("upload_data", "Merge files", icon = icon("play"), class = "btn-primary", style = "color:#fff;")
                             ),
                             conditionalPanel(
                                 "output.filesMerged",
@@ -265,47 +292,10 @@ ui <- tagList(
                             tabPanel(
                                 "User Guide",
                                 hr(),
-                                h4(strong("1) Introduction:")),
-                                wellPanel(
-                                    p("A preprocessing tool to merge individual gene count files into a single count matrix, supporting both raw count files (e.g. HTSeq, featureCounts) and Kallisto abundance files."),
-                                    hr(),
-                                    h5(strong("Features")),
-                                    tags$ul(
-                                        tags$li(
-                                            strong("Two input types:"),
-                                            tags$ul(
-                                                tags$li(strong("Raw counts"), " – merge individual per-sample count files (e.g. HTSeq, featureCounts). First column must contain gene IDs and must match across all files."),
-                                                tags$li(strong("Kallisto"), " – merge Kallisto output files. Requires a transcript-to-gene (tx2gene) mapping.")
-                                            )
-                                        ),
-                                        tags$li("Or merge", strong(" multiple pre-merged matrices")),
-                                        tags$li(
-                                            strong("Transcript-to-gene mapping (Kallisto only)"),
-                                            tags$ul(
-                                                tags$li("Choose from pre-built mappings for supported genomes"),
-                                                tags$li("Or upload a custom two-column CSV with columns ", strong("TX_NAME"), " (transcript ID) and ", strong("GENE_ID"), " (gene ID). If you have a .gtf file, ", a(href = "scripts/generate_tx2gene.R", "download this R script to generate the mapping.", download = NA, target = "_blank"))
-                                            )
-                                        ),
-                                        tags$li(
-                                            strong("Convert Ensembl gene IDs to gene names"),
-                                            tags$ul(
-                                                tags$li("Choose from pre-built mappings for supported genomes"),
-                                                tags$li("Or upload a custom two-column CSV with columns ", strong("GENE_ID"), " (Ensembl gene ID) and ", strong("GENE_NAME"), " (gene symbol). If you have a .gtf file, ", a(href = "scripts/generate_gene_names.R", "download this R script to generate the mapping.", download = NA, target = "_blank"))
-                                            )
-                                        ),
-                                        tags$li(strong("Download"), " merged counts file in .csv format"),
-                                        tags$li(
-                                            strong("Transcriptome Analysis (Optional)"), " – launch downstream analysis directly from the merged output:",
-                                            tags$ul(
-                                                tags$li("Use ", strong("DESeq2Shiny"), " or ", strong("START"), " for bulk RNA analysis"),
-                                                tags$li("If there are ", strong("no replicates"), ", use DESeq2Shiny for exploratory analysis")
-                                            )
-                                        )
-                                    )
-                                ),
+                                includeMarkdown("guide_intro.md"),
                                 hr(),
                                 # wellPanel(
-                                h4(strong("2) Sample Input Files:")),
+                                h3(style = "font-size:20px; font-weight:600;", "Input files"),
                                 tags$div(
                                     class = "BoxArea2",
                                     h5(strong("A) Raw counts")),
@@ -405,7 +395,7 @@ ui <- tagList(
                                     p(strong("Note: "), "File names are used as sample (column) names. Column names can be edited after merging.")
                                 ),
                                 column(12, hr()),
-                                h4(strong("3) Sample Output File:")),
+                                h3(style = "font-size:20px; font-weight:600;", "Output file"),
                                 div(style = "clear:both;"),
                                 tags$div(
                                     class = "BoxArea2",
@@ -482,34 +472,19 @@ ui <- tagList(
                                     div(style = "clear:both;")
                                 ),
                                 column(12, hr()),
-                                h4(strong("4) Transcriptome Analysis (Optional):")),
+                                h3(style = "font-size:20px; font-weight:600;", "Continue with the analysis"),
                                 div(style = "clear:both;"),
                                 tags$div(
                                     class = "BoxArea2",
-                                    p(strong("Continue with bulk RNA-seq analysis")),
-                                    p(strong("Your merged counts data will be automatically loaded")),
-                                    fluidRow(
-                                        column(
-                                            6,
-                                            tags$div(
-                                                class = "BoxArea3", style = "text-align:center;",
-                                                p(strong("Bulk RNA")),
-                                                tags$span(class = "btn btn-success btn-sm", style = "width:100%; pointer-events:none; margin-bottom:6px;", "DESeq2Shiny"),
-                                                tags$br(),
-                                                tags$span(class = "btn btn-success btn-sm", style = "width:100%; pointer-events:none; margin-top:6px;", "START")
-                                            )
-                                        ),
-                                        column(
-                                            6,
-                                            p(em("Buttons appear automatically after merging is complete."))
-                                        )
-                                    ),
-                                    column(
-                                        12,
-                                        hr()
-                                    ),
+                                    p("Once the files are merged, buttons appear under the Merge button that open ",
+                                      strong("DESeq2Shiny"), " or ", strong("START"),
+                                      " with the merged counts already loaded, so there is nothing to download and upload again."),
+                                    p(strong("Sample names must follow the pattern sampleName_replicateNumber"),
+                                      ", for example kidneyA_1 and kidneyA_2, with no special characters other than the underscore. ",
+                                      "The Output tab warns when they do not and lets you edit them."),
                                     div(style = "clear:both;")
-                                )
+                                ),
+                                includeMarkdown("guide_private.md")
                             ),
                             tabPanel(
                                 "Output",
@@ -558,6 +533,15 @@ ui <- tagList(
                 )
             ) # fluidrow
         ), # tabpanel
+        # private instance only; removed by the server otherwise
+        tabPanel(
+            "Project files",
+            icon = icon("folder-open"),
+            div(class = "nasqar-project-private", style = "padding: 0 15px;",
+                h3("Saved files of this project"),
+                nasqar_project_files_ui()
+            )
+        ),
         tabPanel(
             "Terms of Use",
             fluidRow(
@@ -596,6 +580,13 @@ server <- function(input, output, session) {
     source("nasqar-project.R", local = TRUE)
     project_app <- "GeneCountMerger"
     private_space <- nasqar_project_available(project_app)
+    # Reopening a project and its files page exist in a private instance only.
+    if (!private_space) {
+        shinyjs::runjs("$('input[name=counts_source][value=savedProject]').closest('.radio').remove()")
+        # only "Upload files" is left: a one-choice question is not worth asking
+        shinyjs::hide("counts_source")
+        shinyjs::runjs("$('.navbar-nav a[data-value=\\'Project files\\']').parent().remove()")
+    }
     current_project_name <- function() {
         name <- input$nasqar_project_name
         if (private_space && !is.null(name) && nzchar(trimws(name))) trimws(name) else paste0("session-", session$token)
