@@ -244,9 +244,9 @@ output$rlogData <- renderDataTable(
     options = list(scrollX = TRUE, pageLength = 5)
 )
 
-# The on-screen heatmap and the downloaded figure share one palette and one
-# clustering (complete linkage on the sample distances), so they show the
-# same picture.
+# The on-screen heatmap and the downloaded figure share one palette, one
+# clustering (complete linkage on the sample distances) and one layout (zero
+# diagonal from bottom-left to top-right), so they show the same picture.
 sample_distance_colors <- function() {
     viridis::viridis(256)
 }
@@ -255,10 +255,14 @@ transformed_distance_plot <- function(matrix) {
     validate(need(!is.null(matrix), "Run DESeq2 before exporting this figure."))
     sample_distances <- stats::dist(t(matrix))
     sample_matrix <- as.matrix(sample_distances)
+    # Rows follow the dendrogram from the top down and columns follow it
+    # from right to left, which is the layout heatmaply draws on screen.
+    row_clust <- stats::hclust(sample_distances)
+    col_clust <- stats::as.hclust(rev(stats::as.dendrogram(row_clust)))
     pheatmap::pheatmap(
         sample_matrix,
-        clustering_distance_rows = sample_distances,
-        clustering_distance_cols = sample_distances,
+        cluster_rows = row_clust,
+        cluster_cols = col_clust,
         color = sample_distance_colors(),
         border_color = NA,
         main = "Sample distance heatmap"
@@ -270,8 +274,7 @@ transformed_distance_plotly <- function(matrix) {
     sample_matrix <- as.matrix(sample_distances)
     dend <- stats::as.dendrogram(stats::hclust(sample_distances))
     # heatmaply draws columns in reverse dendrogram order, so the zero
-    # diagonal runs bottom-left to top-right on screen (the download's
-    # pheatmap runs top-left to bottom-right). Sample names are on the rows
+    # diagonal runs bottom-left to top-right. Sample names are on the rows
     # only; the column name is in the hover text.
     heatmaply::heatmaply(
         sample_matrix,

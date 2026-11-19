@@ -79,10 +79,12 @@ cat("========================================\n\n")
 cat("Creating interactive distance heatmap using heatmaply (same as Shiny app)...\n")
 
 # Same palette and clustering as the Shiny app: viridis, complete linkage on
-# the sample distances. heatmaply draws the zero diagonal bottom-left to
-# top-right, as the app does; the static pheatmap figure runs the other way.
+# the sample distances. The zero diagonal runs bottom-left to top-right in
+# both the interactive and the static figure, as in the app.
 colors <- viridis(256)
-sample_dend <- as.dendrogram(hclust(sample_dists))
+sample_clust <- hclust(sample_dists)
+sample_dend <- as.dendrogram(sample_clust)
+sample_clust_rev <- as.hclust(rev(sample_dend))
 
 heatmaply_plot <- heatmaply(
   sample_dist_matrix,
@@ -113,9 +115,8 @@ cat("Creating static distance heatmap using pheatmap (for PDF/PNG)...\n")
 # Create static heatmap for publication-quality PDF/PNG
 pheatmap_plot <- pheatmap(
   sample_dist_matrix,
-  clustering_distance_rows = sample_dists,
-  clustering_distance_cols = sample_dists,
-  clustering_method = "complete",
+  cluster_rows = sample_clust,
+  cluster_cols = sample_clust_rev,
   col = colors,
   annotation_col = annotation_col,
   annotation_row = annotation_row,
