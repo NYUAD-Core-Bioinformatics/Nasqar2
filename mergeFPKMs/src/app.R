@@ -18,35 +18,63 @@ ui <- tagList(
         inverse = TRUE,
         title = "Merge FPKM Files",
         tabPanel(
-            "",
+            "Home",
+            icon = icon("home"),
             fluidRow(
                 column(4, wellPanel(
-                    h4("Upload all FPKM files"),
-                    h4("(select at least 2 csv files)"),
-                    radioButtons("counts_source", "Count files",
-                        c("Upload files" = "upload", "Use files in the private space" = "private_files"),
+                    h4(strong("1. Input data")),
+                    # One question decides what the panel shows. The two
+                    # private-space choices are removed by the server on a
+                    # public instance.
+                    radioButtons("counts_source", "Where is your data?",
+                        c(
+                            "Upload files" = "upload",
+                            "Files in the private space" = "private_files",
+                            "Reopen a saved project" = "savedProject"
+                        ),
                         selected = "upload"),
+                    conditionalPanel(
+                        condition = "input.counts_source=='savedProject'",
+                        div(class = "nasqar-project-private",
+                            nasqar_project_restore_ui(button_label = "Open project", stacked = TRUE),
+                            helpText(style = "margin-top:10px;", "The merged table comes back as you left it.")
+                        )
+                    ),
                     conditionalPanel(
                         condition = "input.counts_source=='private_files'",
                         div(
                             style = "display:flex; gap:8px; align-items:flex-end;",
                             div(style = "flex:1;",
-                                textAreaInput("private_fpkm_files", "Selected files in the private space (one per line)", value = "", rows = 4)
+                                textAreaInput("private_fpkm_files", "FPKM files in the private space (one per line)", value = "", rows = 4)
                             ),
-                            div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_private_fpkm_files", "Browse...", "Choose the count files in the private space (Shift/Ctrl-click or Ctrl-A for several)", multiple = TRUE))
+                            div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_private_fpkm_files", "Browse...", "Choose the FPKM files in the private space", multiple = TRUE))
                         ),
                         helpText("Pick the files to merge with Browse (several at once) or paste their paths; files are read in place.")
                     ),
-                    fileInput("datafile", "",
-                        accept = c(
-                            "text/csv",
-                            "text/comma-separated-values,text/plain",
-                            ".csv"
-                        ), multiple = TRUE
+                    conditionalPanel(
+                        condition = "input.counts_source=='upload'",
+                        fileInput("datafile", "FPKM files, one per sample (at least two)",
+                            accept = c(
+                                "text/csv",
+                                "text/comma-separated-values,text/plain",
+                                ".csv"
+                            ), multiple = TRUE
+                        )
                     ),
+                    conditionalPanel(
+                    condition = "input.counts_source!='savedProject'",
+                    div(class = "nasqar-project-private",
+                        nasqar_project_name_ui(
+                            "fpkm-project",
+                            label = "Project name",
+                            help = "The merged table is saved automatically in the private space under this name."
+                        )
+                    ),
+                    hr(),
+                    h4(strong("2. Options and merge")),
                     # checkboxInput("addOne", "Add +1 to counts (pseudo counts)", FALSE),
-                    checkboxInput("fpkmToTpm", "Convert to TPMs", FALSE),
-                    checkboxInput("addGeneNames", "Retrieve gene names from ensembl ids", FALSE),
+                    checkboxInput("fpkmToTpm", "Convert FPKM to TPM", FALSE),
+                    checkboxInput("addGeneNames", "Look up gene names from Ensembl IDs", FALSE),
                     conditionalPanel(
                         "input.addGeneNames",
                         radioButtons("refGenome", "",
@@ -67,115 +95,42 @@ ui <- tagList(
                             selected = "add"
                         )
                     ),
-                    nasqar_project_ui("fpkm-project",
-                        help = "The merged table is kept under this name in the private space, so the project can be restored later."),
                     conditionalPanel(
                         "output.filesUploaded",
-                        actionButton("upload_data", "Merge Files",
-                            style = "color: #fff; background-color: #CD0000; border-color: #9E0000"
+                        actionButton("upload_data", "Merge files", icon = icon("play"),
+                            class = "btn-primary", style = "color: #fff;"
                         )
+                    )
                     ),
                     conditionalPanel(
                         "output.filesMerged",
-                        downloadLink("downloadData", "Download Merged File", class = "btn btn-primary", style = "color: #fff; background-color: #9E0000; border-color: #9E0000")
+                        downloadLink("downloadData", "Download merged table (.csv)", class = "btn btn-success", style = "color: #fff; margin-top: 10px;")
                     )
                 )), # column
                 column(
                     8,
                     conditionalPanel(
                         "output.filesMerged",
-                        h2("Merged Table"),
+                        h2("Merged table"),
                         hr(),
                         dataTableOutput("contents")
                     ),
                     conditionalPanel(
                         "!output.filesMerged",
-                        h2("User Guide"),
-                        hr(),
-                        h4(strong("1) Introduction:")),
-                        wellPanel(
-                            p("This is a simple preprocessing tool to merge individual gene FPKM files (Eg. fpkm files from cufflinks)"),
-                            p(strong("NOTE:"), "first column must contain the genes. If the gene columns do not match in all files, this tool will not work"),
-                            hr(),
-                            h5(strong("Features")),
-                            tags$ul(
-                                tags$li("Merge individual gene FPKM files. See ", strong("Sample Input Files"), " below for more details"),
-                                tags$li("Or merge", strong(" multiple matrices")),
-                                tags$li(
-                                    strong("Convert ensembl gene IDs to gene names"),
-                                    tags$ul(
-                                        tags$li("Option to choose from available genome/versions")
-                                    )
-                                ),
-                                tags$li("Option to convert FPKMs to ", strong("TPMs")),
-                                tags$li(strong("Download"), " merged FPKMs file in .csv format")
-                            )
-                        ),
-                        hr(),
-                        # wellPanel(
-                        h4(strong("2) Sample Input Files:")),
-                        tags$div(
-                            class = "BoxArea2",
-                            fluidRow(
-                                column(
-                                    12,
-                                    p(strong("Select multiple files to upload, E.g. Input files:")),
-                                    column(
-                                        5,
-                                        p(strong(tags$em("File 1 of 8: ")), "Sample_S2L_gene_fpkms.txt"),
-                                        tags$img(src = "inputFiles.png", width = "400px", height = "100px")
-                                    ),
-                                    column(
-                                        5,
-                                        p(strong(tags$em("File 2 of 8: ")), "Sample_S2V_gene_fpkms.txt"),
-                                        tags$img(src = "inputFiles.png", width = "400px", height = "100px")
-                                    ),
-                                    column(
-                                        2,
-                                        p(strong("etc ..."))
-                                    )
-                                ),
-                                div(style = "clear:both;")
-                            ),
-                            fluidRow(
-                                column(
-                                    12,
-                                    p(""),
-                                    p(strong("Note: "), "File names will be used as sample (column) names in output table. You can edit the column names after merging")
-                                )
-                            )
-                        ),
-                        column(12, hr()),
-                        h4(strong("3) Sample Output File:")),
-                        div(style = "clear:both;"),
-                        tags$div(
-                            class = "BoxArea2",
-                            p(strong("Output depending on options selected:")),
-                            column(
-                                12,
-                                p(strong(em("A) Without renaming/converting genes (Default)"))),
-                                tags$img(src = "output_geneids.png", width = "400px", height = "100px")
-                            ),
-                            column(
-                                12,
-                                hr()
-                            ),
-                            column(
-                                6,
-                                p(strong(em("B) Retrieve gene names (replace), E.g. output file"))),
-                                tags$img(src = "output_genenames.png", width = "400px", height = "100px")
-                            ),
-                            column(
-                                6,
-                                p(strong(em("C) Retrieve gene names (add), E.g. output file"))),
-                                tags$img(src = "output_both.png", width = "400px", height = "100px")
-                            ),
-                            div(style = "clear:both;")
-                        )
+                        includeMarkdown("user_guide.md")
                     )
                 ) # column
             ) # fluidrow
         ), # tabpanel
+        # private instance only; removed by the server otherwise
+        tabPanel(
+            "Project files",
+            icon = icon("folder-open"),
+            div(class = "nasqar-project-private", style = "padding: 0 15px;",
+                h3("Saved files of this project"),
+                nasqar_project_files_ui()
+            )
+        ),
 
 
 
@@ -229,6 +184,13 @@ server <- function(input, output, session) {
     source("nasqar-project.R", local = TRUE)
     project_app <- "mergeFPKMs"
     private_space <- nasqar_project_available(project_app)
+    # Reopening a project and its files page exist in a private instance only.
+    if (!private_space) {
+        shinyjs::runjs("$('input[name=counts_source][value=savedProject]').closest('.radio').remove()")
+        shinyjs::runjs("$('.navbar-nav a[data-value=\\'Project files\\']').parent().remove()")
+        # only "Upload files" is left: a one-choice question is not worth asking
+        shinyjs::hide("counts_source")
+    }
     current_project_name <- function() {
         name <- input$nasqar_project_name
         if (private_space && !is.null(name) && nzchar(trimws(name))) trimws(name) else paste0("session-", session$token)
@@ -341,7 +303,9 @@ server <- function(input, output, session) {
                 fileContent <- fileContent[order(fileContent$gene_id), ]
 
                 # Create data frame table
-                total <- data.frame(matrix(ncol = length(inFile) + 1, nrow = nrow(fileContent)))
+                # one column for the gene ids plus one per file (inFile is a data
+                # frame with one row per file, so its length is not the file count)
+                total <- data.frame(matrix(ncol = nrow(inFile) + 1, nrow = nrow(fileContent)))
 
                 # Extract sample name from file name
                 samplename <- tools::file_path_sans_ext(inFile$name[1])
