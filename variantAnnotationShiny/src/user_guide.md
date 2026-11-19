@@ -11,29 +11,34 @@ licences are required.
 
 ### 1. Input Data
 
-Choose one of three sources:
+**Where is your data?** decides what the tab shows:
 
-* **Upload VCF file** — one `.vcf`, `.vcf.gz` or `.vcf.bgz` file. Upload the
+* **Upload a VCF file** — one `.vcf`, `.vcf.gz` or `.vcf.bgz` file. Upload the
   matching `.tbi` index in the same step to skip re-indexing.
+* **VCF in the private space** — a VCF already on the server, chosen with
+  **Browse** from the private space. The VCF is read in place. Private
+  instances only.
 * **Example VCF** — the chr22 subset of the 1000 Genomes project shipped with
   VariantAnnotation (GRCh37 coordinates, contig name `22`). The hg19
   reference is selected automatically.
-* **VCF in the private space** — the absolute path of a VCF under the
-  configured read-only data root. The VCF is read in place.
+* **Reopen a saved project** — pick one of the projects of this instance and
+  press **Open project**. The loaded VCF, the reference genome, the filters
+  and the annotation results come back in seconds, without recomputing. A
+  project is not reopened when its source VCF changed since it was made.
+  Private instances only.
 
-**Projects.** In a private instance every run belongs to a persistent project,
-`projects/VariantAnnotation/<name>` in the private space (the *Persistent
-project name* box; uploads are copied into it so they can be reopened). The
+**Projects.** In a private instance every run belongs to a project,
+`projects/VariantAnnotation/<name>` in the private space, named in the
+**Project name** box (uploads are copied into it so they can be reopened). The
 project keeps the indexed VCF, the filtered VCF, the annotation tables, the
 caches, a small `state.rds` describing what was loaded, the settings and
 the stage reached, and a readable `state.json` with those settings and every
 input value at the time, for provenance and methods sections. Every figure
-or table you download is also kept in the project (`plots/`, `downloads/`)
-and listed in the gallery of the project panel. **Restore an existing project** lists the projects on this
-instance; restoring one brings back the loaded VCF, the filters and the
-annotation results in seconds, without recomputing. A restore is refused when
-the source VCF changed since the project was made. Public instances have no
-private space and therefore no projects.
+or table you download is also kept in the project (`plots/`, `downloads/`).
+The **Project files** page lists them with a preview, and its **Save all to
+project** button writes every figure and table that exists at that moment
+into the project without downloading them. Public instances have no private
+space and therefore no projects.
 
 Select the **reference genome**. Only genomes whose BSgenome, TxDb and
 organism packages are installed appear in the list. When the dbSNP `SNPlocs`

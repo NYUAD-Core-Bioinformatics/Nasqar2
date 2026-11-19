@@ -39,7 +39,9 @@ ui <- dashboardPage(
             menuItem("Annotate", tabName = "annotate_tab", icon = icon("cogs")),
             menuItem("Summary Plots", tabName = "plots_tab", icon = icon("chart-bar")),
             menuItem("Downloads", tabName = "downloads_tab", icon = icon("download")),
-            menuItem("Enrichment Handoff", tabName = "handoff_tab", icon = icon("share-square"))
+            menuItem("Enrichment Handoff", tabName = "handoff_tab", icon = icon("share-square")),
+            # private instance only; removed by the server otherwise
+            menuItem("Project files", tabName = "projectFilesTab", icon = icon("folder-open"))
         )
     ),
     dashboardBody(
@@ -81,7 +83,18 @@ ui <- dashboardPage(
             source("ui-tab-annotate.R", local = TRUE)$value,
             source("ui-tab-plots.R", local = TRUE)$value,
             source("ui-tab-downloads.R", local = TRUE)$value,
-            source("ui-tab-handoff.R", local = TRUE)$value
+            source("ui-tab-handoff.R", local = TRUE)$value,
+            tabItem(
+                tabName = "projectFilesTab",
+                div(
+                    class = "nasqar-project-private",
+                    box(
+                        title = "Saved plots and files of this project", solidHeader = TRUE,
+                        status = "primary", width = 12,
+                        nasqar_project_files_ui()
+                    )
+                )
+            )
         ),
         tags$script(HTML(
             'setInterval(function(){ Shiny.onInputChange("keepAlive", new Date()); }, 10000);'

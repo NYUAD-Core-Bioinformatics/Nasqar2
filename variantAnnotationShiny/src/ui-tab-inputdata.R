@@ -4,15 +4,27 @@ tabItem(
         column(
             6,
             box(
-                title = "Load VCF", solidHeader = TRUE, status = "primary", width = 12,
+                title = "1. Input data", solidHeader = TRUE, status = "primary", width = 12,
                 collapsible = TRUE, id = "uploadbox",
-                radioButtons("data_file_type", "Select VCF source",
+                # One question decides what the rest of the tab shows. The two
+                # private-space choices are removed by the server on a public
+                # instance.
+                radioButtons("data_file_type", "Where is your data?",
                     c(
-                        "Upload VCF file" = "upload_vcf",
+                        "Upload a VCF file" = "upload_vcf",
+                        "VCF in the private space" = "private_vcf_file",
                         "Example VCF (1000 Genomes chr22 subset, hg19)" = "example_vcf",
-                        "Use a VCF in the private space" = "private_vcf_file"
+                        "Reopen a saved project" = "savedProject"
                     ),
                     selected = "example_vcf"
+                ),
+                conditionalPanel(
+                    condition = "input.data_file_type == 'savedProject'",
+                    div(class = "nasqar-project-private",
+                        nasqar_project_restore_ui(button_label = "Open project", stacked = TRUE),
+                        helpText(style = "margin-top:10px;",
+                                 "The VCF, the reference genome, the filters and the annotation come back from the project without recomputing.")
+                    )
                 ),
                 conditionalPanel(
                     condition = "input.data_file_type == 'upload_vcf'",
@@ -40,19 +52,28 @@ tabItem(
                         "a compressed and indexed copy is written once into the project directory."
                     )
                 ),
-                nasqar_project_ui(
-                    "variant-project",
-                    help = paste(
-                        "Filtered VCF, annotation tables and caches are kept under this name in the",
-                        "private space, so they survive the session and the project can be restored later."
+                conditionalPanel(
+                    condition = "input.data_file_type != 'savedProject'",
+                    div(class = "nasqar-project-private",
+                        nasqar_project_name_ui(
+                            "variant-project",
+                            label = "Project name",
+                            help = paste(
+                                "Saved automatically in the private space under this name: the indexed VCF when it",
+                                "is loaded, then the filtered VCF, the annotation tables and their caches."
+                            )
+                        )
                     )
                 ),
                 textOutput("input_status"),
                 textOutput("project_path_text"),
                 tags$style("#input_status { color: darkred; }")
             ),
+            # a reopened project brings its own reference genome
+            conditionalPanel(
+            condition = "input.data_file_type != 'savedProject'",
             box(
-                title = "Reference genome", solidHeader = TRUE, status = "primary", width = 12,
+                title = "2. Reference genome", solidHeader = TRUE, status = "primary", width = 12,
                 collapsible = TRUE, id = "genomebox",
                 selectInput("genome_input", "Reference genome and gene model",
                     choices = c("Loading installed genomes..." = "")),
@@ -81,8 +102,9 @@ tabItem(
                         verbatimTextOutput("genome_install_offline", placeholder = FALSE)
                     )
                 ),
-                actionButton("loadVcf", "Load VCF", class = "btn-info btn-success", style = "width: 100%"),
+                actionButton("loadVcf", "Load VCF", icon = icon("play"), class = "btn-success", style = "width: 100%; color:#fff;"),
                 tags$div(class = "clearBoth")
+            )
             )
         ),
         column(

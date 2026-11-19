@@ -31,6 +31,11 @@ server <- function(input, output, session) {
     project_app <- "VariantAnnotation"
     project_legacy_env <- "NASQAR_VARIANT_PROJECT_DIR"
     private_space <- nasqar_project_available(project_app, project_legacy_env)
+    # Reopening a project and its files page exist in a private instance only.
+    if (!private_space) {
+        shinyjs::runjs("$('input[name=data_file_type][value=savedProject]').closest('.radio').remove()")
+        shinyjs::runjs("$('a[data-value=projectFilesTab]').closest('li').remove()")
+    }
     project_directory <- function(name) {
         path <- nasqar_project_dir(project_app, name, project_legacy_env, fallback = "variant-project")
         if (!dir.exists(path) || file.access(path, 2) != 0) {

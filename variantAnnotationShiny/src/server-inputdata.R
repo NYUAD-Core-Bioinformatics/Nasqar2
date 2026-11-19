@@ -233,6 +233,8 @@ resolve_input_source <- function() {
         if (!nzchar(path)) stop("The example VCF is not available in this installation.", call. = FALSE)
         list(path = path, index = NULL, project = current_project_name(), label = "chr22.vcf.gz",
              type = "example_vcf", copy_indexed = FALSE)
+    } else if (identical(type, "savedProject")) {
+        stop("Choose a saved project and press Open project, or pick another source.", call. = FALSE)
     } else {
         path <- nasqar_private_path(input$private_vcf_path, what = "VCF file")
         list(path = path, index = NULL, project = current_project_name(), label = basename(path),
