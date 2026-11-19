@@ -49,24 +49,38 @@ ui <- shinyUI(fluidPage(
                         
                         # Application title
                         titlePanel(textOutput("title")),
-                        fluidRow(tags$hr(style="border-color: black;")),
-                        
-                        # Create Input
-                        fluidRow(column(2, wellPanel(
+                        tags$hr(),
+
+                        fluidRow(
+                        # ---- left: the steps ----
+                        column(3, wellPanel(
+                        h4(strong("1. Input data")),
+                        # One question decides what this step shows. The two
+                        # private-space choices are removed by the server on a
+                        # public instance.
                         radioButtons(
                           "data_source",
-                          "Seurat object source",
+                          "Where is your data?",
                           c(
-                            "Upload from browser" = "upload",
-                            "Use a file in the private space" = "private"
+                            "Upload a Seurat object" = "upload",
+                            "Seurat object in the private space" = "private",
+                            "Reopen a saved project" = "savedProject"
                           ),
                           selected = "upload"
                         ),
                         conditionalPanel(
+                          "input.data_source == 'savedProject'",
+                          div(class = "nasqar-project-private",
+                              nasqar_project_restore_ui(button_label = "Open project", stacked = TRUE),
+                              helpText(style = "margin-top:10px;",
+                                       "The Seurat object, the settings and the trajectory come back from the project.",
+                                       "Only projects made from an object in the private space can be reopened."))
+                        ),
+                        conditionalPanel(
                           "input.data_source == 'upload'",
-                          fileInput("file", 'Choose Rdata/Rds to upload',
+                          fileInput("file", "Seurat object (.rds or .RData)",
                                     accept = c('.Rdata', ".rds", ".Rds")),
-                          actionButton("upload", "Upload")
+                          actionButton("upload", "Load object", icon = icon("play"), class = "btn-primary", style = "color:#fff;")
                         ),
                         conditionalPanel(
                           "input.data_source == 'private'",
@@ -81,52 +95,67 @@ ui <- shinyUI(fluidPage(
                               ),
                               div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_private_input", "Browse...", "Choose a Seurat .rds or .RData file in the private space", multiple = FALSE))
                           ),
-                          actionButton("load_private", "Load from Data Root")
+                          actionButton("load_private", "Load object", icon = icon("play"), class = "btn-primary", style = "color:#fff;")
                         ),
-                        nasqar_project_ui("monocle3-project",
-                          help = "Trajectory outputs are kept under this name in the private space, so the project survives the session and can be restored later."),
+                        conditionalPanel(
+                          "input.data_source != 'savedProject'",
+                          div(class = "nasqar-project-private", style = "margin-top:12px;",
+                              nasqar_project_name_ui(
+                                "monocle3-project",
+                                label = "Project name",
+                                help = "Saved automatically in the private space under this name, for objects read from the private space."))
+                        ),
                         textOutput("private_output_path"),
-                        
-                        fluidRow(tags$hr(style="border-color: black;")),
-                        
+
+                        tags$hr(),
+                        h4(strong("2. Trajectory settings")),
+
                         # Set assay type
                         selectInput("assay",
-                                    "Select assay",
+                                    "Assay",
                                     NULL),
-                        
+
                         #Set data identity
                         selectInput("ident",
-                                    "Select Identity for clustering",
+                                    "Identity used for clustering",
                                     NULL),
-                        
+
                         #Set progenitor gene
-                        textInput("gene", "Progenitor gene:", value = ""),
-                        
+                        textInput("gene", "Progenitor gene", value = ""),
+                        helpText("A gene that marks the cells where the trajectory starts."),
+
                         #Set load button
-                        actionButton("run", "Run Monocle3"),
-                        
-                        fluidRow(tags$hr(style="border-color: black;")),
-                        
+                        actionButton("run", "Run Monocle3", icon = icon("play"), class = "btn-success", style = "color:#fff; width:100%;"),
+
+                        tags$hr(),
+                        h4(strong("3. Download")),
+
                         #Select plot to download
                         selectInput("plot",
-                                    "Select plot to download",
+                                    "Plot",
                                     c("Dimensions plot", "Monocle3 results", "Heatmap")),
                         #Download plot
-                        downloadButton("download", "Download Plot"),
-                        fluidRow(tags$hr(style="border-color: black;")),
-                        
+                        downloadButton("download", "Download plot"),
                         #Download dta
-                        downloadButton("download2", "Download Results"))),
-                        
-                        #Plot dim and pseudotime
-                        column(5, align="center", id="vert", plotOutput("dim", width="90%", height="800px")), 
-                        column(5, id="vert", align="center", plotOutput("p2", width="90%", height="800px"))),
-                        
-                        # Heatmap
-                        fluidRow(tags$hr(style="border-color: black;")),
-                        fluidRow(column(10, align="center", offset=2, id="vert", h3("Heatmap of genes significantly associated with pseudotime"))),
-                        fluidRow(column(10, align="center", offset=2, id="vert", plotOutput("p5", width="80%", height="700px"))),
-                        fluidRow(tags$hr(style="border-color: black;"))
+                        downloadButton("download2", "Download results (.csv)", style = "margin-top:8px;"))),
+
+                        # ---- right: guide, results, project files ----
+                        column(9, tabsetPanel(
+                          id = "main_tabs",
+                          tabPanel("User Guide", includeMarkdown("user_guide.md")),
+                          tabPanel("Results",
+                            fluidRow(
+                              column(6, align="center", plotOutput("dim", width="95%", height="700px")),
+                              column(6, align="center", plotOutput("p2", width="95%", height="700px"))),
+                            tags$hr(),
+                            h4(style = "text-align:center;", "Heatmap of genes significantly associated with pseudotime"),
+                            fluidRow(column(12, align="center", plotOutput("p5", width="85%", height="700px")))
+                          ),
+                          # private instance only; removed by the server otherwise
+                          tabPanel("Project files",
+                            div(class = "nasqar-project-private", style = "padding-top:10px;",
+                                nasqar_project_files_ui()))
+                        )))
                         ))
 
 # Define server logic
@@ -161,6 +190,13 @@ server <- shinyServer(function(input, output, session) {
   project_app <- "Monocle3"
   project_legacy_env <- "NASQAR_MONOCLE3_PROJECT_DIR"
   private_space <- nasqar_project_available(project_app, project_legacy_env)
+  # Reopening a project and its files tab exist in a private instance only.
+  if (!private_space) {
+    shinyjs::runjs("$('input[name=data_source][value=savedProject]').closest('.radio').remove()")
+    shinyjs::runjs("$('#main_tabs a[data-value=\\'Project files\\']').parent().remove()")
+    # only uploading is left: a one-choice question is not worth asking
+    shinyjs::hide("data_source")
+  }
   project_directory <- function(name) {
     path <- nasqar_project_dir(project_app, name, project_legacy_env, fallback = "monocle3-project")
     if (!dir.exists(path) || file.access(path, 2) != 0) {
@@ -213,15 +249,16 @@ server <- shinyServer(function(input, output, session) {
   configure_seurat_input <- function(data) {
     validate(need(inherits(data, "Seurat"), "The transferred object is not a Seurat object."))
     seurat_data(data)
-    updateSelectInput(session, "assay", "Select assay", choices = names(data@assays))
+    updateSelectInput(session, "assay", "Assay", choices = names(data@assays))
     updateSelectInput(
-      session, "ident", "Select Identity for clustering",
+      session, "ident", "Identity used for clustering",
       choices = colnames(data@meta.data)
     )
     shinyjs::enable("gene")
     shinyjs::enable("assay")
     shinyjs::enable("ident")
     shinyjs::enable("run")
+    updateTabsetPanel(session, "main_tabs", selected = "Results")
   }
 
   read_exchange_object <- function(token) {
