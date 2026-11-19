@@ -63,10 +63,21 @@ cat("========================================\n\n")
 
 cat("Creating interactive distance heatmap...\n")
 
+# Same palette and clustering as the Shiny app: viridis, complete linkage on
+# the sample distances. Reversing the column dendrogram gives the same sample
+# order as the static pheatmap figure.
+colors <- viridis(256)
+sample_dists <- as.dist(sample_dist_matrix)
+sample_dend <- as.dendrogram(hclust(sample_dists))
+
 # Create interactive heatmap
 interactive_heatmap <- heatmaply(
   sample_dist_matrix,
-  colors = viridis(256),
+  Rowv = sample_dend,
+  Colv = rev(sample_dend),
+  symm = FALSE,
+  revC = FALSE,
+  colors = colors,
   main = paste("Sample Distance Heatmap (", toupper(TRANSFORM_TYPE), ")", sep = ""),
   xlab = "Samples",
   ylab = "Samples",
@@ -98,9 +109,9 @@ pdf("distance_heatmap_static.pdf", width = 10, height = 10)
 # Create static heatmap
 pheatmap(
   sample_dist_matrix,
-  color = viridis(256),
-  clustering_distance_rows = "euclidean",
-  clustering_distance_cols = "euclidean",
+  color = colors,
+  clustering_distance_rows = sample_dists,
+  clustering_distance_cols = sample_dists,
   annotation_col = annotation_col,
   annotation_row = annotation_row,
   main = paste("Sample Distance Heatmap (", toupper(TRANSFORM_TYPE), ")", sep = ""),
@@ -114,9 +125,9 @@ png("distance_heatmap_static.png", width = 1200, height = 1200, res = 150)
 
 pheatmap(
   sample_dist_matrix,
-  color = viridis(256),
-  clustering_distance_rows = "euclidean",
-  clustering_distance_cols = "euclidean",
+  color = colors,
+  clustering_distance_rows = sample_dists,
+  clustering_distance_cols = sample_dists,
   annotation_col = annotation_col,
   annotation_row = annotation_row,
   main = paste("Sample Distance Heatmap (", toupper(TRANSFORM_TYPE), ")", sep = ""),

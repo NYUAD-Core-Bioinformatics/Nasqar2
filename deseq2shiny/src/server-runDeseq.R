@@ -248,9 +248,7 @@ output$rlogData <- renderDataTable(
 # clustering (complete linkage on the sample distances), so they show the
 # same picture.
 sample_distance_colors <- function() {
-    grDevices::colorRampPalette(
-        rev(RColorBrewer::brewer.pal(9, "Blues"))
-    )(255)
+    viridis::viridis(256)
 }
 
 transformed_distance_plot <- function(matrix) {

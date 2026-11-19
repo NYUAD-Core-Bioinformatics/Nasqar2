@@ -78,11 +78,19 @@ cat("========================================\n\n")
 
 cat("Creating interactive distance heatmap using heatmaply (same as Shiny app)...\n")
 
-# Use heatmaply with the SAME parameters as Shiny app
-# This ensures EXACT visual matching!
+# Same palette and clustering as the Shiny app: viridis, complete linkage on
+# the sample distances. Reversing the column dendrogram gives the same sample
+# order as the static pheatmap figure.
+colors <- viridis(256)
+sample_dend <- as.dendrogram(hclust(sample_dists))
+
 heatmaply_plot <- heatmaply(
   sample_dist_matrix,
-  showticklabels = c(FALSE, TRUE),  # Same as Shiny: showticklabels = c(F, T)
+  Rowv = sample_dend,
+  Colv = rev(sample_dend),
+  symm = FALSE,
+  revC = FALSE,
+  colors = colors,
   main = paste0("Sample Distance Heatmap (", toupper(TRANSFORM_TYPE), ")")
 )
 
@@ -101,9 +109,6 @@ cat("========================================\n\n")
 
 cat("Creating static distance heatmap using pheatmap (for PDF/PNG)...\n")
 
-# Use Viridis color palette to match heatmaply's default
-colors <- viridis(255, option = "D")
-
 # Create static heatmap for publication-quality PDF/PNG
 pheatmap_plot <- pheatmap(
   sample_dist_matrix,
@@ -121,7 +126,7 @@ pheatmap_plot <- pheatmap(
 )
 
 cat("✓ Static heatmap created (for PDF/PNG export)\n")
-cat("  Note: Dendrogram orientation may differ from heatmaply (cosmetic only)\n\n")
+cat("\n")
 
 ################################################################################
 # Save Both Versions
