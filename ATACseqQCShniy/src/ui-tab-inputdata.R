@@ -4,16 +4,26 @@ tabItem(
         column(
             6,
             box(
-                title = "Upload bam file", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "uploadbox",
-                # h4("Upload Gene Counts"),
-                h4("(select .bam/.bai)"),
-                radioButtons("data_file_type", "Input source",
+                title = "1. Input data", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "uploadbox",
+                # One question decides what the rest of the box shows. The two
+                # private-space choices are removed by the server on a public
+                # instance.
+                radioButtons("data_file_type", "Where is your data?",
                     c(
                         "Upload BAM files" = "upload_bam_file",
-                        "Example BAM data" = "example_bam_file",
-                        "Use a directory in the private space" = "private_directory"
+                        "BAM folder in the private space" = "private_directory",
+                        "Example data" = "example_bam_file",
+                        "Reopen a saved project" = "savedProject"
                     ),
                     selected = "upload_bam_file"
+                ),
+                conditionalPanel(
+                    condition = "input.data_file_type=='savedProject'",
+                    div(class = "nasqar-project-private",
+                        nasqar_project_restore_ui(button_label = "Open project", stacked = TRUE),
+                        helpText(style = "margin-top:10px;",
+                                 "The BAM folder and the reference genome come back, and results already computed are loaded from the project.")
+                    )
                 ),
                 conditionalPanel(
                     condition = "input.data_file_type=='private_directory'",
@@ -22,20 +32,18 @@ tabItem(
                         div(style = "flex:1;",
                         textInput(
                             "private_directory_path",
-                            "Directory containing BAM and BAI files",
+                            "Folder with the BAM and BAI files",
                             value = ""
                         )
                         ),
                         div(style = "margin-bottom:15px;", shinyFiles::shinyDirButton("browse_private_directory", "Browse folder...", "Choose a directory of BAM and BAI files in the private space"))
                     ),
-                    actionButton("load_private_directory", "Load directory")
+                    actionButton("load_private_directory", "Load folder", icon = icon("folder-open"),
+                                 class = "btn-primary", style = "color:#fff;")
                 ),
-                nasqar_project_ui("atac-project",
-                    help = "Results are cached under this name in the private space, so the project survives the session and can be restored later."),
                 conditionalPanel(
                     condition = "input.data_file_type=='upload_bam_file'",
-                    p("File with extensions .bam/.bai"),
-                    fileInput("bam_files", "",
+                    fileInput("bam_files", "BAM files with their BAI index files (.bam and .bai)",
                         accept = c(
                             ".bai",
                             ".bam"
@@ -48,17 +56,27 @@ tabItem(
                         "For details on this data, see ",
                         a(href = "https://doi.org/10.1007/978-3-319-07212-8_3", target = "_blank", "this publication")
                     )
+                ),
+                conditionalPanel(
+                    condition = "input.data_file_type!='savedProject'",
+                    div(class = "nasqar-project-private",
+                        nasqar_project_name_ui(
+                            "atac-project",
+                            label = "Project name",
+                            help = "Saved automatically in the private space under this name, for runs that start from a BAM folder in the private space."
+                        )
+                    )
                 )
             ),
             conditionalPanel(
                 # "output.fileUploaded",
                 condition = "output.bamfiles_uploaded",
                 box(
-                    title = "ATACseqQC  Parameters", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "qc_parameters", collapsed = T,
+                    title = "2. Reference genome", solidHeader = T, status = "primary", width = 12, collapsible = T, id = "qc_parameters", collapsed = F,
                     
                         column(
                             12,
-                            selectInput("bs_genome_input", "Reference genome:", choices = NULL, selected = NULL)
+                            selectInput("bs_genome_input", "Reference genome", choices = NULL, selected = NULL)
                         ),
                         # column(
                         #     12,
@@ -70,7 +88,7 @@ tabItem(
                         # ),
                        
                     
-                    actionButton("initQC", "Initialize QC", class = "btn-info btn-success", style = "width: 100%"),
+                    actionButton("initQC", "Initialize QC", icon = icon("play"), class = "btn-success", style = "width: 100%; color:#fff;"),
                      tags$div(class = "clearBoth")
                 )
             )

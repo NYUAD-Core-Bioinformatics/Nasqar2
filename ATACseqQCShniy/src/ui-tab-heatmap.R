@@ -26,7 +26,7 @@ tabItem(
         )
         ),
         conditionalPanel("!output.multiple_bamfiles",
-            h3('Upload multiple bamfiles for heatmap!!')
+            h4("The sample heatmap needs more than one BAM file.")
         )
     )
 )

@@ -129,6 +129,10 @@ observeEvent(input$bs_genome_input, {
 # })
 
 input_files_reactive <- reactive({
+    shiny::validate(need(
+        !identical(input$data_file_type, "savedProject"),
+        "Choose a saved project and press Open project, or pick another source."
+    ))
     # shiny::validate(
     #     need(identical(input$data_file_type, "example_bam_file") | (is.null(input$bam_files)),
     #         message = "Please select a file"
