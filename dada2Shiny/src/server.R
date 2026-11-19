@@ -40,14 +40,21 @@ server <- function(input, output, session) {
         if (private_space && !is.null(name) && nzchar(trimws(name))) trimws(name) else paste0("session-", session$token)
     }
 
-    local_working_directory <- function(name) {
-        root <- Sys.getenv("NASQAR_DADA2_WORK_DIR", unset = tempdir())
-        safe_name <- gsub("[^A-Za-z0-9._-]+", "-", trimws(name))
-        if (!nzchar(safe_name)) safe_name <- paste0("session-", session$token)
-        path <- file.path(root, safe_name)
+    # Filtered FASTQs of a run: <project>/work by default (the project lives in
+    # tempdir() without a private space); NASQAR_DADA2_WORK_DIR overrides it,
+    # e.g. node-local disk on HPC. Removed again when the run finishes.
+    local_working_directory <- function(project_dir, name) {
+        root <- Sys.getenv("NASQAR_DADA2_WORK_DIR", unset = "")
+        path <- if (nzchar(root)) {
+            safe_name <- gsub("[^A-Za-z0-9._-]+", "-", trimws(name))
+            if (!nzchar(safe_name)) safe_name <- paste0("session-", session$token)
+            file.path(root, safe_name)
+        } else {
+            file.path(project_dir, "work")
+        }
         dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
         if (!dir.exists(path) || file.access(path, 2) != 0) {
-            stop("The DADA2 node-local work directory is not writable.")
+            stop("The DADA2 work directory is not writable.")
         }
         path
     }

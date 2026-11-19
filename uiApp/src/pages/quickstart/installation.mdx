@@ -109,7 +109,6 @@ docker run -p 127.0.0.1:8083:80 \
   -e NASQAR_DATA_ROOT=/private/data \
   -e NASQAR_PROJECT_ROOT=/private/projects \
   -e R_LIBS_USER=/private/.runtime/R/library \
-  -e NASQAR_DADA2_WORK_DIR=/private/.runtime/work/DADA2 \
   nyuadcorebio/nasqarall:latest
 ```
 
@@ -137,7 +136,7 @@ The same variables work with an image built from source (`nasqar2-all`). Leave `
 | `NASQAR_PRIVATE_ROOT` | All NASQAR2 applications | The private folder as a whole; Browse dialogs start here |
 | `NASQAR_DATA_ROOT` | All NASQAR2 applications | Read-only data directory inside it; input paths must lie under it or under the projects |
 | `NASQAR_PROJECT_ROOT` | All NASQAR2 applications | Private-space projects, one folder per application and project name (`projects/<App>/<name>`), each restorable from the app |
-| `NASQAR_DADA2_WORK_DIR` | DADA2 | Optional fast local scratch for temporary files |
+| `NASQAR_DADA2_WORK_DIR` | DADA2 | Optional; set by the HPC job only. Fast node-local disk for the filtered FASTQs of a run (default: `work/` in the project) |
 | `R_LIBS_USER` | All | Writable R library, so packages installed on the fly survive container restarts |
 
 Applications only accept paths under `NASQAR_DATA_ROOT`, so mount the narrowest directory that holds your inputs rather than your home directory.

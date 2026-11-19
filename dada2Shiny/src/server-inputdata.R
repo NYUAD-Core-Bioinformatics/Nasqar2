@@ -256,7 +256,7 @@ input_files_reactive <- eventReactive(input$initFastq, {
         )
     }
     my_values$work_dir <- project_directory(project_name)
-    my_values$local_work_dir <- local_working_directory(project_name)
+    my_values$local_work_dir <- local_working_directory(my_values$work_dir, project_name)
     my_values$cache_status <- NULL
 
     if(nrow(samples_df) > 0) {

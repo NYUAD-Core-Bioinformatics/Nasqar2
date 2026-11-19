@@ -17,8 +17,9 @@ load paired FASTQ files directly from the configured read-only data root. Give
 the run a project name so filtered reads, sequence tables, taxonomy results,
 and downloadable outputs persist under the DADA2 project directory.
 
-Filtering and trimming use fast local temporary storage when
-`NASQAR_DADA2_WORK_DIR` is set. Parameter-aware caches include the input paths
+Filtered FASTQs are written to `work/` in the project and removed when the run
+finishes; on HPC the job sets `NASQAR_DADA2_WORK_DIR` to put them on fast
+node-local disk instead. Parameter-aware caches include the input paths
 and file metadata, DADA2 parameters, and package version. On Slurm, parallel
 steps derive available workers from `SLURM_CPUS_PER_TASK`.
 

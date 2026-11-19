@@ -95,8 +95,14 @@ reactiveInputData <- eventReactive(input$runDADA2, {
     }
 
     my_values$cache_status <- paste("Computing DADA2 result:", cache_key)
-    filtered_path <- file.path(local_work_path, cache_key, "filtered")
+    # Each run gets its own folder, so the same project running in two
+    # sessions at once neither shares nor deletes the other's files.
+    run_path <- tempfile(pattern = paste0(cache_key, "-"), tmpdir = local_work_path)
+    filtered_path <- file.path(run_path, "filtered")
     dir.create(filtered_path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
+    # Only this run reads the filtered FASTQs; the cache above is what a rerun
+    # or a restore loads.
+    on.exit(unlink(run_path, recursive = TRUE), add = TRUE)
     filt_fs <- file.path(filtered_path, paste0(sample_names, "_F_filt.fastq.gz"))
     names(filt_fs) <- sample_names
     filt_rs <- character()
