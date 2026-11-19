@@ -129,7 +129,15 @@ nowhere persistent to install into, so visitors cannot trigger downloads.
 
 The same variables work with an image built from source (`nasqar2-all`). Leave `NASQAR_PROJECT_ROOT` unset and the applications keep their results in temporary storage inside the container, discarded when it stops. Browser upload and download remain available in every mode.
 
-**Projects.** With `NASQAR_PROJECT_ROOT` set, every NASQAR2 application keeps its work as a project, `projects/<App>/<name>`, holding the outputs, the caches, a `state.rds` with the inputs, settings and stage reached, and a human-readable `state.json` with the same settings plus a snapshot of every UI input at that moment, so the choices behind a result can be read without R (for a methods section, or to share with a colleague). Every figure or table you download is also kept in the project (`plots/` and `downloads/`), and the project panel shows a gallery of them. Each app's input tab has the same two controls: **Persistent project name** (or the app's existing project-name box) and **Restore an existing project**, which lists the projects of that app with their input, stage and date. Restoring reopens the project without recomputing: cached results are reused, and a restore is refused when the source data changed since the project was made. The older per-application variables (`NASQAR_DESEQ2_STATE_DIR`, `NASQAR_*_PROJECT_DIR`, `NASQAR_ATAC_CACHE_DIR`) are still honoured as overrides.
+**Projects.** With `NASQAR_PROJECT_ROOT` set, every NASQAR2 application keeps its work as a project, `projects/<App>/<name>`, holding the outputs, the caches, a `state.rds` with the inputs, settings and stage reached, and a human-readable `state.json` with the same settings plus a snapshot of every UI input at that moment, so the choices behind a result can be read without R (for a methods section, or to share with a colleague). Every figure or table you download is also kept in the project (`plots/` and `downloads/`).
+
+A private instance adds the same controls to every application; a public instance shows none of them:
+
+- **Where is your data?** on the input tab gains two choices. *A file in the private space* reads a file that is already on the server, chosen with Browse, without uploading it. **Reopen a saved project** lists the projects of that app with their input, stage and date.
+- **Project name** on the input tab names the project a new analysis is saved under.
+- **Project files** in the sidebar lists the saved figures and tables with a preview. **Save all to project** writes every figure and table that exists at that moment into the project without downloading them.
+
+Reopening restores the project without recomputing: cached results are reused, and a restore is refused when the source data changed since the project was made. The older per-application variables (`NASQAR_DESEQ2_STATE_DIR`, `NASQAR_*_PROJECT_DIR`, `NASQAR_ATAC_CACHE_DIR`) are still honoured as overrides.
 
 | Variable | Application | Purpose |
 | --- | --- | --- |
