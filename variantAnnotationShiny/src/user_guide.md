@@ -215,27 +215,14 @@ runs without rsIDs and the report says so.
 > genetic variants. *Bioinformatics* 30(14):2076–2078 (2014).
 > https://doi.org/10.1093/bioinformatics/btu168
 
-<div class="nasqar-public-only">
-<h3 style="font-size:20px; font-weight:600; margin:34px 0 6px;">Working with large or sensitive data?</h3>
-<p>NASQAR2 can also run as a private instance on your own server or cluster. A private instance adds:</p>
+<h3 style="font-size:20px; font-weight:600; margin:34px 0 6px;">On a private instance</h3>
+<p>NASQAR2 can also run as a private instance on your own server or cluster, where your data stays on your own machines. Everything above works the same way there. In addition:</p>
 <ul>
-<li><strong>Saved work.</strong> Every analysis is kept automatically and can be reopened later exactly as you left it.</li>
-<li><strong>No uploads.</strong> Large files are read where they already are on the server.</li>
-<li><strong>Your data stays with you.</strong> Nothing leaves your own machines.</li>
-<li><strong>Other species.</strong> Reference genomes beyond human, such as mouse, rat, zebrafish or fruit fly, can be added from within the app.</li>
-<li><strong>Room to grow.</strong> The limits mentioned in this guide can be raised by your administrator.</li>
+<li><strong>Your work is saved automatically</strong> under the name in the <strong>Project name</strong> box on the Input Data tab.</li>
+<li><strong>You can continue later.</strong> Choose <strong>Reopen a saved project</strong> on the Input Data tab, pick your project and press <strong>Open project</strong>. Everything comes back as you left it, without running the analysis again.</li>
+<li><strong>Large files need no upload.</strong> Choose <strong>VCF in the private space</strong> and press <strong>Browse</strong> to use a file that is already on the server.</li>
+<li><strong>Your figures and tables are kept together</strong> on the <strong>Project files</strong> page. <strong>Save all to project</strong> stores all of them in one click.</li>
+<li><strong>Other species can be added.</strong> Open <strong>Install another reference genome</strong> on the Input Data tab, pick one from the list (mouse, rat, zebrafish, fruit fly, nematode, yeast, chicken, pig, cow, dog, rhesus macaque, chimpanzee) and press <strong>Install</strong>.</li>
+<li><strong>The limits in this guide can be raised</strong> by your administrator.</li>
 </ul>
-<p>The NASQAR2 installation guide explains how to set one up.</p>
-</div>
-
-<div class="nasqar-project-private">
-<h3 style="font-size:20px; font-weight:600; margin:34px 0 6px;">Saving and reopening your work</h3>
-<p>On this instance your analysis is saved for you, so you can come back to it later.</p>
-<ul>
-<li><strong>It is saved automatically</strong> under the name in the <strong>Project name</strong> box on the Input Data tab.</li>
-<li><strong>To continue later</strong>, choose <strong>Reopen a saved project</strong> on the Input Data tab, pick your project and press <strong>Open project</strong>. Everything comes back as you left it, without running the analysis again.</li>
-<li><strong>To use a file that is already on the server</strong> instead of uploading one, choose <strong>VCF in the private space</strong> and press <strong>Browse</strong>.</li>
-<li><strong>Your figures and tables</strong> are collected on the <strong>Project files</strong> page. <strong>Save all to project</strong> stores all of them in one click.</li>
-<li class="genome-install-note"><strong>To work with another species</strong>, open <strong>Install another reference genome</strong> on the Input Data tab, pick it from the list (mouse, rat, zebrafish, fruit fly, nematode, yeast, chicken, pig, cow, dog, rhesus macaque, chimpanzee) and press <strong>Install</strong>. It is downloaded once and stays available afterwards. The server needs internet access for this.</li>
-</ul>
-</div>
+<p>These options do not appear on the public site.</p>

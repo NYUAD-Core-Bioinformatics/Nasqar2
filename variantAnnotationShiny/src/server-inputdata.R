@@ -74,10 +74,7 @@ selected_resource <- reactive({
 # ---------------------------------------------------------------------------
 
 # Installing genomes only makes sense where a persistent library exists.
-if (is.null(genome_install_library())) {
-    removeUI(selector = "#genome_install_panel")
-    removeUI(selector = ".genome-install-note", multiple = TRUE)   # its mention in the user guide
-}
+if (is.null(genome_install_library())) removeUI(selector = "#genome_install_panel")
 
 genome_install_choices <- reactive({
     catalog <- genome_resources()
