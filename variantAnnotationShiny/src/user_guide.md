@@ -96,6 +96,10 @@ Files that are not bgzip-compressed and tabix-indexed are converted once into
 a working copy; the source file is never modified. The VCF must be
 coordinate-sorted.
 
+Press **Load VCF**. An overview of the file appears next to the form, and the
+next steps appear in the sidebar. The sidebar marks each finished step with a
+check mark and the step to do next with a **Next** badge.
+
 ### 2. VCF Summary
 
 Shows the header (INFO and FORMAT definitions, samples) and the number of
@@ -105,6 +109,11 @@ variant types, FILTER values and QUAL/DP distributions. Small files are
 summarised automatically; for a large file, press the button to start.
 
 ### 3. Filter Variants
+
+Choose what to keep, then press **Apply filters**. A line above the button
+estimates how many records will be read with the current restriction. When the
+run finishes, the **Filter summary** reports how many records were scanned and
+kept and the settings that were used.
 
 Record filters:
 
@@ -153,8 +162,12 @@ produced:
 * **Per variant**: one row per allele keeping the most severe effect, with the
   number of transcripts and all overlapping genes.
 
-The table on screen shows the first rows of each; the complete tables are
-available under Downloads.
+Press **Annotate variants** to start. The **Annotation report** then gives
+the totals: records, alleles annotated, coding alleles and genes with variants.
+In the **Annotated variants** table, switch between one row per variant and
+one row per variant and transcript, and use the box above each column to
+filter it. The table on screen shows the first rows of each; the complete
+tables are available under Downloads.
 
 Severity order: frameshift > nonsense > nonsynonymous > splice site > coding
 (unpredicted) > not translated > synonymous > promoter > 5' UTR > 3' UTR >
@@ -179,10 +192,12 @@ files with at most 50 samples).
 
 ### 7. Enrichment Handoff
 
-The genes carrying variants (optionally only coding or splice-site variants)
-are written to the NASQAR2 exchange area and opened in **ClusterProfShinyORA**.
-In the ORA module select the organism Human and set the Keytype to the
-identifier you transferred (SYMBOL or ENTREZID).
+Sends the genes carrying variants to **ClusterProfShinyORA** for GO and KEGG
+over-representation analysis. Choose whether to send gene symbols or Entrez
+Gene IDs, and whether to include only genes with coding or splice-site
+variants; the tab shows how many genes that is. In the ORA app, select the
+organism of your reference genome (Human for hg38 or hg19) and set the Keytype
+to the identifier you sent (SYMBOL or ENTREZID).
 
 ### Reference genomes
 
