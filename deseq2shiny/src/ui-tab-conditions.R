@@ -6,12 +6,12 @@ tabItem(
             column(
                 12,
                 box(
-                    title = "1. Sample table", solidHeader = T, status = "primary", width = 12,
-                    p("Every sample needs a value for each experimental factor. Fill the table in either way:"),
+                    title = "1. Sample metadata", solidHeader = T, status = "primary", width = 12,
+                    p("The sample metadata gives every sample a value for each experimental factor. Fill it in either way:"),
                     fluidRow(
                         column(
                             7,
-                            h4(strong(icon("table"), " Edit the table")),
+                            h4(strong(icon("table"), " Edit the metadata table")),
                             helpText("Click a cell to change the value of a sample."),
                             rHandsontableOutput("table"),
                             div(style = "margin-top:12px;",
@@ -21,7 +21,7 @@ tabItem(
                             5,
                             div(
                                 style = "border:1px solid #cfe2f3; border-left:4px solid #3c8dbc; border-radius:4px; background:#f4f8fb; padding:14px 18px;",
-                                h4(style = "margin-top:0;", strong(icon("upload"), " Or upload a design table")),
+                                h4(style = "margin-top:0;", strong(icon("upload"), " Or upload a metadata file")),
                                 helpText(
                                     "A .csv or .txt file (comma or tab delimited) with a header row:",
                                     "sample names in the first column, exactly as in the counts table,",
@@ -113,7 +113,7 @@ tabItem(
                         4,
                         box(
                             title = "4. Initialize DESeq2 dataset", solidHeader = T, status = "success", width = 12,
-                            p("Builds the DESeq2 dataset from the counts, the sample table and the design formula."),
+                            p("Builds the DESeq2 dataset from the counts, the sample metadata and the design formula."),
                             actionButton("init_deseq2", "Initialize DESeq2", icon = icon("play"),
                                 class = "btn btn-success",
                                 style = "width:100%; height:46px; color:#fff;"

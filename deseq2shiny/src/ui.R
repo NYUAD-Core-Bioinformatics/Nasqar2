@@ -82,6 +82,10 @@ ui <- tagList(
                                     box(
                                         title = "Saved plots and files of this project", solidHeader = TRUE,
                                         status = "primary", width = 12,
+                                        actionButton("save_all_to_project", "Save all to project", icon = icon("floppy-disk"),
+                                                     class = "btn-primary", style = "color:#fff; margin-bottom:6px;"),
+                                        helpText("Writes every figure and table that exists right now, and the R code export, into the project without downloading them. Saving again replaces the earlier copies."),
+                                        hr(),
                                         nasqar_project_outputs_ui(heading = FALSE)
                                     )
                                 )

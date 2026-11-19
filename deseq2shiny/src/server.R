@@ -2364,6 +2364,41 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     )
     
 
+    # Save all to project: every figure and table that exists right now, plus
+    # the complete R code export, written into the project folder. Figures go
+    # in as PDF and PNG; the per-plot code exports are left out because the
+    # complete export already contains them.
+    observeEvent(input$save_all_to_project, {
+        if (is.null(session$userData$nasqar_project_last_dir)) {
+            showNotification("There is no project yet: load data first.", type = "warning", duration = 6)
+            return()
+        }
+        wanted <- function(name) {
+            extension <- tolower(tools::file_ext(name))
+            if (extension == "zip") return(startsWith(name, "all_plots_export"))
+            # the transformed-count tables only once that transformation has run
+            if (identical(name, "rlog.csv")) return(!is.null(myValues$rlogMat))
+            if (identical(name, "vsd.csv")) return(!is.null(myValues$vstMat))
+            extension %in% c("pdf", "png", "csv")
+        }
+        # Download names carry a timestamp; without it, saving again replaces
+        # the file instead of adding another copy.
+        without_timestamp <- function(name) {
+            name <- gsub("_[0-9]{8}_[0-9]{6}", "", name)
+            name <- gsub("_[0-9]{2}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}", "", name)
+            gsub("\\.csv(?=_|\\.)", "", name, perl = TRUE)
+        }
+        saved <- withProgress(message = "Saving to the project...", value = 0, {
+            nasqar_project_save_all(session, keep = wanted, rename = without_timestamp,
+                                    progress = function(i, n, name) setProgress(value = i / n, detail = name))
+        })
+        showNotification(
+            if (length(saved)) sprintf("%d files saved to the project.", length(saved))
+            else "Nothing to save yet: run DESeq2 and draw the plots you want first.",
+            type = if (length(saved)) "message" else "warning", duration = 8
+        )
+    })
+
     # Export R code section of the "Export and files" page. It is rebuilt each
     # time the page is opened, from the plots that exist at that moment.
     output$export_code_panel <- renderUI({

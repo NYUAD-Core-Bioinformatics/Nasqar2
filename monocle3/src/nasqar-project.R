@@ -295,6 +295,12 @@ nasqar_project_save_output <- function(file, filename, session = shiny::getDefau
 # plus the copy into the project in a private instance.
 nasqar_download_handler <- function(filename, content, contentType = NULL, outputArgs = list()) {
     session <- shiny::getDefaultReactiveDomain()
+    # remembered so nasqar_project_save_all() can write the same files
+    if (!is.null(session)) {
+        registry <- session$userData$nasqar_download_registry
+        registry[[length(registry) + 1L]] <- list(filename = filename, content = content)
+        session$userData$nasqar_download_registry <- registry
+    }
     shiny::downloadHandler(
         filename = filename,
         content = function(file) {
@@ -306,6 +312,44 @@ nasqar_download_handler <- function(filename, content, contentType = NULL, outpu
         contentType = contentType,
         outputArgs = outputArgs
     )
+}
+
+# Write what the download buttons of the session would deliver straight into
+# the current project (plots/ and downloads/), without a browser download.
+# Each handler is run as if clicked; one whose figure or table does not exist
+# yet fails its own checks and is skipped. keep(name) selects the files to
+# write, rename(name) gives the name to store them under (e.g. without a
+# timestamp, so saving again replaces the file), progress(i, n, name) reports
+# each one. Returns the names saved.
+nasqar_project_save_all <- function(session = shiny::getDefaultReactiveDomain(),
+                                    keep = function(name) TRUE, rename = identity, progress = NULL) {
+    dir <- session$userData$nasqar_project_last_dir
+    if (is.null(dir) || !dir.exists(dir)) return(character(0))
+    registry <- session$userData$nasqar_download_registry
+    saved <- character(0)
+    shiny::isolate(for (i in seq_along(registry)) {
+        entry <- registry[[i]]
+        name <- tryCatch(if (is.function(entry$filename)) entry$filename() else entry$filename,
+                         error = function(e) NULL)
+        if (is.null(name) || length(name) != 1 || is.na(name) || !nzchar(name)) next
+        name <- basename(name)
+        if (!isTRUE(keep(name))) next
+        name <- basename(rename(name))
+        if (name %in% saved) next
+        if (is.function(progress)) progress(i, length(registry), name)
+        temporary <- tempfile(fileext = paste0(".", tools::file_ext(name)))
+        written <- tryCatch({
+            entry$content(temporary)
+            file.exists(temporary) && file.info(temporary)$size > 0
+        }, error = function(e) FALSE)
+        while (grDevices::dev.cur() > 1 && !written) grDevices::dev.off()   # a device left open by a failed plot
+        if (isTRUE(written) && !is.null(tryCatch(nasqar_project_save_output(temporary, name, session),
+                                                 error = function(e) NULL))) {
+            saved <- c(saved, name)
+        }
+        unlink(temporary)
+    })
+    saved
 }
 
 nasqar_project_outputs_ui <- function(heading = TRUE) {
@@ -415,7 +459,7 @@ nasqar_project_outputs_server <- function(input, output, session) {
     output$nasqar_project_outputs <- shiny::renderUI({
         current <- listing()
         if (is.null(current)) return(shiny::helpText("No project yet: load data first."))
-        if (is.null(current$files)) return(shiny::helpText("Nothing saved yet: downloads will appear here."))
+        if (is.null(current$files)) return(shiny::helpText("No files yet. Your analysis is saved automatically; figures, tables and exports you download are also kept here."))
         files <- current$files[order(current$files$modified, decreasing = TRUE), , drop = FALSE]
         cards <- lapply(seq_len(nrow(files)), function(i) {
             f <- files[i, ]
