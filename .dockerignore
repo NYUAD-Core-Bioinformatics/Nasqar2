@@ -17,4 +17,7 @@ data
 # Downloaded into the image by common/fetch-app-data.sh, not copied from here.
 **/www/exampleData
 **/www/taxonomy
+SeuratV5Shiny/src/www/hg19
+GeneCountMerger/src/www/gene_names
+GeneCountMerger/src/www/tx2gene
 **/testData

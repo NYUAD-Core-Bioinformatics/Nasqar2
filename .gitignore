@@ -46,3 +46,8 @@ BUGFIX_DOCUMENTATION.md
 *_CLEANUP.md
 *_SPLIT.md
 *.diff
+
+# Example and reference data downloaded by common/fetch-app-data.sh
+SeuratV5Shiny/src/www/hg19/
+GeneCountMerger/src/www/gene_names/
+GeneCountMerger/src/www/tx2gene/

@@ -6,16 +6,16 @@
 #
 #   common/fetch-app-data.sh                       # into this checkout
 #   common/fetch-app-data.sh --dest /srv/shiny-server
-#   common/fetch-app-data.sh --zip /path/data.zip  # use a local copy, no download
+#   common/fetch-app-data.sh --zip /path/data-v2.zip  # use a local copy, no download
 #   common/fetch-app-data.sh --skip-silva          # without the 216 MB taxonomy references
 #
 # Writes <dest>/<app>/src/www/exampleData (gene_names and tx2gene for Gene
-# Count Merger) from the data.zip release asset, and the SILVA 138.1
+# Count Merger, hg19 for Seurat) from the release archive, and the SILVA 138.1
 # references into <dest>/dada2Shiny/src/www/taxonomy. Directories and files
 # that are already present are left alone, so it is safe to run again.
 #
 # Sources
-#   data.zip                github.com/NYUAD-Core-Bioinformatics/Nasqar2, release data-v1
+#   data-v2.zip             github.com/NYUAD-Core-Bioinformatics/Nasqar2, release data-v2
 #   SILVA 138.1 references  zenodo.org/records/4587955
 
 set -euo pipefail
@@ -23,8 +23,8 @@ set -euo pipefail
 usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 
 dest="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-url="${NASQAR_DATA_URL:-https://github.com/NYUAD-Core-Bioinformatics/Nasqar2/releases/download/data-v1/data.zip}"
-sha256="${NASQAR_DATA_SHA256:-ca37041d16855f61cc20ed1be5e5c8113bd12c9911463f5d5d68a831ebb034d7}"
+url="${NASQAR_DATA_URL:-https://github.com/NYUAD-Core-Bioinformatics/Nasqar2/releases/download/data-v2/data-v2.zip}"
+sha256="${NASQAR_DATA_SHA256:-eac3a7ddd79681562a7e5f3df6878d4eb155befe24af127ac6f744c611626292}"
 zip="" with_silva=1
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -43,7 +43,7 @@ dest="$(cd "$dest" && pwd)"
 silva_base="https://zenodo.org/records/4587955/files"
 silva_files=(silva_nr99_v138.1_train_set.fa.gz silva_species_assignment_v138.1.fa.gz)
 
-# <directory inside data.zip>:<application directory>:<entry that marks it as present>
+# <directory inside the archive>:<application directory>:<entry that marks it as present>
 apps=(
     "data/dada2Shiny:dada2Shiny:exampleData"
     "data/deseq2shiny:deseq2shiny:exampleData"
@@ -53,6 +53,7 @@ apps=(
     "data/NASQAR/tsar_nasqar:tsar_nasqar:exampleData"
     "data/NASQAR/mergeFPKMs:mergeFPKMs:exampleData"
     "data/ATACseqQCShniy:ATACseqQCShniy:exampleData"
+    "data/SeuratV5Shiny:SeuratV5Shiny:hg19"
 )
 
 fetch() {  # fetch <url> <file>
@@ -85,7 +86,7 @@ done
 if [[ $missing -eq 1 ]]; then
     echo "== example data"
     if [[ -z "$zip" ]]; then
-        zip="$work/data.zip"
+        zip="$work/data-v2.zip"
         fetch "$url" "$zip"
         echo "$sha256  $zip" | sha256sum -c - >/dev/null ||
             { echo "checksum mismatch for $url" >&2; exit 1; }
