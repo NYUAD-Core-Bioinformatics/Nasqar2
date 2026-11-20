@@ -115,7 +115,7 @@ observeEvent(input$applyFilter, {
     filter_ready(TRUE)
     if (private_space) {
         nasqar_project_state_write(
-            my_values$project_dir, project_app, basename(my_values$project_dir), "filtered",
+            my_values$project_dir, project_app, nasqar_project_name(my_values$project_dir), "filtered",
             filter_spec = spec, chromosomes = input$chromosomes, regions = input$regions,
             gene_list = input$gene_list, gene_flank = input$gene_flank,
             filtered_path = outcome$written$path, filtered_index = outcome$written$index,
@@ -123,7 +123,7 @@ observeEvent(input$applyFilter, {
             filtered_sample_counts = outcome$written$sample_counts,
             filter_stats = my_values$filter_stats, filter_notes = outcome$notes
         )
-        project_refresh(basename(my_values$project_dir))
+        project_refresh(nasqar_project_name(my_values$project_dir))
     }
     js$addStatusIcon("filter_tab", "done")
     shinyjs::show(selector = "a[data-value=\"annotate_tab\"]")

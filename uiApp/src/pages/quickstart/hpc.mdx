@@ -95,7 +95,7 @@ All locations are relative to `NASQAR2_HOME` unless overridden:
 | Data | Default location | Override |
 | --- | --- | --- |
 | Per-job runtime, logs, uploads, and exchange files | `$NASQAR2_HOME/runs/JOB_ID` | `NASQAR2_RUNTIME_DIR` |
-| Private-space projects of every application (`projects/<App>/<name>`, each with its outputs, caches and a `state.rds` for restoring) | `$NASQAR2_HOME/projects` | `NASQAR2_PROJECTS` |
+| Private-space projects of every application (`projects/<project>/<App>`, each with its outputs, caches and a `state.rds` for restoring) | `$NASQAR2_HOME/projects` | `NASQAR2_PROJECTS` |
 | Private R library | `$NASQAR2_HOME/r-library/R-4.3` | `NASQAR2_R_LIBRARY` |
 
 Input data are mounted read-only from `NASQAR2_DATA_ROOT`, which defaults to

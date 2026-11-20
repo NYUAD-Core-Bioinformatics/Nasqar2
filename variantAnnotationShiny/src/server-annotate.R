@@ -73,10 +73,10 @@ observeEvent(input$runAnnotation, {
     annotation_ready(TRUE)
     if (private_space) {
         nasqar_project_state_write(
-            my_values$project_dir, project_app, basename(my_values$project_dir), "annotated",
+            my_values$project_dir, project_app, nasqar_project_name(my_values$project_dir), "annotated",
             annotation_summary = summary_file, annotation_options = options
         )
-        project_refresh(basename(my_values$project_dir))
+        project_refresh(nasqar_project_name(my_values$project_dir))
     }
     js$addStatusIcon("annotate_tab", "done")
     shinyjs::show(selector = "a[data-value=\"plots_tab\"]")

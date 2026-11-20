@@ -320,7 +320,7 @@ observeEvent(input$loadVcf, {
     if (private_space) {
         source_path <- if (identical(outcome$source$type, "private_vcf_file")) outcome$source$path else outcome$prepared$path
         nasqar_project_state_write(
-            outcome$project_dir, project_app, basename(outcome$project_dir), "loaded",
+            outcome$project_dir, project_app, nasqar_project_name(outcome$project_dir), "loaded",
             input_label = outcome$label,
             source_type = outcome$source$type,
             source_path = source_path,
@@ -330,7 +330,7 @@ observeEvent(input$loadVcf, {
             vcf_name = outcome$label,
             genome = resource$key
         )
-        project_refresh(basename(outcome$project_dir))
+        project_refresh(nasqar_project_name(outcome$project_dir))
     }
 
     updateSelectizeInput(session, "chromosomes",

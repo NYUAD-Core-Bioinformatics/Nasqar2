@@ -267,7 +267,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     )
     dir.create(session_dir, recursive = TRUE, showWarnings = FALSE)
 
-    # Private-space projects: projects/DESeq2Shiny/<name>/state.RData (shared convention)
+    # Private-space projects: projects/<name>/DESeq2Shiny/state.RData (shared convention)
     source("nasqar-project.R", local = TRUE)
     project_app <- "DESeq2Shiny"
     project_legacy_env <- "NASQAR_DESEQ2_STATE_DIR"
@@ -300,8 +300,8 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     }
 
     # State files saved flat into the old NASQAR_DESEQ2_STATE_DIR become projects.
-    if (private_space) {
-        legacy_root <- nasqar_project_app_root(project_app, project_legacy_env)
+    legacy_root <- nasqar_project_flat_root(project_legacy_env)
+    if (private_space && !is.null(legacy_root)) {
         for (old_file in list.files(legacy_root, pattern = "\\.[Rr][Dd]ata$", full.names = TRUE)) {
             name <- nasqar_project_sanitize(sub("\\.[Rr][Dd]ata$", "", basename(old_file)), "deseq2-project")
             dir <- nasqar_project_dir(project_app, name, project_legacy_env)
@@ -1376,8 +1376,8 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
                              type = "warning", duration = 8)
         }
         dir <- nasqar_project_dir(project_app, name, project_legacy_env, fallback = "deseq2-project")
-        nasqar_project_state_write(dir, project_app, basename(dir), "loaded", input_label = dataset_label())
-        project_refresh(basename(dir))
+        nasqar_project_state_write(dir, project_app, nasqar_project_name(dir), "loaded", input_label = dataset_label())
+        project_refresh(nasqar_project_name(dir))
     }, ignoreInit = TRUE)
 
     observeEvent(myValues$dds, {
@@ -1385,10 +1385,10 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
         tryCatch({
             state_file <- project_state_path(current_project_name())
             save_state_file(state_file)
-            nasqar_project_state_write(dirname(state_file), project_app, basename(dirname(state_file)), "analysed",
+            nasqar_project_state_write(dirname(state_file), project_app, nasqar_project_name(dirname(state_file)), "analysed",
                                        input_label = dataset_label(), state_file = state_file)
-            project_refresh(basename(dirname(state_file)))
-            showNotification(sprintf("DESeq2 results saved to project '%s'.", basename(dirname(state_file))),
+            project_refresh(nasqar_project_name(dirname(state_file)))
+            showNotification(sprintf("DESeq2 results saved to project '%s'.", nasqar_project_name(dirname(state_file))),
                              type = "message", duration = 5)
         }, error = function(error) {
             showNotification(paste("Could not save the project state:", error$message), type = "error", duration = 8)
@@ -1408,7 +1408,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
             state_file <- project_state_path(current_project_name())
             state_object <- saveAppState()
             save(state_object, file = state_file)
-            nasqar_project_state_write(dirname(state_file), project_app, basename(dirname(state_file)), "analysed",
+            nasqar_project_state_write(dirname(state_file), project_app, nasqar_project_name(dirname(state_file)), "analysed",
                                        input_label = dataset_label(), state_file = state_file)
         }, error = function(error) NULL)
     }, ignoreInit = TRUE)

@@ -5,7 +5,7 @@ tx_db_list <- list(
     "BSgenome.Celegans.UCSC.ce11" = "TxDb.Celegans.UCSC.ce11.refGene"
 )
 
-# Private-space projects: projects/ATACseqQC/<name>/cache (shared convention)
+# Private-space projects: projects/<name>/ATACseqQC/cache (shared convention)
 source("nasqar-project.R", local = TRUE)
 project_app <- "ATACseqQC"
 private_space <- nasqar_project_available(project_app)

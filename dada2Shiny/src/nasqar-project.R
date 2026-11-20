@@ -1,54 +1,92 @@
 # NASQAR2 private-space projects: one convention for every NASQAR2 application.
 #
-#   <project root>/<App>/<name>/        e.g. /runtime/projects/VariantAnnotation/ncb-934
+#   <project root>/<project>/<App>/     e.g. /private/projects/avo-study/DESeq2Shiny
 #       state.rds                       what was loaded, the settings, the stage reached
 #       ... application outputs ...
 #
+# A project is one study: every application that works on it keeps its part in
+# its own folder under the project's name, so the count matrix, the
+# differential expression and the enrichment of one study sit together.
+#
 # The root comes from NASQAR_PROJECT_ROOT (set by run-nasqar2.sh and the Slurm
-# launcher). A per-application legacy variable (e.g. NASQAR_VARIANT_PROJECT_DIR)
-# still wins when set, so existing deployments keep their layout. When neither
-# is set, or the directory is missing or read-only, there is no private space:
-# the application works in temporary storage and offers no restore.
+# launcher). Projects made before this layout, <project root>/<App>/<name>,
+# are still listed and reopened where they are; renaming one moves it into the
+# new layout. A per-application legacy variable (e.g. NASQAR_VARIANT_PROJECT_DIR)
+# still wins when set: that directory then holds the application's projects
+# directly, <dir>/<name>, so existing deployments keep their layout. When
+# nothing is set, or the directory is missing or read-only, there is no private
+# space: the application works in temporary storage and offers no restore.
 #
 # This file is maintained in common/nasqar-project.R and copied into each
 # application's src/ by common/sync-project-helper.sh. Edit the common copy.
 
+# Folder names of the applications; a project cannot be called like one of them.
+nasqar_project_apps <- c("DESeq2Shiny", "ClusterProfShinyORA", "ClusterProfShinyGSEA", "VariantAnnotation",
+                         "DADA2", "ATACseqQC", "GeneCountMerger", "mergeFPKMs", "Monocle3", "SeuratV5")
+
+nasqar_usable_dir <- function(path) {
+    if (!nzchar(path)) return(NULL)
+    if (!dir.exists(path)) dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
+    if (dir.exists(path) && file.access(path, 2) == 0) normalizePath(path, winslash = "/", mustWork = FALSE) else NULL
+}
+
+# The directory that holds the application's projects directly (<dir>/<name>),
+# when the deployment sets the application's legacy variable; NULL otherwise.
+nasqar_project_flat_root <- function(legacy_env = NULL) {
+    if (is.null(legacy_env)) return(NULL)
+    nasqar_usable_dir(Sys.getenv(legacy_env, unset = ""))
+}
+
+# The shared project root (NASQAR_PROJECT_ROOT), or NULL.
+nasqar_project_root <- function() nasqar_usable_dir(Sys.getenv("NASQAR_PROJECT_ROOT", unset = ""))
+
+# Where this application's projects were kept before the project-first layout
+# (and where a legacy variable still keeps them).
 nasqar_project_app_root <- function(app, legacy_env = NULL) {
-    candidates <- character(0)
-    if (!is.null(legacy_env)) {
-        legacy <- Sys.getenv(legacy_env, unset = "")
-        if (nzchar(legacy)) candidates <- c(candidates, legacy)
-    }
-    root <- Sys.getenv("NASQAR_PROJECT_ROOT", unset = "")
-    if (nzchar(root)) candidates <- c(candidates, file.path(root, app))
-    for (path in candidates) {
-        if (!dir.exists(path)) {
-            dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
-        }
-        if (dir.exists(path) && file.access(path, 2) == 0) {
-            return(normalizePath(path, winslash = "/", mustWork = FALSE))
-        }
-    }
-    NULL
+    flat <- nasqar_project_flat_root(legacy_env)
+    if (!is.null(flat)) return(flat)
+    root <- nasqar_project_root()
+    if (is.null(root)) NULL else nasqar_usable_dir(file.path(root, app))
 }
 
 nasqar_project_available <- function(app, legacy_env = NULL) {
-    !is.null(nasqar_project_app_root(app, legacy_env))
+    !is.null(nasqar_project_flat_root(legacy_env)) || !is.null(nasqar_project_root())
 }
 
 nasqar_project_sanitize <- function(name, fallback = "project") {
     name <- gsub("[^A-Za-z0-9._-]+", "-", trimws(as.character(name %||% "")))
     name <- gsub("^[.-]+|[.-]+$", "", name)
+    if (name %in% nasqar_project_apps) name <- paste0(name, "-project")   # not an application's folder name
     if (!nzchar(name)) fallback else name
+}
+
+# The project name a project directory stands for: <project>/<App> in the
+# project-first layout, <App>/<name> or <dir>/<name> otherwise.
+nasqar_project_name <- function(dir) {
+    dir <- sub("/+$", "", dir)
+    if (basename(dir) %in% nasqar_project_apps) basename(dirname(dir)) else basename(dir)
+}
+
+# The directory of a named project of this application, existing or not: the
+# old-layout folder when the project was made there, the project-first one
+# otherwise. NULL when there is no private space.
+nasqar_project_locate <- function(app, safe, legacy_env = NULL) {
+    flat <- nasqar_project_flat_root(legacy_env)
+    if (!is.null(flat)) return(file.path(flat, safe))
+    root <- nasqar_project_root()
+    if (is.null(root)) return(NULL)
+    current <- file.path(root, safe, app)
+    old <- file.path(root, app, safe)
+    if (!file.exists(nasqar_project_state_file(current)) && file.exists(nasqar_project_state_file(old))) old else current
 }
 
 # Directory of a named project; a temporary directory when there is no
 # private space. The name is sanitised to a safe single path component.
 nasqar_project_dir <- function(app, name, legacy_env = NULL, create = TRUE,
                                fallback = "project") {
-    root <- nasqar_project_app_root(app, legacy_env)
     safe <- nasqar_project_sanitize(name, fallback)
-    path <- if (is.null(root)) file.path(tempdir(), app, safe) else file.path(root, safe)
+    path <- nasqar_project_locate(app, safe, legacy_env)
+    if (is.null(path)) path <- file.path(tempdir(), app, safe)
     if (create) dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
     path
 }
@@ -63,11 +101,10 @@ nasqar_project_state_file <- function(dir) file.path(dir, "state.rds")
 # suffix (name-2, name-3, ...).
 nasqar_project_unique_name <- function(app, name, legacy_env = NULL, owned = NULL,
                                        fallback = "project") {
-    root <- nasqar_project_app_root(app, legacy_env)
     safe <- nasqar_project_sanitize(name, fallback)
-    if (is.null(root)) return(safe)
+    if (!nasqar_project_available(app, legacy_env)) return(safe)
     usable <- function(candidate) {
-        dir <- file.path(root, candidate)
+        dir <- nasqar_project_locate(app, candidate, legacy_env)
         !is.null(owned) && identical(normalizePath(dir, winslash = "/", mustWork = FALSE),
                                      normalizePath(owned, winslash = "/", mustWork = FALSE)) ||
             !file.exists(nasqar_project_state_file(dir))
@@ -143,7 +180,7 @@ nasqar_project_state_write <- function(dir, app, name, stage, ...) {
         state <- list(app = app, name = name, created = now,
                       nasqar_state_version = 1L)
     }
-    state$name <- basename(dir)
+    state$name <- nasqar_project_name(dir)
     session <- shiny::getDefaultReactiveDomain()
     updates <- list(...)
     # a project renamed in this session is still reached under its old path:
@@ -177,6 +214,14 @@ nasqar_is_link <- function(path) {
     !is.na(target) & nzchar(target)
 }
 
+# "&project=<name>" for a link that hands data to another application, so the
+# receiving application continues in the same project ("" outside a project).
+nasqar_project_handoff_query <- function(session = shiny::getDefaultReactiveDomain()) {
+    dir <- if (!is.null(session)) session$userData$nasqar_project_last_dir else NULL
+    if (is.null(dir) || is.null(nasqar_project_root())) return("")
+    paste0("&project=", utils::URLencode(nasqar_project_name(dir), reserved = TRUE))
+}
+
 # Replace the directory prefix `old` by `new` in every path found in x
 # (character vectors, at any depth of a list).
 nasqar_rewrite_paths <- function(x, old, new) {
@@ -197,45 +242,61 @@ nasqar_rewrite_paths <- function(x, old, new) {
 # the alias of a renamed project) directly under the application's root, with
 # a state file. Returns its normalised path, or stops with a message.
 nasqar_project_checked_dir <- function(app, name, legacy_env = NULL) {
-    root <- nasqar_project_app_root(app, legacy_env)
-    if (is.null(root)) stop("This instance has no private space.", call. = FALSE)
+    if (!nasqar_project_available(app, legacy_env)) stop("This instance has no private space.", call. = FALSE)
     safe <- nasqar_project_sanitize(name, "")
     if (!nzchar(safe) || !identical(safe, as.character(name))) stop("Not a project name.", call. = FALSE)
-    dir <- file.path(root, safe)
+    dir <- nasqar_project_locate(app, safe, legacy_env)
     if (nasqar_is_link(dir) || !dir.exists(dir) || !file.exists(nasqar_project_state_file(dir))) {
         stop(sprintf("There is no saved project named '%s'.", safe), call. = FALSE)
     }
     dir
 }
 
-# Rename a project: move its folder and correct the paths recorded in its
-# state. Returns the new directory.
+# Remove a project's folder <root>/<project> once no application has anything
+# left in it (file.remove() only removes an empty directory).
+nasqar_project_prune <- function(dir) {
+    root <- nasqar_project_root()
+    parent <- dirname(dir)
+    if (!is.null(root) && identical(dirname(parent), root) && !basename(parent) %in% nasqar_project_apps &&
+        dir.exists(parent) && !length(list.files(parent, all.files = TRUE, no.. = TRUE))) {
+        suppressWarnings(file.remove(parent))
+    }
+    invisible(NULL)
+}
+
+# Rename a project: move this application's folder under the new project name
+# and correct the paths recorded in its state. A project of the old layout
+# moves into the project-first one. Returns the new directory.
 nasqar_project_rename <- function(app, name, new_name, legacy_env = NULL) {
     old_dir <- nasqar_project_checked_dir(app, name, legacy_env)
     safe <- nasqar_project_sanitize(new_name, "")
     if (!nzchar(safe)) stop("Enter a name using letters, digits, '.', '_' or '-'.", call. = FALSE)
-    new_dir <- file.path(dirname(old_dir), safe)
-    if (identical(safe, basename(old_dir))) stop("That is already the name of this project.", call. = FALSE)
-    if (file.exists(new_dir) || nasqar_is_link(new_dir)) {
-        stop(sprintf("A project named '%s' already exists.", safe), call. = FALSE)
+    if (identical(safe, nasqar_project_name(old_dir))) stop("That is already the name of this project.", call. = FALSE)
+    flat <- nasqar_project_flat_root(legacy_env)
+    new_dir <- if (!is.null(flat)) file.path(flat, safe) else file.path(nasqar_project_root(), safe, app)
+    taken <- nasqar_project_locate(app, safe, legacy_env)
+    if (file.exists(new_dir) || nasqar_is_link(new_dir) || file.exists(nasqar_project_state_file(taken)) || nasqar_is_link(taken)) {
+        stop(sprintf("Project '%s' already has an analysis of this application.", safe), call. = FALSE)
     }
+    dir.create(dirname(new_dir), recursive = TRUE, showWarnings = FALSE, mode = "0700")
     if (!file.rename(old_dir, new_dir)) stop("The project folder could not be renamed.", call. = FALSE)
     state <- nasqar_project_state_read(new_dir)
     if (!is.null(state)) {
         state <- nasqar_rewrite_paths(state, old_dir, new_dir)
         state$name <- safe
-        state$renamed_from <- c(state$renamed_from, basename(old_dir))
+        state$renamed_from <- c(state$renamed_from, nasqar_project_name(old_dir))
         saveRDS(state, nasqar_project_state_file(new_dir))
         tryCatch(nasqar_project_json_write(new_dir, state), error = function(e) NULL)
     }
     new_dir
 }
 
-# Delete a project folder for good.
+# Delete this application's part of a project for good.
 nasqar_project_delete <- function(app, name, legacy_env = NULL) {
     dir <- nasqar_project_checked_dir(app, name, legacy_env)
     unlink(dir, recursive = TRUE, force = TRUE)
     if (dir.exists(dir)) stop("The project folder could not be deleted completely.", call. = FALSE)
+    nasqar_project_prune(dir)
     invisible(TRUE)
 }
 
@@ -254,28 +315,45 @@ nasqar_project_size <- function(dir) {
 # and nasqar_project_state_write() records the real path. The link goes when
 # the session ends; one left behind by a killed process is removed by the
 # next session (the marker names the process that made it).
-nasqar_project_alias_marker <- function(dir, alias_name) file.path(dir, paste0(".nasqar-alias-", alias_name))
+nasqar_project_alias_marker <- function(target_dir, alias_dir) {
+    file.path(target_dir, paste0(".nasqar-alias-", basename(dirname(alias_dir)), "--", basename(alias_dir)))
+}
 
 nasqar_project_alias_create <- function(alias_dir, target_dir) {
     if (file.exists(alias_dir) || nasqar_is_link(alias_dir)) unlink(alias_dir)
-    ok <- suppressWarnings(file.symlink(basename(target_dir), alias_dir))
-    if (isTRUE(ok)) writeLines(as.character(Sys.getpid()), nasqar_project_alias_marker(target_dir, basename(alias_dir)))
+    dir.create(dirname(alias_dir), recursive = TRUE, showWarnings = FALSE, mode = "0700")
+    # relative, so the link also holds outside the container that made it
+    relative <- if (identical(dirname(alias_dir), dirname(target_dir))) basename(target_dir)
+                else file.path("..", basename(dirname(target_dir)), basename(target_dir))
+    ok <- suppressWarnings(file.symlink(relative, alias_dir))
+    if (isTRUE(ok)) writeLines(as.character(Sys.getpid()), nasqar_project_alias_marker(target_dir, alias_dir))
     isTRUE(ok)
 }
 
 nasqar_project_alias_remove <- function(alias_dir) {
-    target <- Sys.readlink(alias_dir)
-    if (is.na(target) || !nzchar(target)) return(invisible(FALSE))
-    unlink(nasqar_project_alias_marker(file.path(dirname(alias_dir), target), basename(alias_dir)))
+    if (!nasqar_is_link(alias_dir)) return(invisible(FALSE))
+    target <- normalizePath(alias_dir, winslash = "/", mustWork = FALSE)
+    unlink(nasqar_project_alias_marker(target, alias_dir))
     unlink(alias_dir)
+    nasqar_project_prune(alias_dir)
     invisible(TRUE)
 }
 
-nasqar_project_alias_cleanup <- function(root) {
-    for (path in list.files(root, full.names = TRUE)) {
-        target <- Sys.readlink(path)
-        if (is.na(target) || !nzchar(target)) next
-        marker <- nasqar_project_alias_marker(file.path(root, target), basename(path))
+# Every folder that may be a project of this application, in any layout.
+nasqar_project_candidates <- function(app, legacy_env = NULL) {
+    flat <- nasqar_project_flat_root(legacy_env)
+    if (!is.null(flat)) return(list.files(flat, full.names = TRUE))
+    root <- nasqar_project_root()
+    if (is.null(root)) return(character(0))
+    studies <- setdiff(list.files(root), nasqar_project_apps)
+    current <- file.path(root, studies, app)
+    c(current[file.exists(current) | nasqar_is_link(current)], list.files(file.path(root, app), full.names = TRUE))
+}
+
+nasqar_project_alias_cleanup <- function(app, legacy_env = NULL) {
+    for (path in nasqar_project_candidates(app, legacy_env)) {
+        if (!nasqar_is_link(path)) next
+        marker <- nasqar_project_alias_marker(normalizePath(path, winslash = "/", mustWork = FALSE), path)
         pid <- if (file.exists(marker)) suppressWarnings(readLines(marker, n = 1, warn = FALSE)) else ""
         alive <- length(pid) == 1 && grepl("^[0-9]+$", pid) && dir.exists(file.path("/proc", pid))
         if (!alive) nasqar_project_alias_remove(path)
@@ -359,15 +437,16 @@ nasqar_project_list <- function(app, legacy_env = NULL) {
     empty <- data.frame(name = character(0), stage = character(0), input = character(0),
                         updated = as.POSIXct(character(0)), dir = character(0),
                         stringsAsFactors = FALSE)
-    root <- nasqar_project_app_root(app, legacy_env)
-    if (is.null(root)) return(empty)
-    dirs <- list.dirs(root, full.names = TRUE, recursive = FALSE)
-    dirs <- dirs[!nasqar_is_link(dirs)]   # not the alias of a renamed project
+    if (!nasqar_project_available(app, legacy_env)) return(empty)
+    dirs <- nasqar_project_candidates(app, legacy_env)
+    dirs <- dirs[dir.exists(dirs) & !nasqar_is_link(dirs)]   # not the alias of a renamed project
+    # a name used in both layouts: the project-first folder is the project
+    dirs <- dirs[!duplicated(vapply(dirs, nasqar_project_name, character(1)))]
     rows <- lapply(dirs, function(dir) {
         state <- nasqar_project_state_read(dir)
         if (is.null(state)) return(NULL)
         data.frame(
-            name = basename(dir),
+            name = nasqar_project_name(dir),
             stage = as.character(state$stage %||% ""),
             input = as.character(state$input_label %||% ""),
             updated = as.POSIXct(state$updated %||% file.info(dir)$mtime),
@@ -744,8 +823,7 @@ nasqar_project_ui <- function(default_name, label = "Persistent project name",
 nasqar_project_server <- function(input, output, session, app, legacy_env = NULL,
                                   on_restore) {
     session$userData$nasqar_project_input <- input   # for state.json snapshots
-    root <- nasqar_project_app_root(app, legacy_env)
-    if (is.null(root)) {
+    if (!nasqar_project_available(app, legacy_env)) {
         shiny::removeUI(selector = "#nasqar_project_panel")
         shiny::removeUI(selector = ".nasqar-project-private", multiple = TRUE)
         return(invisible(function() NULL))
@@ -766,6 +844,10 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
         if (!is.null(state)) nasqar_project_json_write(dir, state)
     }, ignoreInit = TRUE)
     refresh <- function(select = NULL) {
+        # callers name the project by its folder: accept the folder of either layout
+        if (identical(select, app) && !is.null(session$userData$nasqar_project_last_dir)) {
+            select <- nasqar_project_name(session$userData$nasqar_project_last_dir)
+        }
         choices <- nasqar_project_choices(nasqar_project_list(app, legacy_env))
         if (!length(choices)) {
             shiny::updateSelectInput(session, "nasqar_project_restore",
@@ -775,10 +857,21 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
                                      selected = if (!is.null(select) && select %in% choices) select else choices[[1]])
         }
     }
-    output$nasqar_project_root_note <- shiny::renderText(paste("Projects are stored under", root))
+    output$nasqar_project_root_note <- shiny::renderText(paste(
+        "Projects are stored under", nasqar_project_flat_root(legacy_env) %||% nasqar_project_root()))
+    # A handoff from another application names the project to continue in.
+    handoff_project_set <- FALSE
+    shiny::observe({
+        if (handoff_project_set || is.null(input$nasqar_project_name)) return()   # until the name box exists
+        handoff_project_set <<- TRUE
+        project <- shiny::parseQueryString(shiny::isolate(session$clientData$url_search))$project
+        if (!is.null(project) && nzchar(project)) {
+            shiny::updateTextInput(session, "nasqar_project_name", value = nasqar_project_sanitize(project, "project"))
+        }
+    })
 
     # ---- current project badge, rename and delete -------------------------
-    nasqar_project_alias_cleanup(root)
+    nasqar_project_alias_cleanup(app, legacy_env)
     current <- shiny::reactiveVal(session$userData$nasqar_project_last_dir)
     session$userData$nasqar_project_current <- current
     is_current <- function(dir) {
@@ -795,7 +888,7 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
                           "border-radius:16px; padding:5px 6px 5px 12px; font-size:13px; box-shadow:0 1px 4px rgba(0,0,0,.15);",
                           "display:flex; align-items:center; gap:8px; max-width:60vw;"),
             shiny::span(shiny::icon("folder-open"), " Saving to project ",
-                        shiny::tags$strong(style = "word-break:break-all;", basename(dir))),
+                        shiny::tags$strong(style = "word-break:break-all;", nasqar_project_name(dir))),
             shiny::actionButton("nasqar_project_rename_current", "Rename", icon = shiny::icon("pen"),
                                 class = "btn-default btn-xs", style = "border-radius:12px;"))
     })
@@ -803,7 +896,8 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
         session$userData$nasqar_project_rename_target <- name
         shiny::showModal(shiny::modalDialog(
             title = "Rename project", easyClose = TRUE,
-            shiny::p("Project ", shiny::tags$strong(name), " keeps everything it holds; only its name changes. Nothing is run again."),
+            shiny::p("This analysis moves from project ", shiny::tags$strong(name), " to the name you give, with everything it holds. Nothing is run again."),
+            shiny::helpText("Give the name of a project another application already saved to, and the analyses sit together in one folder."),
             shiny::textInput("nasqar_project_rename_to", "New name", value = name, width = "100%"),
             shiny::helpText("Letters, digits, '.', '_' and '-'. Other characters become '-'."),
             footer = shiny::tagList(
@@ -812,7 +906,7 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
     }
     shiny::observeEvent(input$nasqar_project_rename_current, {
         dir <- session$userData$nasqar_project_last_dir
-        if (!is.null(dir)) ask_new_name(basename(normalizePath(dir, winslash = "/", mustWork = FALSE)))
+        if (!is.null(dir)) ask_new_name(nasqar_project_name(normalizePath(dir, winslash = "/", mustWork = FALSE)))
     }, ignoreInit = TRUE)
     shiny::observeEvent(input$nasqar_project_rename_btn, {
         name <- input$nasqar_project_restore
@@ -822,8 +916,8 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
     shiny::observeEvent(input$nasqar_project_rename_ok, {
         name <- session$userData$nasqar_project_rename_target
         if (is.null(name)) return()
-        old_dir <- file.path(root, name)
-        was_current <- is_current(old_dir)
+        old_dir <- tryCatch(nasqar_project_checked_dir(app, name, legacy_env), error = function(error) NULL)
+        was_current <- !is.null(old_dir) && is_current(old_dir)
         new_dir <- tryCatch(nasqar_project_rename(app, name, input$nasqar_project_rename_to, legacy_env),
                             error = function(error) {
                                 shiny::showNotification(conditionMessage(error), type = "error", duration = 10)
@@ -838,14 +932,14 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
             session$userData$nasqar_project_aliases <- aliases
             nasqar_project_set_current(session, new_dir)
             if (!is.null(input$nasqar_project_name)) {
-                shiny::updateTextInput(session, "nasqar_project_name", value = basename(new_dir))
+                shiny::updateTextInput(session, "nasqar_project_name", value = nasqar_project_name(new_dir))
             }
             if (!all(linked)) shiny::showNotification(
                 "The project is renamed. Reload the page and reopen it before you continue: this storage does not let the open session follow the new name.",
                 type = "warning", duration = NULL)
         }
-        refresh(basename(new_dir))
-        shiny::showNotification(sprintf("Project '%s' is now '%s'.", name, basename(new_dir)), type = "message", duration = 8)
+        refresh(nasqar_project_name(new_dir))
+        shiny::showNotification(sprintf("Project '%s' is now '%s'.", name, nasqar_project_name(new_dir)), type = "message", duration = 8)
     }, ignoreInit = TRUE)
     session$onSessionEnded(function() {
         for (alias in session$userData$nasqar_project_aliases) nasqar_project_alias_remove(alias)
@@ -862,9 +956,9 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
         session$userData$nasqar_project_delete_target <- name
         shiny::showModal(shiny::modalDialog(
             title = "Delete project", easyClose = TRUE,
-            shiny::p("Delete project ", shiny::tags$strong(name), " (", nasqar_project_size(dir), ")?"),
+            shiny::p("Delete this application's analysis in project ", shiny::tags$strong(name), " (", nasqar_project_size(dir), ")?"),
             shiny::p(shiny::tags$strong("This removes its saved analysis, figures and tables for good. It cannot be undone.")),
-            shiny::helpText("Your input data in the private space is not touched."),
+            shiny::helpText("What other applications saved in the same project, and your input data, are not touched."),
             footer = shiny::tagList(
                 shiny::modalButton("Cancel"),
                 shiny::actionButton("nasqar_project_delete_ok", "Delete project", icon = shiny::icon("trash"),

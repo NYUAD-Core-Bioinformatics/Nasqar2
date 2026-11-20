@@ -39,7 +39,7 @@ server <- function(input, output, session) {
   }
 
 
-  # Private-space projects: projects/SeuratV5/<name> (shared convention); the
+  # Private-space projects: projects/<name>/SeuratV5 (shared convention); the
   # name comes from the app's own "projectname" input.
   source("nasqar-project.R", local = TRUE)
   project_app <- "SeuratV5"

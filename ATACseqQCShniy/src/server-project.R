@@ -6,18 +6,18 @@ observeEvent(my_values$private_dir, {
     if (!private_space || is.null(my_values$private_dir)) return()
     dir <- nasqar_project_dir(project_app, current_project_name(), fallback = "atac-project")
     nasqar_project_state_write(
-        dir, project_app, basename(dir), "loaded",
+        dir, project_app, nasqar_project_name(dir), "loaded",
         input_label = basename(my_values$private_dir), source_type = "private_directory",
         private_directory_path = my_values$private_dir, bs_genome = input$bs_genome_input
     )
-    project_refresh(basename(dir))
+    project_refresh(nasqar_project_name(dir))
 }, ignoreInit = TRUE)
 
 observeEvent(input$bs_genome_input, {
     if (!private_space || is.null(my_values$private_dir) || is.null(input$bs_genome_input) || !nzchar(input$bs_genome_input)) return()
     dir <- nasqar_project_dir(project_app, current_project_name(), fallback = "atac-project")
     if (!is.null(nasqar_project_state_read(dir))) {
-        nasqar_project_state_write(dir, project_app, basename(dir), "loaded", bs_genome = input$bs_genome_input)
+        nasqar_project_state_write(dir, project_app, nasqar_project_name(dir), "loaded", bs_genome = input$bs_genome_input)
     }
 }, ignoreInit = TRUE)
 
