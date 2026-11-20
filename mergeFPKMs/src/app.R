@@ -104,7 +104,8 @@ ui <- tagList(
                     ),
                     conditionalPanel(
                         "output.filesMerged",
-                        downloadLink("downloadData", "Download merged table (.csv)", class = "btn btn-success", style = "color: #fff; margin-top: 10px;")
+                        downloadLink("downloadData", "Download merged table (.csv)", class = "btn btn-success", style = "color: #fff; margin-top: 10px;"),
+                        uiOutput("projectSavedNote")
                     )
                 )), # column
                 column(
@@ -236,7 +237,20 @@ server <- function(input, output, session) {
         utils::write.csv(merged$data, merged_file, row.names = FALSE)
         nasqar_project_state_write(dir, project_app, basename(dir), "merged",
                                    input_label = sprintf("%d files", nrow(inputDataReactive())), merged_file = merged_file)
+        # also under downloads/, so it shows on the Project files page
+        nasqar_project_save_output(merged_file, "merged-fpkm.csv", session)
+        project_saved(list(name = basename(dir)))
         project_refresh(basename(dir))
+    })
+    project_saved <- reactiveVal(NULL)
+    output$projectSavedNote <- renderUI({
+        saved <- project_saved()
+        if (!private_space || is.null(saved)) return(NULL)
+        div(class = "alert alert-success", style = "margin-top:12px;",
+            icon("check-circle"), " Saved in the private space as project ", strong(saved$name),
+            ". The file is ",
+            tags$code(file.path("projects", project_app, saved$name, "downloads", "merged-fpkm.csv")),
+            "; see it on the ", strong("Project files"), " page.")
     })
     project_refresh <- nasqar_project_server(input, output, session, project_app, on_restore = function(state, dir) {
         if (!identical(state$app, project_app)) return("this project belongs to another application")
