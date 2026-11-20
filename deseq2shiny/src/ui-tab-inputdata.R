@@ -8,23 +8,15 @@ tabItem(
                 # One question decides what the rest of the box shows. The two
                 # private-space choices are removed by the server on a public
                 # instance.
+                nasqar_project_step_ui("deseq2-project"),
                 radioButtons("data_file_type", "Where is your data?",
                     c(
                         "Upload a counts file" = "countsFile",
                         "Counts file in the private space" = "privateFile",
                         "Example data (single-factor)" = "examplecounts",
-                        "Example data (multi-factor)" = "examplecountsfactors",
-                        "Reopen a saved project" = "savedProject"
+                        "Example data (multi-factor)" = "examplecountsfactors"
                     ),
                     selected = "countsFile"
-                ),
-
-                conditionalPanel(condition = "input.data_file_type=='savedProject'",
-                    div(class = "nasqar-project-private",
-                        nasqar_project_restore_ui(button_label = "Open project", stacked = TRUE),
-                        helpText(style = "margin-top:10px;",
-                                 "Input, settings and results come back without recomputing.")
-                    )
                 ),
 
                 conditionalPanel(condition = "input.data_file_type=='privateFile'",
@@ -73,18 +65,6 @@ tabItem(
                         a(href = "https://doi.org/10.1007/978-3-319-07212-8_3", target = "_blank", "this publication")
                     )
                 ),
-                conditionalPanel(condition = "input.data_file_type!='savedProject'",
-                    div(class = "nasqar-project-private",
-                        nasqar_project_name_ui(
-                            "deseq2-project",
-                            label = "Project name",
-                            help = paste(
-                                "Saved automatically in the private space under this name: after DESeq2 runs,",
-                                "and again whenever you change settings."
-                            )
-                        )
-                    )
-                )
             ),
             conditionalPanel(
                 "output.fileUploaded",

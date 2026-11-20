@@ -9,7 +9,7 @@ server <- function(input, output, session) {
 
     # Server-side browser jailed to the private data root; it only fills the path box.
     if (!is.null(data_root)) {
-        browse_roots <- nasqar_browse_roots()
+        browse_roots <- nasqar_browse_roots   # a function: the open project comes first
         shinyFiles::shinyDirChoose(input, "browse_fastq_directory", roots = browse_roots, session = session)
         observeEvent(input$browse_fastq_directory, {
             selected <- tryCatch(shinyFiles::parseDirPath(browse_roots, input$browse_fastq_directory), error = function(e) character(0))

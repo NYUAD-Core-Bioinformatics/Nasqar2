@@ -118,7 +118,21 @@ nasqar_project_unique_name <- function(app, name, legacy_env = NULL, owned = NUL
 # Roots a Browse dialog may show: the read-only data root and the private
 # space itself, so results saved by one application (a merged count matrix, a
 # Seurat object, a DESeq2 table) can be picked as the input of another.
+# When a project is open in the session, its folder comes first ("This
+# project"), so a Browse dialog opens there; the rest of the private space is
+# one choice away in the same dialog. Applications pass the function itself as
+# shinyFiles roots, so the list follows the project chosen.
 nasqar_browse_roots <- function() {
+    roots <- nasqar_browse_roots_fixed()
+    session <- shiny::getDefaultReactiveDomain()
+    project <- if (!is.null(session)) session$userData$nasqar_project_browse_dir else NULL
+    if (!is.null(project) && dir.exists(project)) {
+        roots <- c("This project" = normalizePath(project, winslash = "/", mustWork = FALSE), roots)
+    }
+    roots
+}
+
+nasqar_browse_roots_fixed <- function() {
     roots <- character(0)
     # NASQAR_PRIVATE_ROOT: the private folder as a whole (data/ and projects/
     # inside it); browsing starts there and can go into either.
@@ -159,7 +173,7 @@ nasqar_private_path <- function(path, directory = FALSE, what = if (isTRUE(direc
 }
 
 # TRUE when a resolved path lies inside one of the browse roots.
-nasqar_path_inside_roots <- function(resolved, roots = nasqar_browse_roots()) {
+nasqar_path_inside_roots <- function(resolved, roots = nasqar_browse_roots_fixed()) {
     for (var in c("NASQAR_DATA_ROOT", "NASQAR_PROJECT_ROOT")) {   # always allowed, even when nested
         extra <- Sys.getenv(var, unset = "")
         if (nzchar(extra) && dir.exists(extra)) roots[var] <- normalizePath(extra, winslash = "/", mustWork = FALSE)
@@ -430,6 +444,76 @@ nasqar_signature_matches <- function(signature, path) {
     !is.null(signature) && !is.null(current) &&
         identical(signature$size, current$size) &&
         isTRUE(abs(signature$mtime - current$mtime) < 1)
+}
+
+# Names of the applications as people know them.
+nasqar_project_app_labels <- c(
+    DESeq2Shiny = "DESeq2", ClusterProfShinyORA = "ORA", ClusterProfShinyGSEA = "GSEA",
+    VariantAnnotation = "Variant Annotation", DADA2 = "DADA2", ATACseqQC = "ATACseqQC",
+    GeneCountMerger = "Gene Count Merger", mergeFPKMs = "Merge FPKMs", Monocle3 = "Monocle 3",
+    SeuratV5 = "Seurat v5")
+
+nasqar_project_app_label <- function(app) {
+    unname(ifelse(app %in% names(nasqar_project_app_labels), nasqar_project_app_labels[app], app))
+}
+
+# Every project of the instance, newest first, each with the folders of the
+# applications that saved to it (apps: folder name -> directory; stages: the
+# stage each reached). Projects of the old layout are included.
+nasqar_project_studies <- function(app, legacy_env = NULL) {
+    rows <- list()
+    add <- function(name, a, dir) {
+        if (!dir.exists(dir) || nasqar_is_link(dir)) return()
+        state <- nasqar_project_state_read(dir)
+        if (is.null(state)) return()
+        entry <- rows[[name]] %||% list(name = name, apps = character(0), stages = character(0),
+                                        updated = as.POSIXct(0, origin = "1970-01-01"))
+        if (a %in% names(entry$apps)) return()   # the project-first folder wins over an old one
+        entry$apps[a] <- dir
+        entry$stages[a] <- as.character(state$stage %||% "saved")
+        updated <- tryCatch(as.POSIXct(state$updated %||% file.info(dir)$mtime), error = function(e) file.info(dir)$mtime)
+        if (isTRUE(updated > entry$updated)) entry$updated <- updated
+        rows[[name]] <<- entry
+    }
+    flat <- nasqar_project_flat_root(legacy_env)
+    if (!is.null(flat)) {
+        for (dir in list.files(flat, full.names = TRUE)) add(basename(dir), app, dir)
+    } else {
+        root <- nasqar_project_root()
+        if (is.null(root)) return(rows)
+        for (study in setdiff(list.files(root), nasqar_project_apps)) {
+            folder <- file.path(root, study)
+            if (!dir.exists(folder) || nasqar_is_link(folder)) next
+            for (a in intersect(list.files(folder), nasqar_project_apps)) add(study, a, file.path(folder, a))
+        }
+        for (a in intersect(list.files(root), nasqar_project_apps)) {          # old layout
+            for (dir in list.files(file.path(root, a), full.names = TRUE)) add(basename(dir), a, dir)
+        }
+    }
+    if (!length(rows)) return(rows)
+    rows[order(vapply(rows, function(r) as.numeric(r$updated), numeric(1)), decreasing = TRUE)]
+}
+
+# The newest file of another application's part of a project, e.g.
+# nasqar_project_newest(apps, "GeneCountMerger", "^merged-counts\\.csv$").
+nasqar_project_newest <- function(apps, from, pattern, subdir = NULL) {
+    if (!from %in% names(apps)) return(NULL)
+    folder <- unname(apps[[from]])
+    if (!is.null(subdir)) folder <- file.path(folder, subdir)
+    files <- list.files(folder, pattern = pattern, full.names = TRUE)
+    if (!length(files)) return(NULL)
+    files[which.max(file.info(files)$mtime)]
+}
+
+# The folder a Browse dialog opens in for a project: the project's own folder,
+# or for a project of the old layout the folder of one of its applications.
+nasqar_project_study_dir <- function(study, app) {
+    if (is.null(study)) return(NULL)
+    root <- nasqar_project_root()
+    folder <- if (!is.null(root)) file.path(root, study$name) else NULL
+    if (!is.null(folder) && dir.exists(folder) && !nasqar_is_link(folder)) return(folder)
+    if (app %in% names(study$apps)) return(unname(study$apps[[app]]))
+    if (length(study$apps)) unname(study$apps[[1]]) else NULL
 }
 
 # All projects of an application that have a state.rds, newest first.
@@ -792,6 +876,54 @@ nasqar_project_restore_ui <- function(button_label = "Restore", help = TRUE, sta
     )
 }
 
+# The first question of a private instance: a new project or an existing one.
+# Place it at the top of the input step. The project name the application
+# saves under is the hidden "nasqar_project_name" input, kept by the server.
+nasqar_project_step_ui <- function(default_name = "project") {
+    small_button <- function(id, icon, title) {
+        shiny::actionButton(id, NULL, icon = shiny::icon(icon), class = "btn-default btn-sm", title = title)
+    }
+    shiny::div(
+        class = "nasqar-project-private", id = "nasqar_project_step",
+        shiny::div(
+            id = "nasqar_project_step_controls",
+            shiny::radioButtons("nasqar_project_mode", "Project",
+                                c("Create a new project" = "new", "Open an existing project" = "existing"),
+                                selected = "new"),
+            shiny::conditionalPanel(
+                "input.nasqar_project_mode == 'new'",
+                shiny::textInput("nasqar_project_new_name", NULL, value = default_name, width = "100%",
+                                 placeholder = "Name of the new project")),
+            shiny::conditionalPanel(
+                "input.nasqar_project_mode == 'existing'",
+                shiny::selectizeInput("nasqar_project_open", NULL, choices = c("No projects yet" = ""), width = "100%",
+                                      options = list(render = nasqar_project_picker_render())),
+                shiny::div(style = "display:flex; gap:6px; margin:-6px 0 8px;",
+                           small_button("nasqar_project_rename_btn", "pen", "Rename this application's analysis in the project"),
+                           small_button("nasqar_project_delete_btn", "trash", "Delete this application's analysis in the project"),
+                           small_button("nasqar_project_refresh", "sync", "Refresh the list")))
+        ),
+        shiny::uiOutput("nasqar_project_status"),
+        shiny::div(style = "display:none;", shiny::textInput("nasqar_project_name", NULL, value = default_name)),
+        shiny::tags$script(shiny::HTML(
+            "Shiny.addCustomMessageHandler('nasqar-project-lock', function(lock) {",
+            "  $('#nasqar_project_step_controls').toggle(!lock); });")),
+        shiny::tags$hr(style = "margin:12px 0;")
+    )
+}
+
+# Two-line options for a project picker: the name, then "apps · date".
+nasqar_project_picker_render <- function() {
+    split_label <- "var m = /^(.*?)\\s{2}\\((.*)\\)$/.exec(item.label || ''), name = m ? m[1] : (item.label || ''), meta = m ? m[2].split(', ').join(' · ') : '';"
+    I(paste0(
+        "{option: function(item, escape) {", split_label,
+        " return '<div style=\"padding:7px 12px;\"><div style=\"font-weight:600;\">' + escape(name) + '</div>'",
+        " + (meta ? '<div style=\"font-size:12px; opacity:0.7;\">' + escape(meta) + '</div>' : '') + '</div>'; },",
+        " item: function(item, escape) {", split_label,
+        " return '<div style=\"line-height:1.35;\"><div style=\"font-weight:600;\">' + escape(name) + '</div>'",
+        " + (meta ? '<div style=\"font-size:12px; opacity:0.7;\">' + escape(meta) + '</div>' : '') + '</div>'; }}"))
+}
+
 nasqar_project_name_ui <- function(default_name, label = "Persistent project name",
                                    help = "Outputs are kept under this name in the private space, so they survive the session and can be restored later.") {
     shiny::tagList(
@@ -820,8 +952,13 @@ nasqar_project_ui <- function(default_name, label = "Persistent project name",
 # Wire the picker. on_restore(state, dir) is called with the saved state; it
 # returns NULL on success or an error message. Returns a function that
 # refreshes the picker, to call after the application writes a new state.
+# input_default: list(text = id of the private-space path box, source = id of
+# the "Where is your data?" radio, value = its private-space choice,
+# find = function(apps) path) — when an existing project is opened, the path
+# box is filled with find()'s file from the project's other applications
+# (apps: folder name -> directory), e.g. DESeq2 takes Gene Count Merger's table.
 nasqar_project_server <- function(input, output, session, app, legacy_env = NULL,
-                                  on_restore) {
+                                  on_restore, input_default = NULL) {
     session$userData$nasqar_project_input <- input   # for state.json snapshots
     if (!nasqar_project_available(app, legacy_env)) {
         shiny::removeUI(selector = "#nasqar_project_panel")
@@ -843,31 +980,166 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
         state <- nasqar_project_state_read(dir)
         if (!is.null(state)) nasqar_project_json_write(dir, state)
     }, ignoreInit = TRUE)
+    this_label <- nasqar_project_app_label(app)
+    studies <- shiny::reactiveVal(list())
     refresh <- function(select = NULL) {
         # callers name the project by its folder: accept the folder of either layout
         if (identical(select, app) && !is.null(session$userData$nasqar_project_last_dir)) {
             select <- nasqar_project_name(session$userData$nasqar_project_last_dir)
         }
-        choices <- nasqar_project_choices(nasqar_project_list(app, legacy_env))
-        if (!length(choices)) {
-            shiny::updateSelectInput(session, "nasqar_project_restore",
-                                     choices = c("No saved projects yet" = ""))
-        } else {
-            shiny::updateSelectInput(session, "nasqar_project_restore", choices = choices,
-                                     selected = if (!is.null(select) && select %in% choices) select else choices[[1]])
+        all <- nasqar_project_studies(app, legacy_env)
+        studies(all)
+        if (!length(all)) {
+            shiny::updateSelectizeInput(session, "nasqar_project_open", choices = c("No projects yet" = ""))
+            return(invisible())
         }
+        choices <- stats::setNames(names(all), vapply(all, function(s) sprintf(
+            "%s  (%s, %s)", s$name, paste(nasqar_project_app_label(names(s$apps)), collapse = " + "),
+            format(s$updated, "%Y-%m-%d %H:%M")), character(1)))
+        current_choice <- shiny::isolate(input$nasqar_project_open)
+        selected <- if (!is.null(select) && select %in% choices) select
+                    else if (!is.null(current_choice) && current_choice %in% choices) current_choice
+                    else choices[[1]]
+        shiny::updateSelectizeInput(session, "nasqar_project_open", choices = choices, selected = selected)
     }
     output$nasqar_project_root_note <- shiny::renderText(paste(
         "Projects are stored under", nasqar_project_flat_root(legacy_env) %||% nasqar_project_root()))
     # A handoff from another application names the project to continue in.
     handoff_project_set <- FALSE
     shiny::observe({
-        if (handoff_project_set || is.null(input$nasqar_project_name)) return()   # until the name box exists
+        if (handoff_project_set || is.null(input$nasqar_project_mode)) return()   # until the step exists
         handoff_project_set <<- TRUE
         project <- shiny::parseQueryString(shiny::isolate(session$clientData$url_search))$project
         if (!is.null(project) && nzchar(project)) {
-            shiny::updateTextInput(session, "nasqar_project_name", value = nasqar_project_sanitize(project, "project"))
+            project <- nasqar_project_sanitize(project, "project")
+            if (project %in% names(shiny::isolate(studies()))) {
+                shiny::updateRadioButtons(session, "nasqar_project_mode", selected = "existing")
+                shiny::updateSelectizeInput(session, "nasqar_project_open", selected = project)
+            } else {
+                shiny::updateTextInput(session, "nasqar_project_new_name", value = project)
+            }
         }
+    })
+
+    # ---- the project step: new or existing, and the name actually used --------
+    wanted <- shiny::reactive({
+        mode <- input$nasqar_project_mode %||% "new"
+        name <- if (identical(mode, "existing")) input$nasqar_project_open else input$nasqar_project_new_name
+        name <- nasqar_project_sanitize(name %||% "", "")
+        if (nzchar(name)) list(mode = mode, name = name) else NULL
+    })
+    # One analysis of an application per project: when the project already
+    # holds one (not this session's), new data goes to a new project, name-2.
+    effective_name <- shiny::reactive({
+        w <- wanted()
+        if (is.null(w)) return(NULL)
+        current()
+        nasqar_project_unique_name(app, w$name, legacy_env, owned = session$userData$nasqar_project_last_dir)
+    })
+    shiny::observe({
+        name <- effective_name()
+        if (is.null(name) || !is.null(current())) return()   # locked once data is in a project
+        if (!identical(name, shiny::isolate(input$nasqar_project_name))) {
+            shiny::updateTextInput(session, "nasqar_project_name", value = name)
+        }
+    })
+    selected_study <- shiny::reactive({
+        w <- wanted()
+        if (is.null(w)) NULL else studies()[[w$name]]
+    })
+    # Browse dialogs open in the chosen project (or, once data is loaded, in
+    # the project being saved to).
+    shiny::observe({
+        dir <- current()
+        session$userData$nasqar_project_browse_dir <- if (!is.null(dir)) {
+            if (basename(dir) %in% nasqar_project_apps || is.null(nasqar_project_root())) dir else dirname(dir)
+        } else {
+            w <- wanted()
+            if (!is.null(w) && identical(w$mode, "existing")) nasqar_project_study_dir(selected_study(), app) else NULL
+        }
+    })
+    suggested <- shiny::reactiveVal(NULL)
+    if (!is.null(input_default)) {
+        last_fill <- ""
+        shiny::observe({
+            w <- wanted()
+            study <- selected_study()
+            if (is.null(w) || !identical(w$mode, "existing") || is.null(study) || !is.null(current())) {
+                suggested(NULL)
+                return()
+            }
+            # the project already has this analysis: nothing loads until the
+            # user continues it or loads new data on purpose
+            if (app %in% names(study$apps)) {
+                suggested(NULL)
+                return()
+            }
+            path <- tryCatch(input_default$find(study$apps), error = function(e) NULL)
+            path <- if (length(path) && !is.na(path[1]) && file.exists(path[1])) path[1] else NULL
+            suggested(path)
+            if (is.null(path)) return()
+            typed <- shiny::isolate(input[[input_default$text]]) %||% ""
+            if (nzchar(typed) && !identical(typed, last_fill)) return()   # the user chose something else
+            last_fill <<- path
+            shiny::updateTextInput(session, input_default$text, value = path)
+            if (!is.null(input_default$source)) {
+                shiny::updateRadioButtons(session, input_default$source, selected = input_default$value)
+            }
+        })
+    }
+    shiny::observe({
+        session$sendCustomMessage("nasqar-project-lock", !is.null(current()))
+    })
+    output$nasqar_project_status <- shiny::renderUI({
+        dir <- current()
+        if (!is.null(dir)) {
+            return(shiny::div(
+                style = "font-size:13px; margin-bottom:4px;",
+                shiny::tags$label("Project"),
+                shiny::div(shiny::icon("folder-open"), " Saving to ", shiny::tags$strong(nasqar_project_name(dir))),
+                shiny::helpText("To give it another name, use Rename in the bottom-right corner. To work on another project, reload the page.")))
+        }
+        w <- wanted()
+        if (is.null(w)) {
+            return(shiny::helpText(if (identical(input$nasqar_project_mode, "existing"))
+                "There are no projects yet: create a new one." else "Enter a name for the new project."))
+        }
+        name <- effective_name()
+        study <- selected_study()
+        has_this <- !is.null(study) && app %in% names(study$apps)
+        if (identical(w$mode, "existing") && !is.null(study)) {
+            contents <- shiny::tags$ul(style = "margin-bottom:6px; padding-left:18px;", lapply(names(study$apps), function(a) {
+                shiny::tags$li(nasqar_project_app_label(a),
+                               shiny::span(class = "text-muted", sprintf(" (%s)", study$stages[[a]])))
+            }))
+            intro <- shiny::div(style = "font-size:13px;", "This project holds:", contents)
+            if (has_this) {
+                return(shiny::tagList(intro, shiny::div(
+                    style = "border-left:3px solid #3c8dbc; background:#f4f8fb; padding:10px 12px; font-size:13px;",
+                    shiny::p(style = "margin-bottom:8px;", shiny::tags$strong(this_label), " has already been run in this project."),
+                    shiny::actionButton("nasqar_project_continue_btn", paste("Continue the", this_label, "analysis"),
+                                        icon = shiny::icon("folder-open"), class = "btn-primary",
+                                        style = "color:#fff; width:100%; white-space:normal;"),
+                    shiny::p(style = "margin:8px 0 0;", "Or load new data below: it is saved as a new project, ",
+                             shiny::tags$strong(name), "."))))
+            }
+            path <- suggested()
+            return(shiny::tagList(intro, shiny::helpText(
+                this_label, " is saved in this project.",
+                if (!is.null(path)) shiny::tagList(" Its input is filled in from the project: ",
+                                                   shiny::tags$code(basename(dirname(path)), "/", basename(path)),
+                                                   ". You can pick any other file in the private space.")
+                else " Browse opens in the project folder; you can pick any file in the private space.")))
+        }
+        if (has_this) {
+            return(shiny::div(class = "text-warning", style = "font-size:13px;",
+                "Project ", shiny::tags$strong(w$name), " already has a ", this_label, " analysis, so this one is saved as ",
+                shiny::tags$strong(name), ". To continue that analysis, choose Open an existing project."))
+        }
+        if (!is.null(study)) {
+            return(shiny::helpText("Project ", shiny::tags$strong(w$name), " already exists: ", this_label, " is added to it."))
+        }
+        shiny::helpText("Saved in the private space as ", shiny::tags$code(file.path("projects", name, app)), ".")
     })
 
     # ---- current project badge, rename and delete -------------------------
@@ -909,8 +1181,11 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
         if (!is.null(dir)) ask_new_name(nasqar_project_name(normalizePath(dir, winslash = "/", mustWork = FALSE)))
     }, ignoreInit = TRUE)
     shiny::observeEvent(input$nasqar_project_rename_btn, {
-        name <- input$nasqar_project_restore
+        name <- input$nasqar_project_open
         if (is.null(name) || !nzchar(name)) return(shiny::showNotification("There is no saved project to rename.", type = "warning"))
+        if (!app %in% names(studies()[[name]]$apps)) {
+            return(shiny::showNotification(sprintf("Project '%s' has no %s analysis to rename.", name, this_label), type = "warning"))
+        }
         ask_new_name(name)
     }, ignoreInit = TRUE)
     shiny::observeEvent(input$nasqar_project_rename_ok, {
@@ -945,8 +1220,11 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
         for (alias in session$userData$nasqar_project_aliases) nasqar_project_alias_remove(alias)
     })
     shiny::observeEvent(input$nasqar_project_delete_btn, {
-        name <- input$nasqar_project_restore
+        name <- input$nasqar_project_open
         if (is.null(name) || !nzchar(name)) return(shiny::showNotification("There is no saved project to delete.", type = "warning"))
+        if (!app %in% names(studies()[[name]]$apps)) {
+            return(shiny::showNotification(sprintf("Project '%s' has no %s analysis to delete.", name, this_label), type = "warning"))
+        }
         dir <- tryCatch(nasqar_project_checked_dir(app, name, legacy_env), error = function(error) NULL)
         if (is.null(dir)) return(shiny::showNotification("This project no longer exists.", type = "warning"))
         if (is_current(dir)) {
@@ -978,8 +1256,7 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
     nasqar_project_outputs_server(input, output, session)
     shiny::observeEvent(input$nasqar_project_refresh, refresh(), ignoreInit = TRUE)
     refresh()
-    shiny::observeEvent(input$nasqar_project_restore_btn, {
-        name <- input$nasqar_project_restore
+    restore <- function(name) {
         if (is.null(name) || !nzchar(name)) return()
         dir <- nasqar_project_dir(app, name, legacy_env, create = FALSE)
         state <- nasqar_project_state_read(dir)
@@ -1000,7 +1277,9 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
             shiny::showNotification(sprintf("Project '%s' restored (%s).", name, state$stage %||% "saved"),
                                     type = "message", duration = 8)
         }
-    })
+    }
+    shiny::observeEvent(input$nasqar_project_restore_btn, restore(input$nasqar_project_restore), ignoreInit = TRUE)
+    shiny::observeEvent(input$nasqar_project_continue_btn, restore(input$nasqar_project_open), ignoreInit = TRUE)
     invisible(refresh)
 }
 

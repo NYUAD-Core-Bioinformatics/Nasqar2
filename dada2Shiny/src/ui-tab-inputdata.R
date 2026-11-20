@@ -8,23 +8,14 @@ tabItem(
                 # One question decides what the rest of the tab shows. The two
                 # private-space choices are removed by the server on a public
                 # instance.
+                nasqar_project_step_ui("dada2-project"),
                 radioButtons("data_file_type", "Where is your data?",
                     c(
                         "Upload FASTQ files" = "upload_fastq_file",
                         "FASTQ folder in the private space" = "private_directory",
-                        "Example data (mothur MiSeq SOP)" = "example_fastq_file",
-                        "Reopen a saved project" = "savedProject"
+                        "Example data (mothur MiSeq SOP)" = "example_fastq_file"
                     ),
                     selected = "example_fastq_file"
-                ),
-                conditionalPanel(
-                    condition = "input.data_file_type=='savedProject'",
-                    div(class = "nasqar-project-private",
-                        nasqar_project_restore_ui(button_label = "Open project", stacked = TRUE),
-                        helpText(style = "margin-top:10px;",
-                                 "The FASTQ folder, the read layout and the settings come back, and the results are loaded from the project.",
-                                 "Only projects made from a FASTQ folder in the private space can be reopened.")
-                    )
                 ),
                 conditionalPanel(
                     condition = "input.data_file_type=='private_directory'",
@@ -56,16 +47,7 @@ tabItem(
                         a(href = "https://mothur.org/wiki/miseq_sop/", target = "_blank", "the mothur MiSeq SOP")
                     )
                 ),
-                conditionalPanel(
-                    condition = "input.data_file_type!='savedProject'",
-                    div(class = "nasqar-project-private",
-                        nasqar_project_name_ui(
-                            "dada2-project",
-                            label = "Project name",
-                            help = "Saved automatically in the private space under this name: the sequence tables, the taxonomy and the settings."
-                        )
-                    )
-                ),
+                
                  textOutput("status"),
                     textOutput("private_dada2_path"),
                     tags$style("#status { color: red; }")

@@ -70,8 +70,9 @@
 <p>NASQAR2 can also run as a private instance on your own server or cluster, where your data stays on your own machines. Everything above works the same way there. In addition:</p>
 <ul>
 <li><strong>BAM files need no upload.</strong> Choose <strong>BAM folder in the private space</strong>, press <strong>Browse folder</strong> to pick a folder that is already on the server, then <strong>Load folder</strong>.</li>
-<li><strong>Your work is saved automatically</strong> under the name in the <strong>Project name</strong> box, for runs that start from a BAM folder in the private space.</li>
-<li><strong>You can continue later.</strong> Choose <strong>Reopen a saved project</strong> on the Input Data tab, pick your project and press <strong>Open project</strong>. The folder and the reference genome come back, and results already computed are not computed again.</li>
+<li><strong>Your work is saved automatically</strong> in the project chosen at the top of the input step, for runs that start from a BAM folder in the private space.</li>
+<li><strong>Every analysis belongs to a project.</strong> The <strong>Project</strong> question at the top of the input step asks whether to <strong>create a new project</strong> or <strong>open an existing one</strong>. All applications of one study save into the same project, each in its own folder.</li>
+<li><strong>You can continue later.</strong> Choose <strong>Open an existing project</strong>, pick the project and press <strong>Continue</strong>. The folder and the reference genome come back, and results already computed are not computed again.</li>
 <li><strong>Your figures are kept together</strong> on the <strong>Project files</strong> page. <strong>Save all to project</strong> stores all of them in one click.</li>
 </ul>
 <p>These options do not appear on the public site.</p>

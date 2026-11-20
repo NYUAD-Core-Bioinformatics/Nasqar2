@@ -9,22 +9,14 @@ tabItem(
                 # One question decides what the rest of the box shows. The two
                 # private-space choices are removed by the server on a public
                 # instance.
+                nasqar_project_step_ui("ora-project"),
                 radioButtons("data_file_type", "Where is your data?",
                     c(
                         "Upload a results table" = "csvfile",
                         "Table in the private space" = "privatefile",
-                        "Example data" = "examplecounts",
-                        "Reopen a saved project" = "savedProject"
+                        "Example data" = "examplecounts"
                     ),
                     selected = "csvfile"
-                ),
-                conditionalPanel(
-                    condition = "input.data_file_type=='savedProject'",
-                    div(class = "nasqar-project-private",
-                        nasqar_project_restore_ui(button_label = "Open project", stacked = TRUE),
-                        helpText(style = "margin-top:10px;",
-                                 "The input table and settings come back and the enrichment is run again from the project cache.")
-                    )
                 ),
                 conditionalPanel(
                     condition = "input.data_file_type=='privatefile'",
@@ -41,16 +33,6 @@ tabItem(
                     condition = "input.data_file_type=='csvfile'",
                     fileInput("datafile", "Results table (.csv)", multiple = TRUE)
                 ),
-                conditionalPanel(
-                    condition = "input.data_file_type!='savedProject'",
-                    div(class = "nasqar-project-private",
-                        nasqar_project_name_ui(
-                            "ora-project",
-                            label = "Project name",
-                            help = "Saved automatically in the private space under this name: the input table when it is loaded, the settings once the enrichment has run."
-                        )
-                    )
-                )
             ),
             conditionalPanel(
                 "output.fileUploaded",

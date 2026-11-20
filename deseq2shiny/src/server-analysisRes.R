@@ -220,6 +220,7 @@ observeEvent(input$do, {
     # Stamp each save so re-marking the same contrast re-reads the file
     filelist$saved_at[[filename]] <- Sys.time()
     write.csv(csv, file, row.names = T)
+    nasqar_project_save_output(file, filename, session)   # private instance: projects/<project>/DESeq2Shiny/downloads
     Saved.Results <- names(filelist$file_list)
     shinyjs::show(selector = "a[data-value=\"volcanoplotTab\"]")
     shinyjs::show(selector = "a[data-value=\"venndiagramTab\"]")

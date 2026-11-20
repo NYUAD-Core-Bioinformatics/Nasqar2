@@ -12,7 +12,7 @@ server <- function(input, output, session) {
 
     # Server-side browser jailed to the private data root; it only fills the path box.
     if (!is.null(data_root)) {
-        browse_roots <- nasqar_browse_roots()
+        browse_roots <- nasqar_browse_roots   # a function: the open project comes first
         shinyFiles::shinyFileChoose(input, "browse_vcf_path", roots = browse_roots, session = session, filetypes = c("vcf", "gz", "bgz"))
         observeEvent(input$browse_vcf_path, {
             selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_vcf_path), error = function(e) NULL)

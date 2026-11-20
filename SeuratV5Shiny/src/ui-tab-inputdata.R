@@ -6,22 +6,14 @@ tabItem(tabName = "datainput",
                              # One question decides what the rest of the box
                              # shows. The two private-space choices are removed
                              # by the server on a public instance.
+                             nasqar_project_step_ui("seurat-project"),
                              radioButtons('data_file_type','Where is your data?',
                                           c(
                                             'Upload a count matrix (.csv)'="uploadNonUmi",
                                             'Upload 10X files'="upload10x",
                                             'Data in the private space'="privateSpace",
-                                            'Example data (PBMC)'="examplecounts",
-                                            'Reopen a saved project'="savedProject"
+                                            'Example data (PBMC)'="examplecounts"
                                           ),selected = "uploadNonUmi"),
-                             conditionalPanel(
-                               condition="input.data_file_type=='savedProject'",
-                               div(class = "nasqar-project-private",
-                                   nasqar_project_restore_ui(button_label = "Open project", stacked = TRUE),
-                                   helpText(style = "margin-top:10px;",
-                                            "The data and the initial parameters come back, and the saved Seurat object is made available for download.",
-                                            "Only projects made from data in the private space can be reopened."))
-                             ),
                              conditionalPanel(
                                condition="input.data_file_type=='privateSpace'",
                                div(

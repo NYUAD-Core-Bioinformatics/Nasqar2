@@ -75,4 +75,9 @@ restore_project <- function(state, dir) {
 
 observeEvent(input$nasqar_project_name, project_name_override(NULL), ignoreInit = TRUE)
 
-project_refresh <- nasqar_project_server(input, output, session, project_app, on_restore = restore_project)
+project_refresh <- nasqar_project_server(
+    input, output, session, project_app, on_restore = restore_project,
+    # opening a project fills in the newest comparison saved in DESeq2
+    input_default = list(text = "private_file_path", source = "data_file_type", value = "privatefile",
+                         find = function(apps) nasqar_project_newest(apps, "DESeq2Shiny", "_vs_.*\\.csv$", subdir = "downloads"))
+)
