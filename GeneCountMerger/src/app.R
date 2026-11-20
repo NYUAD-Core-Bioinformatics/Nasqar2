@@ -577,7 +577,7 @@ server <- function(input, output, session) {
 
     myValues <- reactiveValues()
 
-    # Private-space projects: projects/GeneCountMerger/<name> (shared convention)
+    # Private-space projects: projects/<name>/GeneCountMerger (shared convention)
     source("nasqar-project.R", local = TRUE)
     project_app <- "GeneCountMerger"
     private_space <- nasqar_project_available(project_app)
@@ -631,11 +631,11 @@ server <- function(input, output, session) {
         merged_file <- file.path(dir, "merged-counts.csv")
         utils::write.csv(myValues$mergedData, merged_file, row.names = FALSE)
         label <- sprintf("%d samples", ncol(myValues$mergedData) - 1L)
-        nasqar_project_state_write(dir, project_app, basename(dir), "merged", input_label = label, merged_file = merged_file)
+        nasqar_project_state_write(dir, project_app, nasqar_project_name(dir), "merged", input_label = label, merged_file = merged_file)
         # also under downloads/, so it shows on the Project files page
         nasqar_project_save_output(merged_file, "merged-counts.csv", session)
-        project_saved(list(name = basename(dir)))
-        project_refresh(basename(dir))
+        project_saved(list(name = nasqar_project_name(dir)))
+        project_refresh(nasqar_project_name(dir))
     })
     project_saved <- reactiveVal(NULL)
     output$projectSavedNote <- renderUI({
@@ -644,7 +644,7 @@ server <- function(input, output, session) {
         div(class = "alert alert-success", style = "margin-bottom:12px;",
             icon("check-circle"), " Saved in the private space as project ", strong(saved$name),
             ". The file is ",
-            tags$code(file.path("projects", project_app, saved$name, "downloads", "merged-counts.csv")),
+            tags$code(file.path("projects", saved$name, project_app, "downloads", "merged-counts.csv")),
             ": pick it in DESeq2 under ", em("Counts file in the private space"),
             ", or see it on the ", strong("Project files"), " page. Renaming columns saves it again.")
     })
@@ -839,7 +839,7 @@ server <- function(input, output, session) {
 
     handoffLink <- function(label, path, token, style = "width: 100%;") {
         basePath <- Sys.getenv("NASQAR_BASE_PATH", unset = "")
-        handoffPath <- paste0(basePath, path, "?countsdata=", token)
+        handoffPath <- paste0(basePath, path, "?countsdata=", token, nasqar_project_handoff_query(session))
         a(
             label,
             href = handoffPath,

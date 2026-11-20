@@ -27,7 +27,7 @@ port="${NASQAR2_PORT:-$((20000 + SLURM_JOB_ID % 20000))}"
 # Input files the applications may read in place (mounted read-only).
 data_root="${NASQAR2_DATA_ROOT:-$(dirname "$nasqar2_home")}"
 r_library="${NASQAR2_R_LIBRARY:-$nasqar2_home/r-library/R-4.3}"
-# Root of the private-space projects of every application (projects/<App>/<name>)
+# Root of the private-space projects of every application (projects/<project>/<App>)
 projects_root="${NASQAR2_PROJECTS:-$nasqar2_home/projects}"
 node_tmp="${SLURM_TMPDIR:-/tmp/$USER/nasqar2-$SLURM_JOB_ID}"
 exchange_dir="$runtime_dir/exchange"

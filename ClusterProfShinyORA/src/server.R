@@ -3,7 +3,7 @@ options(shiny.maxRequestSize = 60 * 1024^2)
 
 # Define server
 server <- function(input, output, session) {
-    # Private-space projects: projects/ClusterProfShinyORA/<name> (shared convention)
+    # Private-space projects: projects/<name>/ClusterProfShinyORA (shared convention)
     source("nasqar-project.R", local = TRUE)
     project_app <- "ClusterProfShinyORA"
     private_space <- nasqar_project_available(project_app)

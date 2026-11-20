@@ -28,16 +28,16 @@ observeEvent(inputDataReactive(), {
         utils::write.csv(data$data, input_file, row.names = FALSE)
     }
     label <- if (!is.null(input$datafile)) input$datafile$name[1] else if (identical(input$data_file_type, "examplecounts")) "example data" else "gene table"
-    nasqar_project_state_write(dir, project_app, basename(dir), "loaded", input_label = label, input_file = input_file)
-    project_refresh(basename(dir))
+    nasqar_project_state_write(dir, project_app, nasqar_project_name(dir), "loaded", input_label = label, input_file = input_file)
+    project_refresh(nasqar_project_name(dir))
     if (!is.null(restore_pending())) schedule_restore_step(1)
 })
 
 observeEvent(enrichGoReactive(), {
     if (!private_space || is.null(enrichGoReactive())) return()
     dir <- nasqar_project_dir(project_app, current_project_name(), fallback = "ora-project")
-    nasqar_project_state_write(dir, project_app, basename(dir), "enriched", params = enrichment_params())
-    project_refresh(basename(dir))
+    nasqar_project_state_write(dir, project_app, nasqar_project_name(dir), "enriched", params = enrichment_params())
+    project_refresh(nasqar_project_name(dir))
 })
 
 observeEvent(input$nasqar_restore_step, {
@@ -67,7 +67,7 @@ restore_project <- function(state, dir) {
     if (!identical(state$app, project_app)) return("this project belongs to another application")
     if (is.null(state$input_file) || !file.exists(state$input_file)) return("the project's input table is missing")
     restore_pending(list(stage = state$stage, params = state$params))
-    project_name_override(basename(dir))
+    project_name_override(nasqar_project_name(dir))
     restored_file_type(input$data_file_type)
     restored_input(state$input_file)
     NULL

@@ -23,7 +23,7 @@ server <- function(input, output, session) {
     }
 
 
-    # Private-space projects: projects/DADA2/<name> (shared convention)
+    # Private-space projects: projects/<name>/DADA2 (shared convention)
     source("nasqar-project.R", local = TRUE)
     project_app <- "DADA2"
     project_legacy_env <- "NASQAR_DADA2_PROJECT_DIR"

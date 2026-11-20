@@ -29,10 +29,10 @@ observeEvent(input$generateSeuratFile, {
       myValues$privateOutputPath <- if (private_space) filepath else NULL
       if (private_space) {
         nasqar_project_state_write(
-          output_dir, project_app, basename(output_dir), "seurat",
+          output_dir, project_app, nasqar_project_name(output_dir), "seurat",
           object_file = filepath, projectname = input$projectname
         )
-        project_refresh(basename(output_dir))
+        project_refresh(nasqar_project_name(output_dir))
       }
 
       js$addStatusIcon("finishTab","done")
@@ -92,7 +92,8 @@ output$monocleTransferUI <- renderUI({
   handoffPath <- paste0(
     Sys.getenv("NASQAR_BASE_PATH", unset = ""),
     "/monocle3/?exchange=",
-    URLencode(token, reserved = TRUE)
+    URLencode(token, reserved = TRUE),
+    nasqar_project_handoff_query(session)
   )
 
   tags$a(

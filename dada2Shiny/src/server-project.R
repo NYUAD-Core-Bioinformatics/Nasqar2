@@ -12,13 +12,13 @@ observeEvent(input_files_reactive(), {
         example_fastq_file = "MiSeq_SOP example",
         "uploaded FASTQ files")
     nasqar_project_state_write(
-        my_values$work_dir, project_app, basename(my_values$work_dir), "loaded",
+        my_values$work_dir, project_app, nasqar_project_name(my_values$work_dir), "loaded",
         input_label = label, source_type = input$data_file_type,
         base_dir = my_values$base_dir, seq_type = input$seq_type,
         forward_pattern = input$forward_pattern, reverse_pattern = input$reverse_pattern,
         samples = rownames(samples)
     )
-    project_refresh(basename(my_values$work_dir))
+    project_refresh(nasqar_project_name(my_values$work_dir))
     pending <- restore_pending()
     if (!is.null(pending) && pending$stage %in% c("dada2", "taxonomy")) {
         shinyjs::delay(800, shinyjs::click("runDADA2"))
@@ -30,14 +30,14 @@ observeEvent(input_files_reactive(), {
 observeEvent(reactiveInputData(), {
     if (!private_space || is.null(my_values$work_dir)) return()
     nasqar_project_state_write(
-        my_values$work_dir, project_app, basename(my_values$work_dir), "dada2",
+        my_values$work_dir, project_app, nasqar_project_name(my_values$work_dir), "dada2",
         parameters = list(
             trunc_fwd = input$truncLen_fwd, trunc_rev = input$truncLen_rev,
             max_ee_fwd = input$maxEE_fwd, max_ee_rev = input$maxEE_rev
         ),
         results_file = file.path(my_values$work_dir, "dada2-results.rds")
     )
-    project_refresh(basename(my_values$work_dir))
+    project_refresh(nasqar_project_name(my_values$work_dir))
     pending <- restore_pending()
     if (!is.null(pending) && identical(pending$stage, "taxonomy")) {
         shinyjs::delay(800, shinyjs::click("assignTaxonomy"))
@@ -49,12 +49,12 @@ observeEvent(reactiveInputData(), {
 observeEvent(reactiveTaxonomyData$taxa, {
     if (!private_space || is.null(my_values$work_dir)) return()
     nasqar_project_state_write(
-        my_values$work_dir, project_app, basename(my_values$work_dir), "taxonomy",
+        my_values$work_dir, project_app, nasqar_project_name(my_values$work_dir), "taxonomy",
         database_choice = input$database_choice,
         species_assignment_choice = input$species_assignment_choice,
         taxonomy_file = file.path(my_values$work_dir, "taxonomy-table.csv")
     )
-    project_refresh(basename(my_values$work_dir))
+    project_refresh(nasqar_project_name(my_values$work_dir))
     restore_pending(NULL)
 })
 
@@ -84,7 +84,7 @@ restore_project <- function(state, dir) {
     if (!is.null(state$species_assignment_choice)) {
         updateRadioButtons(session, "species_assignment_choice", selected = state$species_assignment_choice)
     }
-    restore_pending(list(stage = state$stage %||% "loaded", name = basename(dir)))
+    restore_pending(list(stage = state$stage %||% "loaded", name = nasqar_project_name(dir)))
     shinyjs::delay(800, shinyjs::click("initFastq"))
     NULL
 }

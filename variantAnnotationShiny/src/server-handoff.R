@@ -21,7 +21,7 @@ output$handoff_link <- renderUI({
     token <- encryptUrlParam(exchange_path)
     handoff_path <- paste0(
         Sys.getenv("NASQAR_BASE_PATH", unset = ""),
-        "/ClusterProfShinyORA/?gene_names=", token
+        "/ClusterProfShinyORA/?gene_names=", token, nasqar_project_handoff_query(session)
     )
     tags$a(
         icon("external-link-alt"),

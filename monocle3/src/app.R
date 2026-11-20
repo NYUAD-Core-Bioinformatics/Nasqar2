@@ -185,7 +185,7 @@ server <- shinyServer(function(input, output, session) {
   }
 
 
-  # Private-space projects: projects/Monocle3/<name> (shared convention)
+  # Private-space projects: projects/<name>/Monocle3 (shared convention)
   source("nasqar-project.R", local = TRUE)
   project_app <- "Monocle3"
   project_legacy_env <- "NASQAR_MONOCLE3_PROJECT_DIR"
@@ -326,11 +326,11 @@ server <- shinyServer(function(input, output, session) {
     if (private_space) {
       dir <- project_directory(current_project_name())
       nasqar_project_state_write(
-        dir, project_app, basename(dir), "loaded",
+        dir, project_app, nasqar_project_name(dir), "loaded",
         input_label = basename(input$private_input_path), source_type = "private",
         private_input_path = input$private_input_path
       )
-      project_refresh(basename(dir))
+      project_refresh(nasqar_project_name(dir))
     }
   })
 
@@ -388,11 +388,11 @@ server <- shinyServer(function(input, output, session) {
     show_monocle_results(out, output_dir)
     if (private_space) {
       nasqar_project_state_write(
-        output_dir, project_app, basename(output_dir), "monocle",
+        output_dir, project_app, nasqar_project_name(output_dir), "monocle",
         assay = input$assay, ident = input$ident, gene = input$gene,
         run_file = file.path(output_dir, "monocle3-run.rds")
       )
-      project_refresh(basename(output_dir))
+      project_refresh(nasqar_project_name(output_dir))
     }
   })
 

@@ -181,7 +181,7 @@ server <- function(input, output, session) {
     })
 
 
-    # Private-space projects: projects/mergeFPKMs/<name> (shared convention)
+    # Private-space projects: projects/<name>/mergeFPKMs (shared convention)
     source("nasqar-project.R", local = TRUE)
     project_app <- "mergeFPKMs"
     private_space <- nasqar_project_available(project_app)
@@ -235,12 +235,12 @@ server <- function(input, output, session) {
         dir <- nasqar_project_dir(project_app, current_project_name(), fallback = "fpkm-project")
         merged_file <- file.path(dir, "merged-fpkm.csv")
         utils::write.csv(merged$data, merged_file, row.names = FALSE)
-        nasqar_project_state_write(dir, project_app, basename(dir), "merged",
+        nasqar_project_state_write(dir, project_app, nasqar_project_name(dir), "merged",
                                    input_label = sprintf("%d files", nrow(inputDataReactive())), merged_file = merged_file)
         # also under downloads/, so it shows on the Project files page
         nasqar_project_save_output(merged_file, "merged-fpkm.csv", session)
-        project_saved(list(name = basename(dir)))
-        project_refresh(basename(dir))
+        project_saved(list(name = nasqar_project_name(dir)))
+        project_refresh(nasqar_project_name(dir))
     })
     project_saved <- reactiveVal(NULL)
     output$projectSavedNote <- renderUI({
@@ -249,7 +249,7 @@ server <- function(input, output, session) {
         div(class = "alert alert-success", style = "margin-top:12px;",
             icon("check-circle"), " Saved in the private space as project ", strong(saved$name),
             ". The file is ",
-            tags$code(file.path("projects", project_app, saved$name, "downloads", "merged-fpkm.csv")),
+            tags$code(file.path("projects", saved$name, project_app, "downloads", "merged-fpkm.csv")),
             "; see it on the ", strong("Project files"), " page.")
     })
     project_refresh <- nasqar_project_server(input, output, session, project_app, on_restore = function(state, dir) {

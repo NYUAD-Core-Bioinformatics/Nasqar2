@@ -26,7 +26,7 @@ server <- function(input, output, session) {
     }
 
 
-    # Private-space projects: projects/VariantAnnotation/<name> (shared convention)
+    # Private-space projects: projects/<name>/VariantAnnotation (shared convention)
     source("nasqar-project.R", local = TRUE)
     project_app <- "VariantAnnotation"
     project_legacy_env <- "NASQAR_VARIANT_PROJECT_DIR"

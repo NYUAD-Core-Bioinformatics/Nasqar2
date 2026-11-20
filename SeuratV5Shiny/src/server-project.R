@@ -23,12 +23,12 @@ observeEvent(inputDataReactive(), {
   dir <- seurat_project_directory(project_name)
   label <- if (identical(input$data_file_type, "privateSpace")) basename(input$private_data_path) else input$data_file_type
   nasqar_project_state_write(
-    dir, project_app, basename(dir), "loaded",
+    dir, project_app, nasqar_project_name(dir), "loaded",
     input_label = label, source_type = input$data_file_type,
     private_data_path = input$private_data_path, projectname = project_name,
     mincells = input$mincells, mingenes = input$mingenes
   )
-  project_refresh(basename(dir))
+  project_refresh(nasqar_project_name(dir))
   pending <- restore_pending()
   if (!is.null(pending)) {
     restore_pending(NULL)
@@ -56,7 +56,7 @@ restore_project <- function(state, dir) {
   if (is.null(data_path) || !file.exists(data_path)) return("the project's input data is no longer available")
   updateRadioButtons(session, "data_file_type", selected = "privateSpace")
   updateTextInput(session, "private_data_path", value = data_path)
-  updateTextInput(session, "projectname", value = state$projectname %||% basename(dir))
+  updateTextInput(session, "projectname", value = state$projectname %||% nasqar_project_name(dir))
   if (!is.null(state$mincells)) updateNumericInput(session, "mincells", value = state$mincells)
   if (!is.null(state$mingenes)) updateNumericInput(session, "mingenes", value = state$mingenes)
   restore_pending(list(stage = state$stage, object_file = state$object_file))
