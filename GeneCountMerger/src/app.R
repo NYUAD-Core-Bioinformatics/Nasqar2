@@ -511,6 +511,7 @@ ui <- tagList(
                                             uiOutput("editColumnNamesView")
                                         )
                                     ),
+                                    uiOutput("projectSavedNote"),
                                     p(
                                         downloadLink("downloadData", "Download Merged File", class = "btn btn-warning", style = "color: #fff; background-color: #9E0000; border-color: #9E0000")
                                     ),
@@ -592,6 +593,7 @@ server <- function(input, output, session) {
         if (private_space && !is.null(name) && nzchar(trimws(name))) trimws(name) else paste0("session-", session$token)
     }
     restored_merged <- reactiveVal(NULL)
+    skip_next_save <- FALSE
 
     # Private data root: input files read in place (private instance only)
     data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
@@ -621,19 +623,37 @@ server <- function(input, output, session) {
     }
 
     observeEvent(myValues$mergedData, {
-        if (!private_space || is.null(myValues$mergedData) || isTRUE(restored_merged())) return()
+        if (!private_space || is.null(myValues$mergedData)) return()
+        # the table just read back from a project is already saved; later
+        # changes (renamed columns) are saved again
+        if (skip_next_save) { skip_next_save <<- FALSE; return() }
         dir <- nasqar_project_dir(project_app, current_project_name(), fallback = "counts-project")
         merged_file <- file.path(dir, "merged-counts.csv")
         utils::write.csv(myValues$mergedData, merged_file, row.names = FALSE)
         label <- sprintf("%d samples", ncol(myValues$mergedData) - 1L)
         nasqar_project_state_write(dir, project_app, basename(dir), "merged", input_label = label, merged_file = merged_file)
+        # also under downloads/, so it shows on the Project files page
+        nasqar_project_save_output(merged_file, "merged-counts.csv", session)
+        project_saved(list(name = basename(dir)))
         project_refresh(basename(dir))
+    })
+    project_saved <- reactiveVal(NULL)
+    output$projectSavedNote <- renderUI({
+        saved <- project_saved()
+        if (!private_space || is.null(saved)) return(NULL)
+        div(class = "alert alert-success", style = "margin-bottom:12px;",
+            icon("check-circle"), " Saved in the private space as project ", strong(saved$name),
+            ". The file is ",
+            tags$code(file.path("projects", project_app, saved$name, "downloads", "merged-counts.csv")),
+            ": pick it in DESeq2 under ", em("Counts file in the private space"),
+            ", or see it on the ", strong("Project files"), " page. Renaming columns saves it again.")
     })
 
     project_refresh <- nasqar_project_server(input, output, session, project_app, on_restore = function(state, dir) {
         if (!identical(state$app, project_app)) return("this project belongs to another application")
         if (is.null(state$merged_file) || !file.exists(state$merged_file)) return("the project's merged table is missing")
         restored_merged(TRUE)
+        skip_next_save <<- TRUE
         myValues$mergedData <- utils::read.csv(state$merged_file, check.names = FALSE, stringsAsFactors = FALSE)
         myValues$fileUrl <- file.path(nasqarExchangeDir(), paste0(UUIDgenerate(), ".csv"))
         updateTabsetPanel(session, "tabs", selected = "Output")
