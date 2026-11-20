@@ -1441,6 +1441,9 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     # Restore picker (shared convention): loads the project's state.RData.
     project_refresh <- nasqar_project_server(
         input, output, session, project_app, project_legacy_env,
+        # opening a project fills in Gene Count Merger's merged table
+        input_default = list(text = "private_counts_path", source = "data_file_type", value = "privateFile",
+                             find = function(apps) nasqar_project_newest(apps, "GeneCountMerger", "^merged-counts\\.csv$")),
         on_restore = function(state, dir) {
             state_file <- state$state_file %||% file.path(dir, "state.RData")
             if (!file.exists(state_file)) {

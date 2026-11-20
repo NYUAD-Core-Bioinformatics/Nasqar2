@@ -17,7 +17,7 @@ server <- function(input, output, session) {
 
   # Server-side browser jailed to the private data root; it only fills the path box.
   if (!is.null(data_root)) {
-      browse_roots <- nasqar_browse_roots()
+      browse_roots <- nasqar_browse_roots   # a function: the open project comes first
       shinyFiles::shinyDirChoose(input, "browse_private_dir", roots = browse_roots, session = session)
       observeEvent(input$browse_private_dir, {
           selected <- tryCatch(shinyFiles::parseDirPath(browse_roots, input$browse_private_dir), error = function(e) character(0))
@@ -51,9 +51,15 @@ server <- function(input, output, session) {
     shinyjs::runjs("$('a[data-value=projectFilesTab]').closest('li').remove()")
   }
   current_project_name <- function() {
-    name <- input$projectname
+    name <- input$nasqar_project_name %||% input$projectname
     if (private_space && !is.null(name) && nzchar(trimws(name))) trimws(name) else paste0("session-", session$token)
   }
+  # The Seurat object is named after the project chosen in the project step.
+  observeEvent(input$nasqar_project_name, {
+    if (private_space && nzchar(input$nasqar_project_name %||% "")) {
+      updateTextInput(session, "projectname", value = input$nasqar_project_name)
+    }
+  })
   seurat_project_directory <- function(name) {
     path <- nasqar_project_dir(project_app, name, project_legacy_env, fallback = "seurat-project")
     if (!dir.exists(path) || file.access(path, 2) != 0) {

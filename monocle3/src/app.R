@@ -58,23 +58,15 @@ ui <- shinyUI(fluidPage(
                         # One question decides what this step shows. The two
                         # private-space choices are removed by the server on a
                         # public instance.
+                        nasqar_project_step_ui("monocle3-project"),
                         radioButtons(
                           "data_source",
                           "Where is your data?",
                           c(
                             "Upload a Seurat object" = "upload",
-                            "Seurat object in the private space" = "private",
-                            "Reopen a saved project" = "savedProject"
+                            "Seurat object in the private space" = "private"
                           ),
                           selected = "upload"
-                        ),
-                        conditionalPanel(
-                          "input.data_source == 'savedProject'",
-                          div(class = "nasqar-project-private",
-                              nasqar_project_restore_ui(button_label = "Open project", stacked = TRUE),
-                              helpText(style = "margin-top:10px;",
-                                       "The Seurat object, the settings and the trajectory come back from the project.",
-                                       "Only projects made from an object in the private space can be reopened."))
                         ),
                         conditionalPanel(
                           "input.data_source == 'upload'",
@@ -96,14 +88,6 @@ ui <- shinyUI(fluidPage(
                               div(style = "margin-bottom:15px;", shinyFiles::shinyFilesButton("browse_private_input", "Browse...", "Choose a Seurat .rds or .RData file in the private space", multiple = FALSE))
                           ),
                           actionButton("load_private", "Load object", icon = icon("play"), class = "btn-primary", style = "color:#fff;")
-                        ),
-                        conditionalPanel(
-                          "input.data_source != 'savedProject'",
-                          div(class = "nasqar-project-private", style = "margin-top:12px;",
-                              nasqar_project_name_ui(
-                                "monocle3-project",
-                                label = "Project name",
-                                help = "Saved automatically in the private space under this name, for objects read from the private space."))
                         ),
                         textOutput("private_output_path"),
 
@@ -171,7 +155,7 @@ server <- shinyServer(function(input, output, session) {
 
   # Server-side browser jailed to the private data root; it only fills the path box.
   if (!is.null(data_root)) {
-      browse_roots <- nasqar_browse_roots()
+      browse_roots <- nasqar_browse_roots   # a function: the open project comes first
       shinyFiles::shinyFileChoose(input, "browse_private_input", roots = browse_roots, session = session, filetypes = c("rds", "rdata"))
       observeEvent(input$browse_private_input, {
           selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_private_input), error = function(e) NULL)
@@ -469,7 +453,10 @@ server <- shinyServer(function(input, output, session) {
   }
 
   project_refresh <- nasqar_project_server(
-    input, output, session, project_app, project_legacy_env, on_restore = restore_project
+    input, output, session, project_app, project_legacy_env, on_restore = restore_project,
+    # opening a project fills in the Seurat object saved by Seurat v5
+    input_default = list(text = "private_input_path", source = "data_source", value = "private",
+                         find = function(apps) nasqar_project_newest(apps, "SeuratV5", "_seuratObj_.*\\.rds$"))
   )
 })
 

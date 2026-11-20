@@ -9,22 +9,14 @@ tabItem(
                 # One question decides what the rest of the tab shows. The two
                 # private-space choices are removed by the server on a public
                 # instance.
+                nasqar_project_step_ui("variant-project"),
                 radioButtons("data_file_type", "Where is your data?",
                     c(
                         "Upload a VCF file" = "upload_vcf",
                         "VCF in the private space" = "private_vcf_file",
-                        "Example VCF (1000 Genomes chr22 subset, hg19)" = "example_vcf",
-                        "Reopen a saved project" = "savedProject"
+                        "Example VCF (1000 Genomes chr22 subset, hg19)" = "example_vcf"
                     ),
                     selected = "example_vcf"
-                ),
-                conditionalPanel(
-                    condition = "input.data_file_type == 'savedProject'",
-                    div(class = "nasqar-project-private",
-                        nasqar_project_restore_ui(button_label = "Open project", stacked = TRUE),
-                        helpText(style = "margin-top:10px;",
-                                 "The VCF, the reference genome, the filters and the annotation come back from the project without recomputing.")
-                    )
                 ),
                 conditionalPanel(
                     condition = "input.data_file_type == 'upload_vcf'",
@@ -52,19 +44,7 @@ tabItem(
                         "a compressed and indexed copy is written once into the project directory."
                     )
                 ),
-                conditionalPanel(
-                    condition = "input.data_file_type != 'savedProject'",
-                    div(class = "nasqar-project-private",
-                        nasqar_project_name_ui(
-                            "variant-project",
-                            label = "Project name",
-                            help = paste(
-                                "Saved automatically in the private space under this name: the indexed VCF when it",
-                                "is loaded, then the filtered VCF, the annotation tables and their caches."
-                            )
-                        )
-                    )
-                ),
+                
                 textOutput("input_status"),
                 textOutput("project_path_text"),
                 tags$style("#input_status { color: darkred; }")

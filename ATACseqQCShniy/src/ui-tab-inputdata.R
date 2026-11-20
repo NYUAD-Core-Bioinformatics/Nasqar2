@@ -8,22 +8,14 @@ tabItem(
                 # One question decides what the rest of the box shows. The two
                 # private-space choices are removed by the server on a public
                 # instance.
+                nasqar_project_step_ui("atac-project"),
                 radioButtons("data_file_type", "Where is your data?",
                     c(
                         "Upload BAM files" = "upload_bam_file",
                         "BAM folder in the private space" = "private_directory",
-                        "Example data" = "example_bam_file",
-                        "Reopen a saved project" = "savedProject"
+                        "Example data" = "example_bam_file"
                     ),
                     selected = "upload_bam_file"
-                ),
-                conditionalPanel(
-                    condition = "input.data_file_type=='savedProject'",
-                    div(class = "nasqar-project-private",
-                        nasqar_project_restore_ui(button_label = "Open project", stacked = TRUE),
-                        helpText(style = "margin-top:10px;",
-                                 "The BAM folder and the reference genome come back, and results already computed are loaded from the project.")
-                    )
                 ),
                 conditionalPanel(
                     condition = "input.data_file_type=='private_directory'",
@@ -57,16 +49,6 @@ tabItem(
                         a(href = "https://doi.org/10.1007/978-3-319-07212-8_3", target = "_blank", "this publication")
                     )
                 ),
-                conditionalPanel(
-                    condition = "input.data_file_type!='savedProject'",
-                    div(class = "nasqar-project-private",
-                        nasqar_project_name_ui(
-                            "atac-project",
-                            label = "Project name",
-                            help = "Saved automatically in the private space under this name, for runs that start from a BAM folder in the private space."
-                        )
-                    )
-                )
             ),
             conditionalPanel(
                 # "output.fileUploaded",

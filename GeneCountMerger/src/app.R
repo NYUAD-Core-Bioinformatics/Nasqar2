@@ -97,20 +97,13 @@ ui <- tagList(
                             # One question decides what the rest of the panel shows.
                             # The two private-space choices are removed by the
                             # server on a public instance.
+                            nasqar_project_step_ui("counts-project"),
                             radioButtons("counts_source", "Where is your data?",
                                 c(
                                     "Upload files" = "upload",
-                                    "Files in the private space" = "private_files",
-                                    "Reopen a saved project" = "savedProject"
+                                    "Files in the private space" = "private_files"
                                 ),
                                 selected = "upload"),
-                            conditionalPanel(
-                                condition = "input.counts_source=='savedProject'",
-                                div(class = "nasqar-project-private",
-                                    nasqar_project_restore_ui(button_label = "Open project", stacked = TRUE),
-                                    helpText(style = "margin-top:10px;", "The merged table comes back as you left it.")
-                                )
-                            ),
                             conditionalPanel(
                             condition = "input.counts_source!='savedProject'",
                             radioButtons("inputType", "What are you merging?",
@@ -170,13 +163,6 @@ ui <- tagList(
                                     multiple = TRUE
                                 ),
                                 helpText("File names become the sample (column) names of the merged table.")
-                            ),
-                            div(class = "nasqar-project-private",
-                                nasqar_project_name_ui(
-                                    "counts-project",
-                                    label = "Project name",
-                                    help = "The merged table is saved automatically in the private space under this name."
-                                )
                             )
                             )
                         ),
@@ -599,7 +585,7 @@ server <- function(input, output, session) {
     data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
     data_root <- if (nzchar(data_root)) normalizePath(data_root, winslash = "/", mustWork = FALSE) else NULL
     if (!is.null(data_root)) {
-        browse_roots <- nasqar_browse_roots()
+        browse_roots <- nasqar_browse_roots   # a function: the open project comes first
         shinyFiles::shinyFileChoose(input, "browse_private_count_files", roots = browse_roots, session = session)
         observeEvent(input$browse_private_count_files, {
             selected <- tryCatch(shinyFiles::parseFilePaths(browse_roots, input$browse_private_count_files), error = function(e) NULL)

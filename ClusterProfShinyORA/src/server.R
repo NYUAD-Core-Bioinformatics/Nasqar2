@@ -21,7 +21,7 @@ server <- function(input, output, session) {
     data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
     data_root <- if (nzchar(data_root)) normalizePath(data_root, winslash = "/", mustWork = FALSE) else NULL
     if (!is.null(data_root)) {
-        browse_roots <- nasqar_browse_roots()
+        browse_roots <- nasqar_browse_roots   # a function: the open project comes first
         shinyFiles::shinyFileChoose(input, "browse_private_file", roots = browse_roots, session = session,
                                     filetypes = c("csv", "txt", "tsv", "gz"))
         observeEvent(input$browse_private_file, {

@@ -56,8 +56,9 @@
 <p>NASQAR2 can also run as a private instance on your own server or cluster, where your data stays on your own machines. Everything above works the same way there. In addition:</p>
 <ul>
 <li><strong>Large objects need no upload.</strong> Choose <strong>Seurat object in the private space</strong> and press <strong>Browse</strong> to use a file that is already on the server.</li>
-<li><strong>Your work is saved automatically</strong> under the name in the <strong>Project name</strong> box, for objects read from the private space.</li>
-<li><strong>You can continue later.</strong> Choose <strong>Reopen a saved project</strong>, pick your project and press <strong>Open project</strong>. The settings and the trajectory come back without running it again. <strong>Only projects made from an object in the private space can be reopened.</strong></li>
+<li><strong>Your work is saved automatically</strong> in the project chosen at the top of the input step, for objects read from the private space.</li>
+<li><strong>Every analysis belongs to a project.</strong> The <strong>Project</strong> question at the top of the input step asks whether to <strong>create a new project</strong> or <strong>open an existing one</strong>. All applications of one study save into the same project, each in its own folder.</li>
+<li><strong>You can continue later.</strong> Choose <strong>Open an existing project</strong>, pick the project and press <strong>Continue</strong>. The settings and the trajectory come back without running it again. <strong>Only projects made from an object in the private space can be reopened.</strong></li>
 <li><strong>Your downloads are kept together</strong> on the <strong>Project files</strong> tab.</li>
 </ul>
 <p>These options do not appear on the public site.</p>

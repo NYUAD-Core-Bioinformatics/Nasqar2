@@ -1,6 +1,6 @@
 # Browse dialog for the private data root (private instance only).
 if (!is.null(data_root)) {
-    browse_roots <- nasqar_browse_roots()
+    browse_roots <- nasqar_browse_roots   # a function: the open project comes first
     shinyFiles::shinyFileChoose(input, "browse_private_counts", roots = browse_roots, session = session,
                                 filetypes = c("csv", "txt", "tsv", "gz"))
     observeEvent(input$browse_private_counts, {
