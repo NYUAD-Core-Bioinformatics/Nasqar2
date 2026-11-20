@@ -135,6 +135,8 @@ A private instance adds the same controls to every application; a public instanc
 
 - **Where is your data?** on the input tab gains two choices. One is named after the input of the app, such as *Counts file in the private space* or *FASTQ folder in the private space*, and reads data that is already on the server, chosen with Browse, without uploading it. **Reopen a saved project** lists the projects of that app with their input, stage and date.
 - **Project name** on the input tab names the project a new analysis is saved under.
+- Once data is loaded, a small **Saving to project** label in the bottom-right corner shows where the work is going. Its **Rename** button gives the project another name at any time; nothing is run again, so a forgotten or wrong name is not a reason to start over.
+- Next to the list of saved projects, the pencil renames the selected project and the bin deletes it after a confirmation. **Deleting a project removes its saved analysis, figures and tables for good.** Input data is never touched, and a project that is open in the current session has to be closed (reload the page) before it can be deleted.
 - **Project files** (in DESeq2, **Export and files**) lists the saved figures and tables of the project with a preview. **Save all to project** writes every figure and table that exists at that moment into the project without downloading them. Gene Count Merger and Merge FPKMs save the merged table there automatically.
 
 Reopening restores the project without recomputing: cached results are reused, and a restore is refused when the source data changed since the project was made. The older per-application variables (`NASQAR_DESEQ2_STATE_DIR`, `NASQAR_*_PROJECT_DIR`, `NASQAR_ATAC_CACHE_DIR`) are still honoured as overrides.

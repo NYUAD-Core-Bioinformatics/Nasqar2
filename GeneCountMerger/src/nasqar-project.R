@@ -136,13 +136,21 @@ nasqar_path_inside_roots <- function(resolved, roots = nasqar_browse_roots()) {
 # Merge fields into the project's state.rds (created on first call).
 nasqar_project_state_write <- function(dir, app, name, stage, ...) {
     dir.create(dir, recursive = TRUE, showWarnings = FALSE, mode = "0700")
+    dir <- normalizePath(dir, winslash = "/", mustWork = FALSE)   # the real folder, not a renamed project's alias
     state <- nasqar_project_state_read(dir)
     now <- Sys.time()
     if (is.null(state)) {
         state <- list(app = app, name = name, created = now,
                       nasqar_state_version = 1L)
     }
+    state$name <- basename(dir)
+    session <- shiny::getDefaultReactiveDomain()
     updates <- list(...)
+    # a project renamed in this session is still reached under its old path:
+    # record the real one
+    for (alias in if (!is.null(session)) session$userData$nasqar_project_aliases else NULL) {
+        updates <- nasqar_rewrite_paths(updates, alias, dir)
+    }
     for (field in names(updates)) state[[field]] <- updates[[field]]
     state$stage <- stage
     state$updated <- now
@@ -150,9 +158,128 @@ nasqar_project_state_write <- function(dir, app, name, stage, ...) {
     saveRDS(state, temporary)
     file.rename(temporary, nasqar_project_state_file(dir))
     nasqar_project_json_write(dir, state)
-    session <- shiny::getDefaultReactiveDomain()
-    if (!is.null(session)) session$userData$nasqar_project_last_dir <- dir
+    if (!is.null(session)) nasqar_project_set_current(session, dir)
     invisible(state)
+}
+
+# The project this session writes to. Kept in session$userData for plain
+# reads and mirrored in a reactive value for the on-screen project badge.
+nasqar_project_set_current <- function(session, dir) {
+    session$userData$nasqar_project_last_dir <- dir
+    current <- session$userData$nasqar_project_current
+    if (is.function(current) && !identical(shiny::isolate(current()), dir)) current(dir)
+    invisible(dir)
+}
+
+# TRUE for a symbolic link (Sys.readlink() gives NA for a path that does not exist).
+nasqar_is_link <- function(path) {
+    target <- Sys.readlink(path)
+    !is.na(target) & nzchar(target)
+}
+
+# Replace the directory prefix `old` by `new` in every path found in x
+# (character vectors, at any depth of a list).
+nasqar_rewrite_paths <- function(x, old, new) {
+    if (is.character(x)) {
+        inside <- !is.na(x) & (x == old | startsWith(x, paste0(old, "/")))
+        x[inside] <- paste0(new, substring(x[inside], nchar(old) + 1L))
+        return(x)
+    }
+    if (is.list(x) && !is.data.frame(x)) {
+        attributes_kept <- attributes(x)
+        x <- lapply(x, nasqar_rewrite_paths, old = old, new = new)
+        attributes(x) <- attributes_kept
+    }
+    x
+}
+
+# A project directory that may be renamed or deleted: a real directory (not
+# the alias of a renamed project) directly under the application's root, with
+# a state file. Returns its normalised path, or stops with a message.
+nasqar_project_checked_dir <- function(app, name, legacy_env = NULL) {
+    root <- nasqar_project_app_root(app, legacy_env)
+    if (is.null(root)) stop("This instance has no private space.", call. = FALSE)
+    safe <- nasqar_project_sanitize(name, "")
+    if (!nzchar(safe) || !identical(safe, as.character(name))) stop("Not a project name.", call. = FALSE)
+    dir <- file.path(root, safe)
+    if (nasqar_is_link(dir) || !dir.exists(dir) || !file.exists(nasqar_project_state_file(dir))) {
+        stop(sprintf("There is no saved project named '%s'.", safe), call. = FALSE)
+    }
+    dir
+}
+
+# Rename a project: move its folder and correct the paths recorded in its
+# state. Returns the new directory.
+nasqar_project_rename <- function(app, name, new_name, legacy_env = NULL) {
+    old_dir <- nasqar_project_checked_dir(app, name, legacy_env)
+    safe <- nasqar_project_sanitize(new_name, "")
+    if (!nzchar(safe)) stop("Enter a name using letters, digits, '.', '_' or '-'.", call. = FALSE)
+    new_dir <- file.path(dirname(old_dir), safe)
+    if (identical(safe, basename(old_dir))) stop("That is already the name of this project.", call. = FALSE)
+    if (file.exists(new_dir) || nasqar_is_link(new_dir)) {
+        stop(sprintf("A project named '%s' already exists.", safe), call. = FALSE)
+    }
+    if (!file.rename(old_dir, new_dir)) stop("The project folder could not be renamed.", call. = FALSE)
+    state <- nasqar_project_state_read(new_dir)
+    if (!is.null(state)) {
+        state <- nasqar_rewrite_paths(state, old_dir, new_dir)
+        state$name <- safe
+        state$renamed_from <- c(state$renamed_from, basename(old_dir))
+        saveRDS(state, nasqar_project_state_file(new_dir))
+        tryCatch(nasqar_project_json_write(new_dir, state), error = function(e) NULL)
+    }
+    new_dir
+}
+
+# Delete a project folder for good.
+nasqar_project_delete <- function(app, name, legacy_env = NULL) {
+    dir <- nasqar_project_checked_dir(app, name, legacy_env)
+    unlink(dir, recursive = TRUE, force = TRUE)
+    if (dir.exists(dir)) stop("The project folder could not be deleted completely.", call. = FALSE)
+    invisible(TRUE)
+}
+
+# Number of files and total size of a project, for the delete confirmation.
+nasqar_project_size <- function(dir) {
+    files <- list.files(dir, recursive = TRUE, full.names = TRUE, all.files = TRUE)
+    bytes <- sum(file.info(files)$size, na.rm = TRUE)
+    units <- c("bytes", "KB", "MB", "GB", "TB")
+    i <- if (bytes > 0) min(length(units), floor(log(bytes, 1024)) + 1L) else 1L
+    sprintf("%d files, %s %s", length(files), format(round(bytes / 1024^(i - 1), if (i > 1) 1 else 0), nsmall = 0), units[i])
+}
+
+# A project renamed while it is open stays reachable under its old path for
+# the rest of the session, through a symbolic link beside it: whatever the
+# application still holds in memory (open files, cached paths) keeps working,
+# and nasqar_project_state_write() records the real path. The link goes when
+# the session ends; one left behind by a killed process is removed by the
+# next session (the marker names the process that made it).
+nasqar_project_alias_marker <- function(dir, alias_name) file.path(dir, paste0(".nasqar-alias-", alias_name))
+
+nasqar_project_alias_create <- function(alias_dir, target_dir) {
+    if (file.exists(alias_dir) || nasqar_is_link(alias_dir)) unlink(alias_dir)
+    ok <- suppressWarnings(file.symlink(basename(target_dir), alias_dir))
+    if (isTRUE(ok)) writeLines(as.character(Sys.getpid()), nasqar_project_alias_marker(target_dir, basename(alias_dir)))
+    isTRUE(ok)
+}
+
+nasqar_project_alias_remove <- function(alias_dir) {
+    target <- Sys.readlink(alias_dir)
+    if (is.na(target) || !nzchar(target)) return(invisible(FALSE))
+    unlink(nasqar_project_alias_marker(file.path(dirname(alias_dir), target), basename(alias_dir)))
+    unlink(alias_dir)
+    invisible(TRUE)
+}
+
+nasqar_project_alias_cleanup <- function(root) {
+    for (path in list.files(root, full.names = TRUE)) {
+        target <- Sys.readlink(path)
+        if (is.na(target) || !nzchar(target)) next
+        marker <- nasqar_project_alias_marker(file.path(root, target), basename(path))
+        pid <- if (file.exists(marker)) suppressWarnings(readLines(marker, n = 1, warn = FALSE)) else ""
+        alive <- length(pid) == 1 && grepl("^[0-9]+$", pid) && dir.exists(file.path("/proc", pid))
+        if (!alive) nasqar_project_alias_remove(path)
+    }
 }
 
 # Human-readable companion of state.rds: the recorded settings plus a snapshot
@@ -235,6 +362,7 @@ nasqar_project_list <- function(app, legacy_env = NULL) {
     root <- nasqar_project_app_root(app, legacy_env)
     if (is.null(root)) return(empty)
     dirs <- list.dirs(root, full.names = TRUE, recursive = FALSE)
+    dirs <- dirs[!nasqar_is_link(dirs)]   # not the alias of a renamed project
     rows <- lapply(dirs, function(dir) {
         state <- nasqar_project_state_read(dir)
         if (is.null(state)) return(NULL)
@@ -536,6 +664,11 @@ nasqar_project_outputs_server <- function(input, output, session) {
 nasqar_project_restore_ui <- function(button_label = "Restore", help = TRUE, stacked = FALSE) {
     refresh_button <- shiny::actionButton("nasqar_project_refresh", NULL, icon = shiny::icon("sync"),
                                           class = "btn-default", title = "Refresh the list")
+    manage_buttons <- shiny::tagList(
+        shiny::actionButton("nasqar_project_rename_btn", NULL, icon = shiny::icon("pen"),
+                            class = "btn-default", title = "Rename the selected project"),
+        shiny::actionButton("nasqar_project_delete_btn", NULL, icon = shiny::icon("trash"),
+                            class = "btn-default", title = "Delete the selected project"))
     if (isTRUE(stacked)) {
         # Full-width picker with the project name on one line and its details
         # (input, stage, date) on a second, then the button underneath: the
@@ -556,6 +689,7 @@ nasqar_project_restore_ui <- function(button_label = "Restore", help = TRUE, sta
                 style = "display:flex; gap:8px;",
                 shiny::actionButton("nasqar_project_restore_btn", button_label, icon = shiny::icon("folder-open"),
                                     class = "btn-primary", style = "flex:1; color:#fff;"),
+                manage_buttons,
                 refresh_button
             )
         ))
@@ -573,7 +707,7 @@ nasqar_project_restore_ui <- function(button_label = "Restore", help = TRUE, sta
                                    choices = c("No saved projects yet" = ""))),
             shiny::div(style = "margin-bottom:15px; display:flex; gap:6px;",
                 shiny::actionButton("nasqar_project_restore_btn", button_label, class = "btn-primary"),
-                refresh_button)
+                manage_buttons, refresh_button)
         ),
         shiny::tags$small(class = "text-muted", shiny::textOutput("nasqar_project_root_note", inline = TRUE))
     )
@@ -642,6 +776,111 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
         }
     }
     output$nasqar_project_root_note <- shiny::renderText(paste("Projects are stored under", root))
+
+    # ---- current project badge, rename and delete -------------------------
+    nasqar_project_alias_cleanup(root)
+    current <- shiny::reactiveVal(session$userData$nasqar_project_last_dir)
+    session$userData$nasqar_project_current <- current
+    is_current <- function(dir) {
+        open <- session$userData$nasqar_project_last_dir
+        !is.null(open) && identical(normalizePath(open, winslash = "/", mustWork = FALSE),
+                                    normalizePath(dir, winslash = "/", mustWork = FALSE))
+    }
+    shiny::insertUI("body", "beforeEnd", immediate = TRUE, ui = shiny::uiOutput("nasqar_project_badge"))
+    output$nasqar_project_badge <- shiny::renderUI({
+        dir <- current()
+        if (is.null(dir) || !dir.exists(dir)) return(NULL)
+        shiny::div(
+            style = paste("position:fixed; right:14px; bottom:12px; z-index:1040; background:#fff; border:1px solid #c9d3dc;",
+                          "border-radius:16px; padding:5px 6px 5px 12px; font-size:13px; box-shadow:0 1px 4px rgba(0,0,0,.15);",
+                          "display:flex; align-items:center; gap:8px; max-width:60vw;"),
+            shiny::span(shiny::icon("folder-open"), " Saving to project ",
+                        shiny::tags$strong(style = "word-break:break-all;", basename(dir))),
+            shiny::actionButton("nasqar_project_rename_current", "Rename", icon = shiny::icon("pen"),
+                                class = "btn-default btn-xs", style = "border-radius:12px;"))
+    })
+    ask_new_name <- function(name) {
+        session$userData$nasqar_project_rename_target <- name
+        shiny::showModal(shiny::modalDialog(
+            title = "Rename project", easyClose = TRUE,
+            shiny::p("Project ", shiny::tags$strong(name), " keeps everything it holds; only its name changes. Nothing is run again."),
+            shiny::textInput("nasqar_project_rename_to", "New name", value = name, width = "100%"),
+            shiny::helpText("Letters, digits, '.', '_' and '-'. Other characters become '-'."),
+            footer = shiny::tagList(
+                shiny::modalButton("Cancel"),
+                shiny::actionButton("nasqar_project_rename_ok", "Rename", class = "btn-primary", style = "color:#fff;"))))
+    }
+    shiny::observeEvent(input$nasqar_project_rename_current, {
+        dir <- session$userData$nasqar_project_last_dir
+        if (!is.null(dir)) ask_new_name(basename(normalizePath(dir, winslash = "/", mustWork = FALSE)))
+    }, ignoreInit = TRUE)
+    shiny::observeEvent(input$nasqar_project_rename_btn, {
+        name <- input$nasqar_project_restore
+        if (is.null(name) || !nzchar(name)) return(shiny::showNotification("There is no saved project to rename.", type = "warning"))
+        ask_new_name(name)
+    }, ignoreInit = TRUE)
+    shiny::observeEvent(input$nasqar_project_rename_ok, {
+        name <- session$userData$nasqar_project_rename_target
+        if (is.null(name)) return()
+        old_dir <- file.path(root, name)
+        was_current <- is_current(old_dir)
+        new_dir <- tryCatch(nasqar_project_rename(app, name, input$nasqar_project_rename_to, legacy_env),
+                            error = function(error) {
+                                shiny::showNotification(conditionMessage(error), type = "error", duration = 10)
+                                NULL
+                            })
+        if (is.null(new_dir)) return()
+        shiny::removeModal()
+        if (was_current) {
+            # every path this session knows the project by now leads to the new folder
+            aliases <- unique(c(session$userData$nasqar_project_aliases, old_dir))
+            linked <- vapply(aliases, nasqar_project_alias_create, logical(1), target_dir = new_dir)
+            session$userData$nasqar_project_aliases <- aliases
+            nasqar_project_set_current(session, new_dir)
+            if (!is.null(input$nasqar_project_name)) {
+                shiny::updateTextInput(session, "nasqar_project_name", value = basename(new_dir))
+            }
+            if (!all(linked)) shiny::showNotification(
+                "The project is renamed. Reload the page and reopen it before you continue: this storage does not let the open session follow the new name.",
+                type = "warning", duration = NULL)
+        }
+        refresh(basename(new_dir))
+        shiny::showNotification(sprintf("Project '%s' is now '%s'.", name, basename(new_dir)), type = "message", duration = 8)
+    }, ignoreInit = TRUE)
+    session$onSessionEnded(function() {
+        for (alias in session$userData$nasqar_project_aliases) nasqar_project_alias_remove(alias)
+    })
+    shiny::observeEvent(input$nasqar_project_delete_btn, {
+        name <- input$nasqar_project_restore
+        if (is.null(name) || !nzchar(name)) return(shiny::showNotification("There is no saved project to delete.", type = "warning"))
+        dir <- tryCatch(nasqar_project_checked_dir(app, name, legacy_env), error = function(error) NULL)
+        if (is.null(dir)) return(shiny::showNotification("This project no longer exists.", type = "warning"))
+        if (is_current(dir)) {
+            return(shiny::showNotification(
+                "This project is open in this session. Reload the page first, then delete it.", type = "warning", duration = 10))
+        }
+        session$userData$nasqar_project_delete_target <- name
+        shiny::showModal(shiny::modalDialog(
+            title = "Delete project", easyClose = TRUE,
+            shiny::p("Delete project ", shiny::tags$strong(name), " (", nasqar_project_size(dir), ")?"),
+            shiny::p(shiny::tags$strong("This removes its saved analysis, figures and tables for good. It cannot be undone.")),
+            shiny::helpText("Your input data in the private space is not touched."),
+            footer = shiny::tagList(
+                shiny::modalButton("Cancel"),
+                shiny::actionButton("nasqar_project_delete_ok", "Delete project", icon = shiny::icon("trash"),
+                                    class = "btn-danger", style = "color:#fff;"))))
+    }, ignoreInit = TRUE)
+    shiny::observeEvent(input$nasqar_project_delete_ok, {
+        name <- session$userData$nasqar_project_delete_target
+        session$userData$nasqar_project_delete_target <- NULL
+        if (is.null(name)) return()
+        problem <- tryCatch({ nasqar_project_delete(app, name, legacy_env); NULL },
+                            error = function(error) conditionMessage(error))
+        shiny::removeModal()
+        refresh()
+        shiny::showNotification(if (is.null(problem)) sprintf("Project '%s' deleted.", name) else problem,
+                                type = if (is.null(problem)) "message" else "error", duration = 8)
+    }, ignoreInit = TRUE)
     nasqar_project_outputs_server(input, output, session)
     shiny::observeEvent(input$nasqar_project_refresh, refresh(), ignoreInit = TRUE)
     refresh()
@@ -659,7 +898,7 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
             shiny::showNotification(paste("Could not restore the project:", problem), type = "error", duration = 15)
         } else {
             # the restored project is now the current one: settings changes refresh its state.json
-            session$userData$nasqar_project_last_dir <- dir
+            nasqar_project_set_current(session, dir)
             nasqar_project_json_write(dir, state)
             if (!is.null(input$nasqar_project_name)) {
                 shiny::updateTextInput(session, "nasqar_project_name", value = name)
