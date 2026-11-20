@@ -113,7 +113,7 @@ docker run -p 127.0.0.1:8083:80 \
 ```
 
 One folder holds everything: `data/` (mounted read-only on top, so the
-applications can never write into it), `projects/<App>/<name>` for every run,
+applications can never write into it), `projects/<project>/<App>` for every analysis,
 and a hidden `.runtime/` for the R library and scratch files. Browse dialogs
 open at the top of that folder and show only `data` and `projects`, so a result saved by one application (a merged count
 matrix, a Seurat object) can be picked as the input of another. Binding to
@@ -129,14 +129,15 @@ nowhere persistent to install into, so visitors cannot trigger downloads.
 
 The same variables work with an image built from source (`nasqar2-all`). Leave `NASQAR_PROJECT_ROOT` unset and the applications keep their results in temporary storage inside the container, discarded when it stops. Browser upload and download remain available in every mode.
 
-**Projects.** With `NASQAR_PROJECT_ROOT` set, every NASQAR2 application keeps its work as a project, `projects/<App>/<name>`, holding the outputs, the caches, a `state.rds` with the inputs, settings and stage reached, and a human-readable `state.json` with the same settings plus a snapshot of every UI input at that moment, so the choices behind a result can be read without R (for a methods section, or to share with a colleague). Every figure or table you download is also kept in the project (`plots/` and `downloads/`).
+**Projects.** With `NASQAR_PROJECT_ROOT` set, every NASQAR2 application keeps its work in a project, `projects/<project>/<App>`, holding the outputs, the caches, a `state.rds` with the inputs, settings and stage reached, and a human-readable `state.json` with the same settings plus a snapshot of every UI input at that moment, so the choices behind a result can be read without R (for a methods section, or to share with a colleague). Every figure or table you download is also kept in the project (`plots/` and `downloads/`).
 
 A private instance adds the same controls to every application; a public instance shows none of them:
 
 - **Where is your data?** on the input tab gains two choices. One is named after the input of the app, such as *Counts file in the private space* or *FASTQ folder in the private space*, and reads data that is already on the server, chosen with Browse, without uploading it. **Reopen a saved project** lists the projects of that app with their input, stage and date.
 - **Project name** on the input tab names the project a new analysis is saved under.
 - Once data is loaded, a small **Saving to project** label in the bottom-right corner shows where the work is going. Its **Rename** button gives the project another name at any time; nothing is run again, so a forgotten or wrong name is not a reason to start over.
-- Next to the list of saved projects, the pencil renames the selected project and the bin deletes it after a confirmation. **Deleting a project removes its saved analysis, figures and tables for good.** Input data is never touched, and a project that is open in the current session has to be closed (reload the page) before it can be deleted.
+- A project is one study. Use the same project name in every application of an analysis and its parts sit together, for example `projects/avo-study/GeneCountMerger`, `projects/avo-study/DESeq2Shiny` and `projects/avo-study/ClusterProfShinyORA`. Opening the next application from a result (Gene Count Merger to DESeq2, DESeq2 to ORA or GSEA, Seurat v5 to Monocle 3, Variant Annotation to ORA) fills in the same project name for you. Projects saved before this layout, under `projects/<App>/<name>`, are still listed and reopen where they are; renaming one moves it into the new layout.
+- Next to the list of saved projects, the pencil renames the selected project and the bin deletes it after a confirmation. **Deleting removes that application's saved analysis, figures and tables in the project for good**; what other applications saved in the same project is kept. Input data is never touched, and a project that is open in the current session has to be closed (reload the page) before it can be deleted.
 - **Project files** (in DESeq2, **Export and files**) lists the saved figures and tables of the project with a preview. **Save all to project** writes every figure and table that exists at that moment into the project without downloading them. Gene Count Merger and Merge FPKMs save the merged table there automatically.
 
 Reopening restores the project without recomputing: cached results are reused, and a restore is refused when the source data changed since the project was made. The older per-application variables (`NASQAR_DESEQ2_STATE_DIR`, `NASQAR_*_PROJECT_DIR`, `NASQAR_ATAC_CACHE_DIR`) are still honoured as overrides.
@@ -145,7 +146,7 @@ Reopening restores the project without recomputing: cached results are reused, a
 | --- | --- | --- |
 | `NASQAR_PRIVATE_ROOT` | All NASQAR2 applications | The private folder as a whole; Browse dialogs start here |
 | `NASQAR_DATA_ROOT` | All NASQAR2 applications | Read-only data directory inside it; input paths must lie under it or under the projects |
-| `NASQAR_PROJECT_ROOT` | All NASQAR2 applications | Private-space projects, one folder per application and project name (`projects/<App>/<name>`), each restorable from the app |
+| `NASQAR_PROJECT_ROOT` | All NASQAR2 applications | Private-space projects, one folder per project with a folder per application inside (`projects/<project>/<App>`), each restorable from the app |
 | `NASQAR_DADA2_WORK_DIR` | DADA2 | Optional; set by the HPC job only. Fast node-local disk for the filtered FASTQs of a run (default: `work/` in the project) |
 | `R_LIBS_USER` | All | Writable R library, so packages installed on the fly survive container restarts |
 | `NASQAR_VARIANT_YIELD_SIZE` | Variant Annotation | Optional. Records read per chunk while summarising and filtering a VCF (default 100000); files below it are summarised automatically |
