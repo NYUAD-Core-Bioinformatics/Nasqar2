@@ -580,6 +580,38 @@ server <- function(input, output, session) {
     }
     restored_merged <- reactiveVal(NULL)
     skip_next_save <- FALSE
+    # The count files behind the project's table and the merge settings, saved
+    # with it so a reopened project can merge again without a new upload.
+    project_inputs <- NULL
+    restored_settings <- reactiveVal(NULL)
+    merge_setting_ids <- c("mergeType", "hasHeader", "idColumn", "countColumn", "addGeneNames",
+                           "geneNamesSource", "refGenome", "geneNameColumn")
+    keep_project_inputs <- function(inFile) {
+        if (!private_space) return(invisible())
+        settings <- lapply(setNames(merge_setting_ids, merge_setting_ids), function(id) input[[id]])
+        if (identical(input$counts_source, "private_files")) {
+            files <- inFile$datapath   # already in the private space: read in place
+            # still the uploads kept from an earlier merge (a reopened project)
+            uploaded <- isTRUE(project_inputs$uploaded) && setequal(files, project_inputs$files)
+        } else {
+            dir <- nasqar_project_dir(project_app, current_project_name(), fallback = "counts-project")
+            inputs_dir <- file.path(normalizePath(dir, winslash = "/", mustWork = FALSE), "inputs")
+            dir.create(inputs_dir, recursive = TRUE, showWarnings = FALSE, mode = "0700")
+            # keep the uploaded names: they are the sample names of the table
+            targets <- file.path(inputs_dir, basename(inFile$name))
+            copied <- file.copy(inFile$datapath, targets, overwrite = TRUE)
+            if (!all(copied)) {
+                showNotification("The uploaded count files could not all be saved in the project.", type = "warning", duration = 10)
+            }
+            files <- targets[copied]
+            # files an earlier merge saved here and this one no longer uses
+            stale <- setdiff(project_inputs$files[startsWith(project_inputs$files %||% character(0), paste0(inputs_dir, "/"))], files)
+            if (length(stale)) file.remove(stale[file.exists(stale)])
+            uploaded <- TRUE
+        }
+        project_inputs <<- list(files = files, settings = settings, uploaded = uploaded)
+        invisible()
+    }
 
     # Private data root: input files read in place (private instance only)
     data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
@@ -617,10 +649,11 @@ server <- function(input, output, session) {
         merged_file <- file.path(dir, "merged-counts.csv")
         utils::write.csv(myValues$mergedData, merged_file, row.names = FALSE)
         label <- sprintf("%d samples", ncol(myValues$mergedData) - 1L)
-        nasqar_project_state_write(dir, project_app, nasqar_project_name(dir), "merged", input_label = label, merged_file = merged_file)
+        nasqar_project_state_write(dir, project_app, nasqar_project_name(dir), "merged", input_label = label, merged_file = merged_file,
+                                   input_files = project_inputs$files, merge_settings = project_inputs$settings)
         # also under downloads/, so it shows on the Project files page
         nasqar_project_save_output(merged_file, "merged-counts.csv", session)
-        project_saved(list(name = nasqar_project_name(dir)))
+        project_saved(list(name = nasqar_project_name(dir), uploaded = isTRUE(project_inputs$uploaded)))
         project_refresh(nasqar_project_name(dir))
     })
     project_saved <- reactiveVal(NULL)
@@ -632,7 +665,10 @@ server <- function(input, output, session) {
             ". The file is ",
             tags$code(file.path("projects", saved$name, project_app, "downloads", "merged-counts.csv")),
             ": pick it in DESeq2 under ", em("Counts file in the private space"),
-            ", or see it on the ", strong("Project files"), " page. Renaming columns saves it again.")
+            ", or see it on the ", strong("Project files"), " page. Renaming columns saves it again.",
+            if (isTRUE(saved$uploaded)) tagList(" The uploaded count files are kept in ",
+                tags$code(file.path("projects", saved$name, project_app, "inputs")),
+                ": reopening the project fills them in, so you can merge again without uploading them."))
     })
 
     project_refresh <- nasqar_project_server(input, output, session, project_app, on_restore = function(state, dir) {
@@ -642,6 +678,23 @@ server <- function(input, output, session) {
         skip_next_save <<- TRUE
         myValues$mergedData <- utils::read.csv(state$merged_file, check.names = FALSE, stringsAsFactors = FALSE)
         myValues$fileUrl <- file.path(nasqarExchangeDir(), paste0(UUIDgenerate(), ".csv"))
+        files <- unlist(state$input_files %||% character(0))
+        if (length(files) && all(file.exists(files))) {
+            settings <- state$merge_settings %||% list()
+            project_inputs <<- list(files = files, settings = settings,
+                                    uploaded = all(startsWith(files, paste0(normalizePath(dir, winslash = "/", mustWork = FALSE), "/inputs/"))))
+            restored_settings(settings)
+            updateRadioButtons(session, "counts_source", selected = "private_files")
+            updateRadioButtons(session, "inputType", selected = "raw")
+            if (!is.null(settings$mergeType)) updateRadioButtons(session, "mergeType", selected = settings$mergeType)
+            if (!is.null(settings$hasHeader)) updateCheckboxInput(session, "hasHeader", value = isTRUE(settings$hasHeader))
+            if (!is.null(settings$addGeneNames)) updateCheckboxInput(session, "addGeneNames", value = isTRUE(settings$addGeneNames))
+            if (!is.null(settings$geneNamesSource)) updateRadioButtons(session, "geneNamesSource", selected = settings$geneNamesSource)
+            if (!is.null(settings$geneNameColumn)) updateRadioButtons(session, "geneNameColumn", selected = settings$geneNameColumn)
+            updateTextAreaInput(session, "private_count_files", value = paste(files, collapse = "\n"))
+            showNotification("The project's count files are filled in: change the settings and press Merge files to merge them again.",
+                             type = "message", duration = 12)
+        }
         updateTabsetPanel(session, "tabs", selected = "Output")
         NULL
     })
@@ -687,9 +740,10 @@ server <- function(input, output, session) {
         choices <- tools::file_path_sans_ext(
             list.files("www/gene_names", pattern = "\\.Rda$")
         )
+        restored <- restored_settings()$refGenome
         selectInput("refGenome", "Select pre-built gene name mapping:",
                     choices  = choices,
-                    selected = choices[1])
+                    selected = if (!is.null(restored) && restored %in% choices) restored else choices[1])
     })
 
     output$tx2genePreviewUI <- renderUI({
@@ -947,8 +1001,10 @@ server <- function(input, output, session) {
 
     # Detect column names/indices from the first uploaded file
     fileColumnsReactive <- reactive({
-        inFile <- input$datafile
-        if (is.null(inFile)) return(NULL)
+        inFile <- if (identical(input$counts_source, "private_files")) {
+            tryCatch(data_root_files(), error = function(e) NULL)
+        } else input$datafile
+        if (is.null(inFile) || !nrow(inFile)) return(NULL)
 
         useHeader <- isTRUE(input$hasHeader)
 
@@ -986,10 +1042,14 @@ server <- function(input, output, session) {
         cols <- colInfo$cols
         choices <- setNames(as.list(seq_along(cols)), cols)
         defaultCount <- if (length(cols) >= 2) 2 else 1
+        restored <- isolate(restored_settings())
+        defaultId <- 1
+        if (!is.null(restored$idColumn) && as.integer(restored$idColumn) <= length(cols)) defaultId <- restored$idColumn
+        if (!is.null(restored$countColumn) && as.integer(restored$countColumn) <= length(cols)) defaultCount <- restored$countColumn
 
         tagList(
             p("Specify which columns in your files contain gene IDs and counts:"),
-            selectInput("idColumn", "Gene ID Column:", choices = choices, selected = 1),
+            selectInput("idColumn", "Gene ID Column:", choices = choices, selected = defaultId),
             if (input$mergeType == "single") {
                 selectInput("countColumn", "Count Column:", choices = choices, selected = defaultCount)
             }
@@ -1106,6 +1166,7 @@ server <- function(input, output, session) {
                 updateTabsetPanel(session, "tabs", selected = "Output")
 
                 total[, 1] <- as.character(total[, 1])
+                if (isKallisto) project_inputs <<- NULL else keep_project_inputs(inFile)
                 restored_merged(NULL)
                 myValues$mergedData <- total
                 return(list("data" = total))
@@ -1450,7 +1511,9 @@ server <- function(input, output, session) {
     outputOptions(output, "filesUploaded", suspendWhenHidden = FALSE)
 
     output$filesMerged <- reactive({
-        return(isTRUE(restored_merged()) || !is.null(analyzeDataReactive()))
+        # evaluate the merge first: after a reopen it must still run on Merge files
+        merged <- !is.null(analyzeDataReactive())
+        return(merged || isTRUE(restored_merged()))
     })
     outputOptions(output, "filesMerged", suspendWhenHidden = FALSE)
 
