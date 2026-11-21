@@ -59,7 +59,8 @@
 <li><strong>Files need no upload.</strong> Choose <strong>Files in the private space</strong> and press <strong>Browse</strong> to pick files that are already on the server.</li>
 <li><strong>The merged table is saved automatically</strong> in the project chosen at the top of the input step.</li>
 <li><strong>Every analysis belongs to a project.</strong> The <strong>Project</strong> question at the top of the input step asks whether to <strong>create a new project</strong> or <strong>open an existing one</strong>. All applications of one study save into the same project, each in its own folder.</li>
-<li><strong>You can continue later.</strong> Choose <strong>Open an existing project</strong>, pick the project and press <strong>Continue</strong>.</li>
+<li><strong>Uploaded FPKM files are kept in the project</strong>, in its <code>inputs</code> folder.</li>
+<li><strong>You can continue later.</strong> Choose <strong>Open an existing project</strong>, pick the project and press <strong>Continue</strong>. The merged table comes back, the FPKM files are filled in and the options are restored. You can then change an option and press <strong>Merge files</strong> again without uploading anything.</li>
 <li><strong>Your downloads are kept together</strong> on the <strong>Project files</strong> page.</li>
 </ul>
 <p>These options do not appear on the public site.</p>
