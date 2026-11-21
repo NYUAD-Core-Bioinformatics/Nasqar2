@@ -643,9 +643,16 @@ nasqar_project_save_all <- function(session = shiny::getDefaultReactiveDomain(),
     saved
 }
 
+# Project subfolders listed on the Project files page: figures and tables, and
+# the uploaded input files an application keeps (inputs/).
+nasqar_project_gallery_dirs <- c("plots", "downloads", "inputs")
+
 # Body of a "Project files" box: the Save all to project button over the
 # list of saved files. The button is wired by nasqar_project_outputs_server().
-nasqar_project_files_ui <- function() {
+# save_all = FALSE leaves the button out (an application that saves its one
+# result by itself has nothing more to write).
+nasqar_project_files_ui <- function(save_all = TRUE) {
+    if (!isTRUE(save_all)) return(nasqar_project_outputs_ui(heading = FALSE))
     shiny::tagList(
         shiny::actionButton("nasqar_project_save_all_btn", "Save all to project", icon = shiny::icon("floppy-disk"),
                             class = "btn-primary", style = "color:#fff; margin-bottom:6px;"),
@@ -661,7 +668,7 @@ nasqar_project_outputs_ui <- function(heading = TRUE) {
         id = "nasqar_project_outputs_panel",
         if (isTRUE(heading)) shiny::tags$hr(),
         if (isTRUE(heading)) shiny::tags$strong("Saved plots and files of this project"),
-        shiny::helpText("Every figure or table you download is also kept in the project folder (plots/ and downloads/). Click a file to preview it."),
+        shiny::helpText("Every figure or table you download is also kept in the project folder (plots/ and downloads/); uploaded input files the application keeps are in inputs/. Click a file to preview it."),
         shiny::uiOutput("nasqar_project_outputs")
     )
 }
@@ -674,13 +681,13 @@ nasqar_project_outputs_server <- function(input, output, session) {
         checkFunc = function() {
             dir <- session$userData$nasqar_project_last_dir
             if (is.null(dir)) return("")
-            files <- list.files(file.path(dir, c("plots", "downloads")), full.names = TRUE)
+            files <- list.files(file.path(dir, nasqar_project_gallery_dirs), full.names = TRUE)
             paste(dir, paste(files, file.info(files)$mtime, collapse = ";"))
         },
         valueFunc = function() {
             dir <- session$userData$nasqar_project_last_dir
             if (is.null(dir) || !dir.exists(dir)) return(NULL)
-            rows <- lapply(c("plots", "downloads"), function(category) {
+            rows <- lapply(nasqar_project_gallery_dirs, function(category) {
                 files <- list.files(file.path(dir, category), full.names = TRUE)
                 if (!length(files)) return(NULL)
                 data.frame(category = category, name = basename(files), path = files,
@@ -689,7 +696,7 @@ nasqar_project_outputs_server <- function(input, output, session) {
             rows <- rows[!vapply(rows, is.null, logical(1))]
             list(dir = dir, files = if (length(rows)) do.call(rbind, rows) else NULL)
         })
-    # Only plots/ and downloads/ are served (never state files or caches), under
+    # Only plots/, downloads/ and inputs/ are served (never state files or caches), under
     # session-specific prefixes that are unregistered when the session ends.
     prefix <- paste0("nasqar-project-", session$token)
     served <- new.env(parent = emptyenv())
@@ -703,7 +710,7 @@ nasqar_project_outputs_server <- function(input, output, session) {
         name
     }
     session$onSessionEnded(function() {
-        for (category in c("plots", "downloads")) {
+        for (category in nasqar_project_gallery_dirs) {
             if (!is.null(served[[category]])) {
                 tryCatch(shiny::removeResourcePath(paste0(prefix, "-", category)), error = function(e) NULL)
             }
@@ -711,11 +718,11 @@ nasqar_project_outputs_server <- function(input, output, session) {
     })
     # Preview of one saved file in a dialog: figures and PDFs as they are, the
     # first rows of a table, the contents of a zip, the first lines of a script.
-    # Only names inside the current project's plots/ and downloads/ are accepted.
+    # Only names inside the current project's plots/, downloads/ and inputs/ are accepted.
     shiny::observeEvent(input$nasqar_project_preview, {
         dir <- session$userData$nasqar_project_last_dir
         parts <- strsplit(as.character(input$nasqar_project_preview), "/", fixed = TRUE)[[1]]
-        if (is.null(dir) || length(parts) != 2 || !parts[1] %in% c("plots", "downloads")) return()
+        if (is.null(dir) || length(parts) != 2 || !parts[1] %in% nasqar_project_gallery_dirs) return()
         name <- basename(parts[2])
         path <- file.path(dir, parts[1], name)
         if (!file.exists(path)) return()
@@ -804,7 +811,8 @@ nasqar_project_outputs_server <- function(input, output, session) {
             shiny::div(style = "width:200px; border:1px solid #ddd; border-radius:4px; padding:6px;",
                 shiny::tags$a(href = "#", onclick = open_preview, title = "Preview",
                               style = "display:block; cursor:zoom-in;", preview),
-                shiny::div(style = "margin-top:4px; word-break:break-all; font-size:12px;", f$name),
+                shiny::div(style = "margin-top:4px; word-break:break-all; font-size:12px;", f$name,
+                           if (f$category == "inputs") shiny::span(class = "label label-default", style = "margin-left:4px;", "input")),
                 shiny::div(style = "display:flex; justify-content:space-between; align-items:center; margin-top:2px;",
                     shiny::tags$small(class = "text-muted", format(f$modified, "%Y-%m-%d %H:%M")),
                     shiny::span(style = "font-size:12px; white-space:nowrap;",

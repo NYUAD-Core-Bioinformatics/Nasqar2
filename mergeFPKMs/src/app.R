@@ -115,7 +115,7 @@ ui <- tagList(
             icon = icon("folder-open"),
             div(class = "nasqar-project-private", style = "padding: 0 15px;",
                 h3("Saved files of this project"),
-                nasqar_project_files_ui()
+                nasqar_project_files_ui(save_all = FALSE)
             )
         ),
 
@@ -149,7 +149,9 @@ server <- function(input, output, session) {
     })
     outputOptions(output, "filesMerged", suspendWhenHidden = FALSE)
 
-    output$downloadData <- nasqar_download_handler(
+    # a plain download: the merged table is already saved in the project, so no
+    # second copy is kept under another name
+    output$downloadData <- shiny::downloadHandler(
         filename = function() {
             paste("merged-", Sys.Date(), ".csv", sep = "")
         },
@@ -211,9 +213,37 @@ server <- function(input, output, session) {
         data.frame(name = basename(files), size = file.info(files)$size, type = "", datapath = files, stringsAsFactors = FALSE)
     }
     dataReactive <- reactive({
+        merged <- mergeReactive()   # evaluated first: Merge files still works after a reopen
         restored <- restored_data()
-        if (!is.null(restored)) restored else mergeReactive()
+        if (!is.null(restored)) restored else merged
     })
+    # The FPKM files behind the project's table and the merge options, saved
+    # with it so a reopened project can merge again without a new upload.
+    project_inputs <- NULL
+    merge_setting_ids <- c("fpkmToTpm", "addGeneNames", "refGenome", "geneNameColumn")
+    keep_project_inputs <- function(inFile, dir) {
+        settings <- lapply(setNames(merge_setting_ids, merge_setting_ids), function(id) input[[id]])
+        inputs_dir <- file.path(normalizePath(dir, winslash = "/", mustWork = FALSE), "inputs")
+        if (identical(input$counts_source, "private_files")) {
+            files <- inFile$datapath   # already in the private space: read in place
+            # still the uploads kept from an earlier merge (a reopened project)
+            uploaded <- isTRUE(project_inputs$uploaded) && setequal(files, project_inputs$files)
+        } else {
+            dir.create(inputs_dir, recursive = TRUE, showWarnings = FALSE, mode = "0700")
+            # keep the uploaded names: they are the sample names of the table
+            targets <- file.path(inputs_dir, basename(inFile$name))
+            copied <- file.copy(inFile$datapath, targets, overwrite = TRUE)
+            if (!all(copied)) {
+                showNotification("The uploaded FPKM files could not all be saved in the project.", type = "warning", duration = 10)
+            }
+            files <- targets[copied]
+            # files an earlier merge saved here and this one no longer uses
+            stale <- setdiff(project_inputs$files[startsWith(project_inputs$files %||% character(0), paste0(inputs_dir, "/"))], files)
+            if (length(stale)) file.remove(stale[file.exists(stale)])
+            uploaded <- TRUE
+        }
+        project_inputs <<- list(files = files, settings = settings, uploaded = uploaded)
+    }
     observeEvent(mergeReactive(), {
         merged <- mergeReactive()
         if (!private_space || is.null(merged)) return()
@@ -221,11 +251,13 @@ server <- function(input, output, session) {
         dir <- nasqar_project_dir(project_app, current_project_name(), fallback = "fpkm-project")
         merged_file <- file.path(dir, "merged-fpkm.csv")
         utils::write.csv(merged$data, merged_file, row.names = FALSE)
+        keep_project_inputs(inputDataReactive(), dir)
         nasqar_project_state_write(dir, project_app, nasqar_project_name(dir), "merged",
-                                   input_label = sprintf("%d files", nrow(inputDataReactive())), merged_file = merged_file)
+                                   input_label = sprintf("%d files", nrow(inputDataReactive())), merged_file = merged_file,
+                                   input_files = project_inputs$files, merge_settings = project_inputs$settings)
         # also under downloads/, so it shows on the Project files page
         nasqar_project_save_output(merged_file, "merged-fpkm.csv", session)
-        project_saved(list(name = nasqar_project_name(dir)))
+        project_saved(list(name = nasqar_project_name(dir), uploaded = isTRUE(project_inputs$uploaded)))
         project_refresh(nasqar_project_name(dir))
     })
     project_saved <- reactiveVal(NULL)
@@ -236,12 +268,29 @@ server <- function(input, output, session) {
             icon("check-circle"), " Saved in the private space as project ", strong(saved$name),
             ". The file is ",
             tags$code(file.path("projects", saved$name, project_app, "downloads", "merged-fpkm.csv")),
-            "; see it on the ", strong("Project files"), " page.")
+            "; see it on the ", strong("Project files"), " page.",
+            if (isTRUE(saved$uploaded)) tagList(" The uploaded FPKM files are kept in ",
+                tags$code(file.path("projects", saved$name, project_app, "inputs")),
+                ": reopening the project fills them in, so you can merge again without uploading them."))
     })
     project_refresh <- nasqar_project_server(input, output, session, project_app, on_restore = function(state, dir) {
         if (!identical(state$app, project_app)) return("this project belongs to another application")
         if (is.null(state$merged_file) || !file.exists(state$merged_file)) return("the project's merged table is missing")
         restored_data(list(data = utils::read.csv(state$merged_file, check.names = FALSE, stringsAsFactors = FALSE)))
+        files <- unlist(state$input_files %||% character(0))
+        if (length(files) && all(file.exists(files))) {
+            settings <- state$merge_settings %||% list()
+            project_inputs <<- list(files = files, settings = settings,
+                                    uploaded = all(startsWith(files, paste0(normalizePath(dir, winslash = "/", mustWork = FALSE), "/inputs/"))))
+            updateRadioButtons(session, "counts_source", selected = "private_files")
+            updateTextAreaInput(session, "private_fpkm_files", value = paste(files, collapse = "\n"))
+            if (!is.null(settings$fpkmToTpm)) updateCheckboxInput(session, "fpkmToTpm", value = isTRUE(settings$fpkmToTpm))
+            if (!is.null(settings$addGeneNames)) updateCheckboxInput(session, "addGeneNames", value = isTRUE(settings$addGeneNames))
+            if (!is.null(settings$refGenome)) updateRadioButtons(session, "refGenome", selected = settings$refGenome)
+            if (!is.null(settings$geneNameColumn)) updateRadioButtons(session, "geneNameColumn", selected = settings$geneNameColumn)
+            showNotification("The project's FPKM files are filled in: change the options and press Merge files to merge them again.",
+                             type = "message", duration = 12)
+        }
         NULL
     })
 

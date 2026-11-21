@@ -526,7 +526,7 @@ ui <- tagList(
             icon = icon("folder-open"),
             div(class = "nasqar-project-private", style = "padding: 0 15px;",
                 h3("Saved files of this project"),
-                nasqar_project_files_ui()
+                nasqar_project_files_ui(save_all = FALSE)
             )
         ),
         tabPanel(
@@ -972,7 +972,9 @@ server <- function(input, output, session) {
         options = list(scrollX = TRUE, pageLength = 10)
     )
 
-    output$downloadData <- nasqar_download_handler(
+    # a plain download: the merged table is already saved in the project, so no
+    # second copy is kept under another name
+    output$downloadData <- shiny::downloadHandler(
         filename = function() {
             paste("data-", Sys.Date(), ".csv", sep = "")
         },
