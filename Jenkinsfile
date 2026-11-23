@@ -3,7 +3,7 @@
 // Site-specific values are not kept in this file. Define them once as
 // environment variables in Jenkins (Manage Jenkins > System > Global
 // properties > Environment variables); the first stage stops the build and
-// lists any that are missing.
+// lists any that are missing, empty or still set to FILL_IN.
 //
 //   NASQAR_BUILD_HOST                  name of the build host the container is reached on, e.g. build.example.org
 
@@ -31,10 +31,13 @@ pipeline {
         sh '''
           missing=""
           for name in NASQAR_BUILD_HOST; do
-            printenv "$name" >/dev/null || missing="$missing $name"
+            value=$(printenv "$name" || true)
+            case "$value" in
+              ''|FILL_IN) missing="$missing $name" ;;
+            esac
           done
           if [ -n "$missing" ]; then
-            echo "Not set in Jenkins (Manage Jenkins > System > Global properties > Environment variables):$missing"
+            echo "Not set, empty or still FILL_IN in Jenkins (Manage Jenkins > System > Global properties > Environment variables):$missing"
             exit 1
           fi
         '''

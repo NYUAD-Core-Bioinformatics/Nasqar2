@@ -3,7 +3,7 @@
 // Site-specific values are not kept in this file. Define them once as
 // environment variables in Jenkins (Manage Jenkins > System > Global
 // properties > Environment variables); the first stage stops the build and
-// lists any that are missing.
+// lists any that are missing, empty or still set to FILL_IN.
 //
 //   NASQAR_SIF_BUILD_USER              login on the build server (Docker and Singularity), e.g. builder
 //   NASQAR_SIF_BUILD_HOST              the build server, e.g. build.example.org
@@ -61,10 +61,13 @@ pipeline {
                         NASQAR_SIF_DEST_SSH_PORT \
                         NASQAR_SIF_DEST_FILE \
                         NASQAR_SIF_DEST_SSH_CREDENTIALS; do
-                      printenv "$name" >/dev/null || missing="$missing $name"
+                      value=$(printenv "$name" || true)
+                      case "$value" in
+                        ''|FILL_IN) missing="$missing $name" ;;
+                      esac
                     done
                     if [ -n "$missing" ]; then
-                      echo "Not set in Jenkins (Manage Jenkins > System > Global properties > Environment variables):$missing"
+                      echo "Not set, empty or still FILL_IN in Jenkins (Manage Jenkins > System > Global properties > Environment variables):$missing"
                       exit 1
                     fi
                 '''
