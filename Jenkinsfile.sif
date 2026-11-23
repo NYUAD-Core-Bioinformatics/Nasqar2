@@ -1,0 +1,265 @@
+// Singularity: build the SIF from main on a build server and install it on the cluster.
+//
+// Site-specific values are not kept in this file. Define them once as
+// environment variables in Jenkins (Manage Jenkins > System > Global
+// properties > Environment variables); the first stage stops the build and
+// lists any that are missing.
+//
+//   NASQAR_SIF_BUILD_USER              login on the build server (Docker and Singularity), e.g. builder
+//   NASQAR_SIF_BUILD_HOST              the build server, e.g. build.example.org
+//   NASQAR_SIF_BUILD_SSH_PORT          its SSH port, e.g. 22
+//   NASQAR_SIF_BUILD_SSH_CREDENTIALS   Jenkins credentials ID of the SSH key for that login
+//   NASQAR_SIF_DEST_USER               login on the cluster, e.g. deploy
+//   NASQAR_SIF_DEST_HOST               cluster login node, e.g. hpc.example.org
+//   NASQAR_SIF_DEST_SSH_PORT           its SSH port, e.g. 22
+//   NASQAR_SIF_DEST_FILE               where the image is installed, e.g. /path/to/nasqar2/images/nasqar2.sif
+//   NASQAR_SIF_DEST_SSH_CREDENTIALS    Jenkins credentials ID of the SSH key for that login
+
+pipeline {
+    agent any
+
+    environment {
+        // Build Server
+        SOURCE_USER = "${env.NASQAR_SIF_BUILD_USER}"
+        SOURCE_HOST = "${env.NASQAR_SIF_BUILD_HOST}"
+        SOURCE_PORT = "${env.NASQAR_SIF_BUILD_SSH_PORT}"
+        REPO_URL    = 'https://github.com/NYUAD-Core-Bioinformatics/Nasqar2'
+        REPO_BRANCH = 'main'
+        // Everything happens under BUILD_ROOT: a clean clone (src), the SIF
+        // build's temporary space (work, about 25 GB) and the finished SIF.
+        // It needs a filesystem with that much free space.
+        BUILD_ROOT  = '/var/tmp/nasqar2-sif-build'
+        SOURCE_FILE = '/var/tmp/nasqar2-sif-build/nasqar2.sif'
+
+        // Destination Server
+        DEST_USER = "${env.NASQAR_SIF_DEST_USER}"
+        DEST_HOST = "${env.NASQAR_SIF_DEST_HOST}"
+        DEST_PORT = "${env.NASQAR_SIF_DEST_SSH_PORT}"
+        DEST_FILE = "${env.NASQAR_SIF_DEST_FILE}"
+
+        LOCAL_FILE = 'nasqar2.sif'
+    }
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        timeout(time: 4, unit: 'HOURS')
+    }
+
+    stages {
+
+        stage('Check configuration') {
+            steps {
+                script {
+                    def required = ['NASQAR_SIF_BUILD_USER',
+                                    'NASQAR_SIF_BUILD_HOST',
+                                    'NASQAR_SIF_BUILD_SSH_PORT',
+                                    'NASQAR_SIF_BUILD_SSH_CREDENTIALS',
+                                    'NASQAR_SIF_DEST_USER',
+                                    'NASQAR_SIF_DEST_HOST',
+                                    'NASQAR_SIF_DEST_SSH_PORT',
+                                    'NASQAR_SIF_DEST_FILE',
+                                    'NASQAR_SIF_DEST_SSH_CREDENTIALS']
+                    def missing = required.findAll { !env[it] }
+                    if (missing) {
+                        error "Not set in Jenkins (Manage Jenkins > System > Global properties > Environment variables): ${missing.join(', ')}"
+                    }
+                }
+            }
+        }
+
+        stage('Prepare known_hosts') {
+            steps {
+                sh '''
+                    set -e
+
+                    mkdir -p $HOME/.ssh
+                    chmod 700 $HOME/.ssh
+
+                    touch $HOME/.ssh/known_hosts
+                    chmod 600 $HOME/.ssh/known_hosts
+
+                    if ! ssh-keygen -F "[${SOURCE_HOST}]:${SOURCE_PORT}" -f $HOME/.ssh/known_hosts >/dev/null 2>&1; then
+                        ssh-keyscan -p ${SOURCE_PORT} -H ${SOURCE_HOST} >> $HOME/.ssh/known_hosts
+                    fi
+
+                    if ! ssh-keygen -F "${DEST_HOST}" -f $HOME/.ssh/known_hosts >/dev/null 2>&1; then
+                        ssh-keyscan -H ${DEST_HOST} >> $HOME/.ssh/known_hosts
+                    fi
+                '''
+            }
+        }
+
+        stage('Build Docker Image on Remote Server') {
+            steps {
+                sshagent(credentials: [env.NASQAR_SIF_BUILD_SSH_CREDENTIALS]) {
+                    // hpc/build-sif.sh converts the local nasqar2-all:latest
+                    // Docker image, so that image is rebuilt first, from a
+                    // clean clone; unchanged layers come from the Docker cache.
+                    sh '''
+                        set -e
+
+                        ssh -p ${SOURCE_PORT} -o BatchMode=yes ${SOURCE_USER}@${SOURCE_HOST} \
+                            "bash -ls -- '${BUILD_ROOT}' '${REPO_URL}' '${REPO_BRANCH}'" <<'REMOTE'
+set -euo pipefail
+root="$1"
+mkdir -p "$root"
+rm -rf "$root/src" "$root/work"
+git clone --depth 1 --branch "$3" "$2" "$root/src"
+cd "$root/src"
+echo "=== Source: $3 $(git log -1 --format='%h %s')"
+docker build -t nasqar2-all:latest .
+REMOTE
+                    '''
+                }
+            }
+        }
+
+        stage('Build SIF on Remote Server') {
+            steps {
+                sshagent(credentials: [env.NASQAR_SIF_BUILD_SSH_CREDENTIALS]) {
+                    sh '''
+                        set -e
+
+                        ssh -p ${SOURCE_PORT} -o BatchMode=yes ${SOURCE_USER}@${SOURCE_HOST} \
+                            "bash -ls -- '${BUILD_ROOT}' '${SOURCE_FILE}'" <<'REMOTE'
+set -euo pipefail
+root="$1"
+cd "$root/src"
+NASQAR2_BUILD_DIR="$root/work" ./hpc/build-sif.sh "$2"
+rm -rf "$root/src" "$root/work"
+REMOTE
+                    '''
+                }
+            }
+        }
+
+        stage('Verify SIF') {
+            steps {
+                sshagent(credentials: [env.NASQAR_SIF_BUILD_SSH_CREDENTIALS]) {
+                    sh '''
+                        set -e
+
+                        ssh -p ${SOURCE_PORT} -o BatchMode=yes ${SOURCE_USER}@${SOURCE_HOST} \
+                            "bash -ls -- '${SOURCE_FILE}'" <<'REMOTE' | tee sif_verify.log
+set -euo pipefail
+sif="$1"
+test -f "$sif" && ls -lh "$sif"
+
+echo "=== Launcher, R and nginx inside the image"
+singularity exec --cleanenv --no-home "$sif" sh -c 'test -x /opt/nasqar2-hpc/bin/nasqar2-hpc && test -x /usr/sbin/nginx && R --version | head -1'
+
+echo "=== R packages inside the image"
+singularity exec --cleanenv --no-home "$sif" Rscript -e 'pkgs <- c("smplot2", "GOplot", "wordcloud2", "genesorteR", "dqshiny", "BPCells", "SeuratWrappers", "monocle3", "shinythemes", "VariantAnnotation", "TxDb.Hsapiens.UCSC.hg19.knownGene", "TxDb.Hsapiens.UCSC.hg38.knownGene", "org.Hs.eg.db", "BSgenome.Hsapiens.UCSC.hg19", "BSgenome.Hsapiens.UCSC.hg38", "SNPlocs.Hsapiens.dbSNP144.GRCh37", "SNPlocs.Hsapiens.dbSNP144.GRCh38"); ok <- vapply(pkgs, requireNamespace, logical(1), quietly = TRUE); for (p in pkgs) cat(if (ok[[p]]) "OK:" else "FAILED:", p, fill = TRUE); if (!all(ok)) quit(status = 1)'
+
+echo "SHA256 $(sha256sum "$sif" | cut -d' ' -f1)"
+REMOTE
+                        sed -n 's/^SHA256 //p' sif_verify.log > sif.sha256
+                        test -s sif.sha256
+                    '''
+                }
+            }
+        }
+
+        stage('Download SIF') {
+            steps {
+                sshagent(credentials: [env.NASQAR_SIF_BUILD_SSH_CREDENTIALS]) {
+                    sh '''
+                        set -e
+                        rm -f ${LOCAL_FILE}
+
+                        scp \
+                            -P ${SOURCE_PORT} \
+                            -o BatchMode=yes \
+                            ${SOURCE_USER}@${SOURCE_HOST}:${SOURCE_FILE} \
+                            ${LOCAL_FILE}
+
+                        ls -lh ${LOCAL_FILE}
+                        echo "$(cat sif.sha256)  ${LOCAL_FILE}" | sha256sum -c -
+                    '''
+                }
+            }
+        }
+
+        stage('Upload New SIF') {
+            steps {
+                sshagent(credentials: [env.NASQAR_SIF_DEST_SSH_CREDENTIALS]) {
+                    // Uploaded under a temporary name: writing over the live
+                    // file would corrupt the image under running jobs.
+                    sh '''
+                        set -e
+                        scp \
+                            -P ${DEST_PORT} \
+                            -o BatchMode=yes \
+                            ${LOCAL_FILE} \
+                            ${DEST_USER}@${DEST_HOST}:${DEST_FILE}.new
+                    '''
+                }
+            }
+        }
+
+        stage('Backup Existing SIF and Activate New One') {
+            steps {
+                sshagent(credentials: [env.NASQAR_SIF_DEST_SSH_CREDENTIALS]) {
+                    sh '''
+                        set -e
+
+                        ssh -p ${DEST_PORT} -o BatchMode=yes ${DEST_USER}@${DEST_HOST} \
+                            "bash -s -- '${DEST_FILE}' '$(cat sif.sha256)'" <<'REMOTE'
+set -euo pipefail
+dest="$1"
+echo "$2  $dest.new" | sha256sum -c -
+chmod 755 "$dest.new"
+if [ -f "$dest" ]; then
+    echo "Creating backup..."
+    ln -f "$dest" "$dest-bkp" 2>/dev/null || cp -p "$dest" "$dest-bkp"
+else
+    echo "No existing file found"
+fi
+# A rename replaces the image in one step; jobs already running keep the
+# previous file until they end.
+mv -f "$dest.new" "$dest"
+REMOTE
+                    '''
+                }
+            }
+        }
+
+        stage('Verify Upload') {
+            steps {
+                sshagent(credentials: [env.NASQAR_SIF_DEST_SSH_CREDENTIALS]) {
+                    sh '''
+                        set -e
+                        ssh \
+                            -p ${DEST_PORT} \
+                            -o BatchMode=yes \
+                            ${DEST_USER}@${DEST_HOST} \
+                            "ls -lh ${DEST_FILE} ${DEST_FILE}-bkp 2>/dev/null; echo '$(cat sif.sha256)  ${DEST_FILE}' | sha256sum -c -"
+                    '''
+                }
+            }
+        }
+
+    }
+
+    post {
+
+        success {
+            echo '==================================================='
+            echo 'SIF build completed and uploaded successfully.'
+            echo '==================================================='
+        }
+
+        failure {
+            echo '==================================================='
+            echo 'Pipeline failed.'
+            echo '==================================================='
+        }
+
+        always {
+            sh '''
+                rm -f ${LOCAL_FILE} sif_verify.log sif.sha256
+            '''
+        }
+    }
+}
