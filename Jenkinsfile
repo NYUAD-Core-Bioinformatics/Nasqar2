@@ -28,13 +28,16 @@ pipeline {
 
     stage('Check configuration') {
       steps {
-        script {
-          def required = ['NASQAR_BUILD_HOST']
-          def missing = required.findAll { !env[it] }
-          if (missing) {
-            error "Not set in Jenkins (Manage Jenkins > System > Global properties > Environment variables): ${missing.join(', ')}"
-          }
-        }
+        sh '''
+          missing=""
+          for name in NASQAR_BUILD_HOST; do
+            printenv "$name" >/dev/null || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "Not set in Jenkins (Manage Jenkins > System > Global properties > Environment variables):$missing"
+            exit 1
+          fi
+        '''
       }
     }
 

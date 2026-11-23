@@ -50,21 +50,24 @@ pipeline {
 
         stage('Check configuration') {
             steps {
-                script {
-                    def required = ['NASQAR_SIF_BUILD_USER',
-                                    'NASQAR_SIF_BUILD_HOST',
-                                    'NASQAR_SIF_BUILD_SSH_PORT',
-                                    'NASQAR_SIF_BUILD_SSH_CREDENTIALS',
-                                    'NASQAR_SIF_DEST_USER',
-                                    'NASQAR_SIF_DEST_HOST',
-                                    'NASQAR_SIF_DEST_SSH_PORT',
-                                    'NASQAR_SIF_DEST_FILE',
-                                    'NASQAR_SIF_DEST_SSH_CREDENTIALS']
-                    def missing = required.findAll { !env[it] }
-                    if (missing) {
-                        error "Not set in Jenkins (Manage Jenkins > System > Global properties > Environment variables): ${missing.join(', ')}"
-                    }
-                }
+                sh '''
+                    missing=""
+                    for name in NASQAR_SIF_BUILD_USER \
+                        NASQAR_SIF_BUILD_HOST \
+                        NASQAR_SIF_BUILD_SSH_PORT \
+                        NASQAR_SIF_BUILD_SSH_CREDENTIALS \
+                        NASQAR_SIF_DEST_USER \
+                        NASQAR_SIF_DEST_HOST \
+                        NASQAR_SIF_DEST_SSH_PORT \
+                        NASQAR_SIF_DEST_FILE \
+                        NASQAR_SIF_DEST_SSH_CREDENTIALS; do
+                      printenv "$name" >/dev/null || missing="$missing $name"
+                    done
+                    if [ -n "$missing" ]; then
+                      echo "Not set in Jenkins (Manage Jenkins > System > Global properties > Environment variables):$missing"
+                      exit 1
+                    fi
+                '''
             }
         }
 

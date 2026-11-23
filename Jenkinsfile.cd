@@ -47,23 +47,26 @@ pipeline {
 
     stage('Check configuration') {
       steps {
-        script {
-          def required = ['NASQAR_REGISTRY_HOST',
-                          'NASQAR_REGISTRY_NAMESPACE',
-                          'NASQAR_INTERNAL_HOST',
-                          'NASQAR_INTERNAL_SSH',
-                          'NASQAR_INTERNAL_SSH_PORT',
-                          'NASQAR_INTERNAL_SWARM_DIR',
-                          'NASQAR_INTERNAL_SSH_CREDENTIALS',
-                          'NASQAR_PUBLIC_SSH',
-                          'NASQAR_PUBLIC_SSH_PORT',
-                          'NASQAR_PUBLIC_SWARM_DIR',
-                          'NASQAR_PUBLIC_SSH_CREDENTIALS']
-          def missing = required.findAll { !env[it] }
-          if (missing) {
-            error "Not set in Jenkins (Manage Jenkins > System > Global properties > Environment variables): ${missing.join(', ')}"
-          }
-        }
+        sh '''
+          missing=""
+          for name in NASQAR_REGISTRY_HOST \
+              NASQAR_REGISTRY_NAMESPACE \
+              NASQAR_INTERNAL_HOST \
+              NASQAR_INTERNAL_SSH \
+              NASQAR_INTERNAL_SSH_PORT \
+              NASQAR_INTERNAL_SWARM_DIR \
+              NASQAR_INTERNAL_SSH_CREDENTIALS \
+              NASQAR_PUBLIC_SSH \
+              NASQAR_PUBLIC_SSH_PORT \
+              NASQAR_PUBLIC_SWARM_DIR \
+              NASQAR_PUBLIC_SSH_CREDENTIALS; do
+            printenv "$name" >/dev/null || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "Not set in Jenkins (Manage Jenkins > System > Global properties > Environment variables):$missing"
+            exit 1
+          fi
+        '''
       }
     }
 
