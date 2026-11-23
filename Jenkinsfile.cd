@@ -1,0 +1,410 @@
+// Nasqar-CD: push the image Nasqar-CI built and redeploy both swarms.
+//
+// Site-specific values are not kept in this file. Define them once as
+// environment variables in Jenkins (Manage Jenkins > System > Global
+// properties > Environment variables); the first stage stops the build and
+// lists any that are missing, empty or still set to FILL_IN.
+//
+//   NASQAR_REGISTRY_HOST               internal registry, e.g. registry.example.org
+//   NASQAR_REGISTRY_NAMESPACE          repository namespace on that registry, e.g. mygroup
+//   NASQAR_INTERNAL_HOST               internal site checked after its deployment, e.g. internal.example.org
+//   NASQAR_INTERNAL_SSH                login for the internal swarm manager, e.g. deploy@internal.example.org
+//   NASQAR_INTERNAL_SSH_PORT           its SSH port, e.g. 22
+//   NASQAR_INTERNAL_SWARM_DIR          directory holding rebuild.sh there, e.g. /srv/nasqar_swarm
+//   NASQAR_INTERNAL_SSH_CREDENTIALS    Jenkins credentials ID of the SSH key for that login
+//   NASQAR_PUBLIC_SSH                  login for the public swarm manager, e.g. deploy@public.example.org
+//   NASQAR_PUBLIC_SSH_PORT             its SSH port, e.g. 22
+//   NASQAR_PUBLIC_SWARM_DIR            directory holding rebuild.sh there, e.g. /srv/nasqar_swarm
+//   NASQAR_PUBLIC_SSH_CREDENTIALS      Jenkins credentials ID of the SSH key for that login
+
+pipeline {
+  agent any
+
+  options {
+    disableConcurrentBuilds()
+    ws('/workspace/jobs')
+  }
+
+  environment {
+    REGISTRY_HOST  = "${env.NASQAR_REGISTRY_HOST}"
+    REGISTRY_NS    = "${env.NASQAR_REGISTRY_NAMESPACE}"
+    EXTERNAL_HUB   = 'https://hub.docker.com/r/nyuadcorebio/nasqarall'
+    INTERNAL_HOST  = "${env.NASQAR_INTERNAL_HOST}"
+    INTERNAL_SSH   = "${env.NASQAR_INTERNAL_SSH}"
+    INTERNAL_PORT  = "${env.NASQAR_INTERNAL_SSH_PORT}"
+    INTERNAL_DIR   = "${env.NASQAR_INTERNAL_SWARM_DIR}"
+    PUBLIC_SSH     = "${env.NASQAR_PUBLIC_SSH}"
+    PUBLIC_PORT    = "${env.NASQAR_PUBLIC_SSH_PORT}"
+    PUBLIC_DIR     = "${env.NASQAR_PUBLIC_SWARM_DIR}"
+    EXTERNAL_HOST  = 'nasqar2.abudhabi.nyu.edu'
+    APP_IMAGE      = 'nasqarall'
+    APP_NAME       = 'nasqar'
+    APP_PORT       = '80'
+    TAG            = 'latest'
+  }
+
+  stages {
+
+    stage('Check configuration') {
+      steps {
+        sh '''
+          missing=""
+          for name in NASQAR_REGISTRY_HOST \
+              NASQAR_REGISTRY_NAMESPACE \
+              NASQAR_INTERNAL_HOST \
+              NASQAR_INTERNAL_SSH \
+              NASQAR_INTERNAL_SSH_PORT \
+              NASQAR_INTERNAL_SWARM_DIR \
+              NASQAR_INTERNAL_SSH_CREDENTIALS \
+              NASQAR_PUBLIC_SSH \
+              NASQAR_PUBLIC_SSH_PORT \
+              NASQAR_PUBLIC_SWARM_DIR \
+              NASQAR_PUBLIC_SSH_CREDENTIALS; do
+            value=$(printenv "$name" || true)
+            case "$value" in
+              ''|FILL_IN) missing="$missing $name" ;;
+            esac
+          done
+          if [ -n "$missing" ]; then
+            echo "Not set, empty or still FILL_IN in Jenkins (Manage Jenkins > System > Global properties > Environment variables):$missing"
+            exit 1
+          fi
+        '''
+      }
+    }
+
+    stage('Validate running docker container from Nasqar-CI') {
+      steps {
+        sh '''#!/bin/bash
+          set -eux
+          # Dangling images only: "prune -a" also drops the tags of the image
+          # the container runs once it carries a registry tag from an earlier
+          # deployment, and ${APP_IMAGE}:${TAG} is needed below.
+          docker image prune -f || true
+          echo "=== Validating container ==="
+          if docker ps --format '{{.Names}}' | grep -q "^${APP_NAME}$"; then
+            echo "Container ${APP_NAME} is running."
+          else
+            echo "ERROR: Container ${APP_NAME} is not running!"
+            exit 1
+          fi
+
+          # Nasqar-CI replaces the container only after a successful build, so
+          # the container that passed its checks must be the image deployed here.
+          RUNNING_ID=$(docker inspect --format '{{.Image}}' "${APP_NAME}")
+          if ! docker image inspect "${APP_IMAGE}:${TAG}" >/dev/null 2>&1; then
+            echo "${APP_IMAGE}:${TAG} tag is missing; restoring it from the running container."
+            docker tag "$RUNNING_ID" "${APP_IMAGE}:${TAG}"
+          fi
+          IMAGE_ID=$(docker inspect --format '{{.Id}}' "${APP_IMAGE}:${TAG}")
+          if [ "$RUNNING_ID" != "$IMAGE_ID" ]; then
+            echo "ERROR: ${APP_NAME} does not run ${APP_IMAGE}:${TAG}; run Nasqar-CI first."
+            exit 1
+          fi
+          echo "Container ${APP_NAME} runs ${APP_IMAGE}:${TAG} (${IMAGE_ID})."
+
+          echo "=== supervisord programs ==="
+          docker exec "${APP_NAME}" supervisorctl status
+        '''
+      }
+    }
+
+    stage('Delete old image tag from internal registry') {
+      steps {
+        sh '''#!/bin/bash
+          set -eux
+          echo "=== Checking if tag ${TAG} exists in registry ==="
+          TAGS_JSON=$(curl -s https://${REGISTRY_HOST}/v2/${REGISTRY_NS}/${APP_IMAGE}/tags/list)
+
+          if echo "$TAGS_JSON" | grep -q '"tags":null'; then
+            echo "No tags found for ${APP_IMAGE}, skipping delete."
+            exit 0
+          fi
+
+          if echo "$TAGS_JSON" | grep -q "\\"$TAG\\""; then
+            echo "Tag ${TAG} exists, fetching digest..."
+            DIGEST=$(curl -s -I -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+              https://${REGISTRY_HOST}/v2/${REGISTRY_NS}/${APP_IMAGE}/manifests/${TAG} | \
+              awk 'tolower($1) == "docker-content-digest:" {print $2}' | tr -d '\\r')
+
+            if [ -n "$DIGEST" ]; then
+              echo "Found digest: $DIGEST"
+              echo "Deleting old image..."
+              curl -s -o /dev/null -w "%{http_code}" -X DELETE https://${REGISTRY_HOST}/v2/${REGISTRY_NS}/${APP_IMAGE}/manifests/$DIGEST
+              echo "Delete request sent. Registry responded OK."
+            else
+              echo "No digest found for ${APP_IMAGE}:${TAG}"
+            fi
+          else
+            echo "Tag ${TAG} not present, nothing to delete."
+          fi
+        '''
+      }
+    }
+
+    stage('Build, Tag & Push image to Internal Repository') {
+      steps {
+        sh '''#!/bin/bash
+          set -eux
+          echo "=== Tagging image ==="
+          docker tag ${APP_IMAGE}:${TAG} ${REGISTRY_HOST}/${REGISTRY_NS}/${APP_IMAGE}:${TAG}
+
+          echo "=== Pushing image ==="
+          docker push ${REGISTRY_HOST}/${REGISTRY_NS}/${APP_IMAGE}:${TAG}
+        '''
+      }
+    }
+
+    stage('Deploy to Nasqar Internal ( tsar ) Swarm Cluster') {
+      steps {
+        sshagent (credentials: [env.NASQAR_INTERNAL_SSH_CREDENTIALS]) {
+          sh '''#!/bin/bash
+            set -eux
+            ssh -p "${INTERNAL_PORT}" -o StrictHostKeyChecking=no "${INTERNAL_SSH}" "
+              cd '${INTERNAL_DIR}' && sh rebuild.sh
+            "
+          '''
+        }
+      }
+    }
+
+    stage('Validate Health Check URLs for TSAR') {
+      steps {
+        sh '''#!/bin/bash
+          set -euo pipefail
+          # Give the swarm time to replace the replicas before checking.
+          sleep 120
+
+          BASE="http://${INTERNAL_HOST}:${APP_PORT}"
+          URLS=(
+            "${BASE}/"
+            "${BASE}/GeneCountMerger/"
+            "${BASE}/mergeFPKMs/"
+            "${BASE}/DEBrowser/"
+            "${BASE}/deseq2shiny/"
+            "${BASE}/tsar_nasqar/"
+            "${BASE}/ClusterProfShinyGSEA/"
+            "${BASE}/ClusterProfShinyORA/"
+            "${BASE}/DADA2Shiny/"
+            "${BASE}/animalcules/"
+            "${BASE}/ATACseqQCShniy/"
+            "${BASE}/SeuratV5Shiny/"
+            "${BASE}/monocle3/"
+            "${BASE}/VariantAnnotationShiny/"
+          )
+
+          # Each URL is retried for up to 5 minutes while the applications start.
+          failed=0
+          for url in "${URLS[@]}"; do
+            echo "=== Checking $url ==="
+            code=000
+            for attempt in $(seq 1 30); do
+              code=$(curl -s -o /dev/null --max-time 20 -w "%{http_code}" "$url" || true)
+              [ "$code" = "200" ] && break
+              sleep 10
+            done
+            if [ "$code" = "200" ]; then
+              echo "SUCCESS: $url returned 200 OK"
+            else
+              echo "ERROR: $url returned $code"
+              failed=1
+            fi
+          done
+          exit $failed
+        '''
+      }
+    }
+
+    stage('Validate Dockerhub image is changed') {
+      steps {
+        sh '''#!/bin/bash
+          set -eux
+          IMAGE=nyuadcorebio/nasqarall
+          rm -f image_status.env
+
+          echo "=== Get remote digest for latest ==="
+          TOKEN=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:$IMAGE:pull" \
+            | sed -n 's/.*"token":"\\([^"]*\\)".*/\\1/p')
+
+          REMOTE_DIGEST=$(curl -sI \
+            -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json" \
+            -H "Authorization: Bearer $TOKEN" \
+            https://registry-1.docker.io/v2/$IMAGE/manifests/latest \
+            | awk 'tolower($1) == "docker-content-digest:" {print $2}' | tr -d '\\r')
+
+          echo "Remote latest digest: ${REMOTE_DIGEST:-none}"
+
+          echo "=== Get local digest for build ==="
+          LOCAL_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' nasqarall:latest | cut -d@ -f2 || true)
+
+          echo "Local build digest: ${LOCAL_DIGEST:-none}"
+
+          if [ -n "$REMOTE_DIGEST" ] && [ "$REMOTE_DIGEST" = "$LOCAL_DIGEST" ]; then
+            echo "⚠️  Image has not changed."
+            echo "IMAGE_CHANGED=false" > image_status.env
+          else
+            echo "✅ Image changed."
+            echo "IMAGE_CHANGED=true" > image_status.env
+          fi
+        '''
+      }
+    }
+
+    stage('Rotate Docker Hub tags if changed') {
+      when {
+        expression {
+          return fileExists('image_status.env') && readFile('image_status.env').trim().contains("IMAGE_CHANGED=true")
+        }
+      }
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+          sh '''#!/bin/bash
+            set -eu
+            IMAGE=nyuadcorebio/nasqarall
+
+            echo "=== Login to Docker Hub ==="
+            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+            set -x
+
+            echo "=== Get existing version tags from Docker Hub ==="
+            TAGS=$(curl -s "https://hub.docker.com/v2/repositories/$IMAGE/tags/?page_size=100")
+
+            CURRENT=$(echo "$TAGS" \
+              | grep -o '"name":"v[0-9]\\+\\.[0-9]\\+"' \
+              | sed 's/"name":"v//;s/"$//' \
+              | sort -V \
+              | tail -1 || true)
+
+            if [ -z "$CURRENT" ]; then
+              NEXT="v1.0"
+            else
+              MAJOR=$(echo $CURRENT | cut -d. -f1)
+              MINOR=$(echo $CURRENT | cut -d. -f2)
+              NEXT="v${MAJOR}.$((MINOR+1))"
+            fi
+
+            echo "Current version: ${CURRENT:-none}, next: $NEXT"
+
+            echo "=== Pull current latest ==="
+            docker pull $IMAGE:latest || true
+
+            if docker images | grep -q "$IMAGE.*latest"; then
+              echo "=== Retag current latest to $NEXT ==="
+              docker tag $IMAGE:latest $IMAGE:$NEXT
+              docker push $IMAGE:$NEXT
+              # The previous release is on Docker Hub now; free its local copy.
+              docker rmi $IMAGE:$NEXT $IMAGE:latest || true
+            else
+              echo "No latest image to rotate, skipping..."
+            fi
+
+            docker logout
+          '''
+        }
+      }
+    }
+
+    stage('Push new image to Docker Hub as latest') {
+      when {
+        expression {
+          return fileExists('image_status.env') && readFile('image_status.env').trim().contains("IMAGE_CHANGED=true")
+        }
+      }
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+          sh '''#!/bin/bash
+            set -eu
+
+            IMAGE=nyuadcorebio/nasqarall
+
+            echo "=== Login to Docker Hub ==="
+            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+            set -x
+
+            echo "=== Tag local build to Docker Hub repo ==="
+            docker tag nasqarall:latest $IMAGE:latest
+
+            echo "=== Push to Docker Hub ==="
+            docker push $IMAGE:latest
+
+            echo "=== Logout from Docker Hub ==="
+            docker logout
+          '''
+        }
+      }
+    }
+
+    stage('Deploy to Nasqar Swarm') {
+      steps {
+        sshagent (credentials: [env.NASQAR_PUBLIC_SSH_CREDENTIALS]) {
+          sh '''#!/bin/bash
+            set -eux
+            ssh -p "${PUBLIC_PORT}" -o StrictHostKeyChecking=no "${PUBLIC_SSH}" "
+              cd '${PUBLIC_DIR}' && sh rebuild.sh
+            "
+          '''
+        }
+      }
+    }
+
+    stage('Health Check URLs for NASQAR') {
+      steps {
+        sh '''#!/bin/bash
+          set -euo pipefail
+          # Give the swarm time to replace the replicas before checking.
+          sleep 120
+
+          BASE="https://${EXTERNAL_HOST}"
+          URLS=(
+            "${BASE}/"
+            "${BASE}/GeneCountMerger/"
+            "${BASE}/mergeFPKMs/"
+            "${BASE}/DEBrowser/"
+            "${BASE}/deseq2shiny/"
+            "${BASE}/tsar_nasqar/"
+            "${BASE}/ClusterProfShinyGSEA/"
+            "${BASE}/ClusterProfShinyORA/"
+            "${BASE}/DADA2Shiny/"
+            "${BASE}/animalcules/"
+            "${BASE}/ATACseqQCShniy/"
+            "${BASE}/SeuratV5Shiny/"
+            "${BASE}/monocle3/"
+            "${BASE}/VariantAnnotationShiny/"
+          )
+
+          # Each URL is retried for up to 5 minutes while the applications start.
+          failed=0
+          for url in "${URLS[@]}"; do
+            echo "=== Checking $url ==="
+            code=000
+            for attempt in $(seq 1 30); do
+              code=$(curl -k -s -o /dev/null --max-time 20 -w "%{http_code}" "$url" || true)
+              [ "$code" = "200" ] && break
+              sleep 10
+            done
+            if [ "$code" = "200" ]; then
+              echo "SUCCESS: $url returned 200 OK"
+            else
+              echo "ERROR: $url returned $code"
+              failed=1
+            fi
+          done
+          exit $failed
+        '''
+      }
+    }
+
+  }
+
+  post {
+    always {
+      echo "Continious Deployment Completed."
+    }
+    failure {
+      echo "❌ Deployment or health checks failed — investigate logs."
+    }
+    success {
+      echo "✅ All health checks passed successfully!"
+    }
+  }
+}
