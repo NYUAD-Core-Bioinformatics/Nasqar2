@@ -182,6 +182,41 @@ the same library the jobs mount, so the genome is available in this and every
 later job. It honours the same `NASQAR2_HOME`, `NASQAR2_R_LIBRARY` and
 `NASQAR2_SINGULARITY_MODULE` settings as the job script.
 
+## Install additional organisms for enrichment
+
+ClusterProfShiny ORA and GSEA list only the organisms whose annotation
+package is installed. The image ships Human, Mouse and Fly; the others below
+appear in the **Organism** list once their package is in the private R
+library. Install them on a login node with the same helper, giving the
+package names. For rat and zebrafish:
+
+```bash
+/path/to/nasqar2/bin/nasqar2-install-genome org.Rn.eg.db org.Dr.eg.db
+```
+
+Reload the application page afterwards. Installing a Variant Annotation
+genome also installs that species' annotation package, so the organism
+becomes available here as well.
+
+| Organism | Package |
+| --- | --- |
+| Rat | `org.Rn.eg.db` |
+| Yeast | `org.Sc.sgd.db` |
+| Arabidopsis | `org.At.tair.db` |
+| Zebrafish | `org.Dr.eg.db` |
+| Bovine | `org.Bt.eg.db` |
+| Worm | `org.Ce.eg.db` |
+| Chicken | `org.Gg.eg.db` |
+| Canine | `org.Cf.eg.db` |
+| Pig | `org.Ss.eg.db` |
+| Rhesus | `org.Mmu.eg.db` |
+| E. coli K12 | `org.EcK12.eg.db` |
+| Xenopus | `org.Xl.eg.db` |
+| Chimpanzee | `org.Pt.eg.db` |
+| Anopheles | `org.Ag.eg.db` |
+| Malaria parasite | `org.Pf.plasmo.db` |
+| E. coli Sakai | `org.EcSakai.eg.db` |
+
 ## Stop a job
 
 ```bash

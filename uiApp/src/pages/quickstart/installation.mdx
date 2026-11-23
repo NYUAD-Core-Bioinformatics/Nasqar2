@@ -127,6 +127,24 @@ Variant Annotation's **Install another reference genome** panel likewise appears
 only when `R_LIBS_USER` points to a mounted library: a public instance has
 nowhere persistent to install into, so visitors cannot trigger downloads.
 
+**More organisms for enrichment.** ClusterProfShiny ORA and GSEA list only
+the organisms whose annotation package is installed: Human, Mouse and Fly in
+the image. To add another, install its package into the mounted R library of
+the running container (`docker ps` shows the container name). For rat:
+
+```bash
+docker exec CONTAINER /opt/conda/envs/merged_env/bin/Rscript -e 'BiocManager::install("org.Rn.eg.db", lib = Sys.getenv("R_LIBS_USER"), update = FALSE, ask = FALSE)'
+```
+
+Reload the application page and the organism appears in the **Organism**
+list; it stays installed across container restarts and image updates. The
+package names are listed under
+[Install additional organisms for enrichment](/quickstart/hpc#install-additional-organisms-for-enrichment).
+A public instance offers only the organisms in the image, and visitors cannot
+install more: to use another organism, pull the image and run it as a private
+instance as above, then install the package. Nothing has to be built from
+source.
+
 The same variables work with an image built from source (`nasqar2-all`). Leave `NASQAR_PROJECT_ROOT` unset and the applications keep their results in temporary storage inside the container, discarded when it stops. Browser upload and download remain available in every mode.
 
 **Projects.** With `NASQAR_PROJECT_ROOT` set, every NASQAR2 application keeps its work in a project, `projects/<project>/<App>`, holding the outputs, the caches, a `state.rds` with the inputs, settings and stage reached, and a human-readable `state.json` with the same settings plus a snapshot of every UI input at that moment, so the choices behind a result can be read without R (for a methods section, or to share with a colleague). Every figure or table you download is also kept in the project (`plots/` and `downloads/`).
