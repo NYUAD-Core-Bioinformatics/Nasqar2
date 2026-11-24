@@ -270,8 +270,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     # Private-space projects: projects/<name>/DESeq2Shiny/state.RData (shared convention)
     source("nasqar-project.R", local = TRUE)
     project_app <- "DESeq2Shiny"
-    project_legacy_env <- "NASQAR_DESEQ2_STATE_DIR"
-    private_space <- nasqar_project_available(project_app, project_legacy_env)
+    private_space <- nasqar_project_available(project_app)
 
     current_project_name <- function() {
         name <- input$nasqar_project_name
@@ -280,7 +279,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     project_state_path <- function(name) {
         name <- trimws(name %||% "")
         if (!nzchar(name)) stop("Enter a project name.")
-        file.path(nasqar_project_dir(project_app, name, project_legacy_env, fallback = "deseq2-project"), "state.RData")
+        file.path(nasqar_project_dir(project_app, name, fallback = "deseq2-project"), "state.RData")
     }
     restoring_project <- reactiveVal(FALSE)
 
@@ -290,27 +289,13 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     }
 
     project_choices_now <- function() {
-        choices <- nasqar_project_choices(nasqar_project_list(project_app, project_legacy_env))
+        choices <- nasqar_project_choices(nasqar_project_list(project_app))
         if (length(choices)) choices else c("No saved projects yet" = "")
     }
 
     dataset_label <- function() {
         upload <- input$datafile
         if (!is.null(upload) && !is.null(upload$name)) upload$name[1] else "DESeq2 analysis"
-    }
-
-    # State files saved flat into the old NASQAR_DESEQ2_STATE_DIR become projects.
-    legacy_root <- nasqar_project_flat_root(project_legacy_env)
-    if (private_space && !is.null(legacy_root)) {
-        for (old_file in list.files(legacy_root, pattern = "\\.[Rr][Dd]ata$", full.names = TRUE)) {
-            name <- nasqar_project_sanitize(sub("\\.[Rr][Dd]ata$", "", basename(old_file)), "deseq2-project")
-            dir <- nasqar_project_dir(project_app, name, project_legacy_env)
-            destination <- file.path(dir, "state.RData")
-            if (!file.exists(destination) && file.rename(old_file, destination)) {
-                nasqar_project_state_write(dir, project_app, name, "saved",
-                                           input_label = "migrated state file", state_file = destination)
-            }
-        }
     }
 
     # Add error handling for session errors
@@ -1368,14 +1353,14 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
     observeEvent(myValues$dataCounts, {
         if (!private_space || is.null(myValues$dataCounts) || isTRUE(restoring_project())) return()
         # Every session starts as "deseq2-project": never overwrite another session's project.
-        name <- nasqar_project_unique_name(project_app, current_project_name(), project_legacy_env,
+        name <- nasqar_project_unique_name(project_app, current_project_name(),
                                            owned = session$userData$nasqar_project_last_dir, fallback = "deseq2-project")
         if (!identical(name, nasqar_project_sanitize(current_project_name(), "deseq2-project"))) {
             updateTextInput(session, "nasqar_project_name", value = name)
             showNotification(sprintf("A project with that name already exists; this analysis is saved as '%s'.", name),
                              type = "warning", duration = 8)
         }
-        dir <- nasqar_project_dir(project_app, name, project_legacy_env, fallback = "deseq2-project")
+        dir <- nasqar_project_dir(project_app, name, fallback = "deseq2-project")
         nasqar_project_state_write(dir, project_app, nasqar_project_name(dir), "loaded", input_label = dataset_label())
         project_refresh(nasqar_project_name(dir))
     }, ignoreInit = TRUE)
@@ -1440,7 +1425,7 @@ stateExportServer <- function(id, root_input, root_output, root_session) {
 
     # Restore picker (shared convention): loads the project's state.RData.
     project_refresh <- nasqar_project_server(
-        input, output, session, project_app, project_legacy_env,
+        input, output, session, project_app,
         # opening a project fills in Gene Count Merger's merged table
         input_default = list(text = "private_counts_path", source = "data_file_type", value = "privateFile",
                              find = function(apps) nasqar_project_newest(apps, "GeneCountMerger", "^merged-counts\\.csv$")),

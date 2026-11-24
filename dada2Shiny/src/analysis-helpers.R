@@ -1,10 +1,5 @@
 nasqar_exchange_dir <- function(create = FALSE) {
-    configured <- Sys.getenv("NASQAR_EXCHANGE_DIR", unset = "")
-    path <- if (nzchar(configured)) {
-        configured
-    } else {
-        file.path(dirname(tempdir(check = TRUE)), "nasqar_exchange")
-    }
+    path <- file.path(dirname(tempdir(check = TRUE)), "nasqar_exchange")
     if (create) {
         dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
     }

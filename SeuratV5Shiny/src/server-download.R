@@ -90,7 +90,7 @@ output$monocleTransferUI <- renderUI({
   }
 
   handoffPath <- paste0(
-    Sys.getenv("NASQAR_BASE_PATH", unset = ""),
+    Sys.getenv("NASQAR_CONTAINER_BASE_PATH", unset = ""),
     "/monocle3/?exchange=",
     URLencode(token, reserved = TRUE),
     nasqar_project_handoff_query(session)

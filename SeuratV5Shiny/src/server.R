@@ -12,7 +12,7 @@ if (is.na(nasqar_seurat_workers) || nasqar_seurat_workers < 1L) {
 plan("multisession", workers = nasqar_seurat_workers)
 
 server <- function(input, output, session) {
-  data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
+  data_root <- Sys.getenv("NASQAR_CONTAINER_DATA_ROOT", unset = "")
   data_root <- if (nzchar(data_root)) normalizePath(data_root, winslash = "/", mustWork = FALSE) else NULL
 
   # Server-side browser jailed to the private data root; it only fills the path box.
@@ -43,8 +43,7 @@ server <- function(input, output, session) {
   # name comes from the app's own "projectname" input.
   source("nasqar-project.R", local = TRUE)
   project_app <- "SeuratV5"
-  project_legacy_env <- "NASQAR_SEURAT_PROJECT_DIR"
-  private_space <- nasqar_project_available(project_app, project_legacy_env)
+  private_space <- nasqar_project_available(project_app)
   # Reopening a project and its files page exist in a private instance only.
   if (!private_space) {
     shinyjs::runjs("$('input[name=data_file_type][value=savedProject]').closest('.radio').remove()")
@@ -61,7 +60,7 @@ server <- function(input, output, session) {
     }
   })
   seurat_project_directory <- function(name) {
-    path <- nasqar_project_dir(project_app, name, project_legacy_env, fallback = "seurat-project")
+    path <- nasqar_project_dir(project_app, name, fallback = "seurat-project")
     if (!dir.exists(path) || file.access(path, 2) != 0) {
       stop("The Seurat private space directory is not writable.")
     }

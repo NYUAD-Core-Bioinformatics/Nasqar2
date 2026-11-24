@@ -34,17 +34,17 @@ Run both commands from the repository root. The SIF is written inside the
 repository, to `hpc/build/nasqar2.sif`, wherever the script is run from
 (pass another path as the first argument to change that). The build needs
 about 25 GB of temporary space, also under `hpc/build`; set
-`NASQAR2_BUILD_DIR` to use a larger filesystem instead.
+`NASQAR_HOST_BUILD_DIR` to use a larger filesystem instead.
 
 ## Install on the cluster filesystem
 
 NASQAR2 keeps everything it needs on the cluster under one persistent,
-writable directory, `NASQAR2_HOME`. Any space the site provides works: a
+writable directory, `NASQAR_HOST_HOME`. Any space the site provides works: a
 scratch area, a project or lab allocation, or your home directory, as long as
 it is visible from the compute nodes and large enough for the image (about
 10 GB) plus your projects. The job script defaults to `$SCRATCH/nasqar2` on
 clusters that define `SCRATCH` and to `$HOME/nasqar2` elsewhere; set
-`NASQAR2_HOME` to use another location. The example below uses
+`NASQAR_HOST_HOME` to use another location. The example below uses
 `/path/to/nasqar2` as a placeholder; replace it and the login host with your
 own values.
 
@@ -62,16 +62,16 @@ rsync -ah hpc/slurm/nasqar2.sbatch \
 
 The job script loads a module named `singularity`; if your cluster names it
 differently (for example `apptainer` or `singularity/4.2.0`), set
-`NASQAR2_SINGULARITY_MODULE` at submission.
+`NASQAR_HOST_SINGULARITY_MODULE` at submission.
 
 ## Submit and connect
 
 ```bash
 ssh USER@LOGIN_HOST \
-  'cd /path/to/nasqar2/slurm && NASQAR2_HOME=/path/to/nasqar2 sbatch nasqar2.sbatch'
+  'cd /path/to/nasqar2/slurm && NASQAR_HOST_HOME=/path/to/nasqar2 sbatch nasqar2.sbatch'
 ```
 
-`NASQAR2_HOME` can be omitted when the install lives at the default location.
+`NASQAR_HOST_HOME` can be omitted when the install lives at the default location.
 
 After the job starts, read its connection file:
 
@@ -90,34 +90,41 @@ remain active; it is forwarding traffic until stopped with `Ctrl+C`.
 
 ## Persistent and temporary storage
 
-All locations are relative to `NASQAR2_HOME` unless overridden:
+The name of a variable says where it applies: `NASQAR_HOST_*` are settings of
+the job script (paths and values on the cluster), and `NASQAR_CONTAINER_*` are
+read by the applications inside the container and passed in by the job script
+when set at submission.
+
+All locations are relative to `NASQAR_HOST_HOME` unless overridden:
 
 | Data | Default location | Override |
 | --- | --- | --- |
-| Per-job runtime, logs, uploads, and exchange files | `$NASQAR2_HOME/runs/JOB_ID` | `NASQAR2_RUNTIME_DIR` |
-| Private-space projects of every application (`projects/<project>/<App>`, each with its outputs, caches and a `state.rds` for restoring) | `$NASQAR2_HOME/projects` | `NASQAR2_PROJECTS` |
-| Private R library | `$NASQAR2_HOME/r-library/R-4.3` | `NASQAR2_R_LIBRARY` |
+| Per-job runtime, logs, uploads, and exchange files | `$NASQAR_HOST_HOME/runs/JOB_ID` | `NASQAR_HOST_RUNTIME_DIR` |
+| Private-space projects of every application (`projects/<project>/<App>`, each with its outputs, caches and a `state.rds` for restoring) | `$NASQAR_HOST_HOME/projects` | `NASQAR_HOST_PROJECT_ROOT` |
+| Private R library | `$NASQAR_HOST_HOME/r-library/R-4.3` | `NASQAR_HOST_R_LIBRARY` |
 
-Input data are mounted read-only from `NASQAR2_DATA_ROOT`, which defaults to
-the directory containing `NASQAR2_HOME` (with the default install, your
-scratch or home space). Applications validate requested paths against that
-root. Generated files are written to the job runtime or persistent project
+Input data are mounted read-only from `NASQAR_HOST_DATA_ROOT`, which defaults to
+the directory containing `NASQAR_HOST_HOME` (with the default install, your
+scratch space). A home directory is never mounted as a whole: with an install
+at `$HOME/nasqar2`, the root is that directory itself, so put input data
+inside it or set `NASQAR_HOST_DATA_ROOT`. Applications validate requested paths
+against that root. Generated files are written to the job runtime or persistent project
 directories, not beside the source data.
 
 Override storage locations at submission:
 
 ```bash
-NASQAR2_HOME=/path/to/nasqar2 \
-NASQAR2_DATA_ROOT=/path/to/sequencing-data \
-NASQAR2_R_LIBRARY=/path/to/shared/r-library \
+NASQAR_HOST_HOME=/path/to/nasqar2 \
+NASQAR_HOST_DATA_ROOT=/path/to/sequencing-data \
+NASQAR_HOST_R_LIBRARY=/path/to/shared/r-library \
 sbatch nasqar2.sbatch
 ```
 
 Variant Annotation streams filtered records to disk and annotates them in
-chunks of `NASQAR_VARIANT_ANNOTATION_CHUNK` records (default 50,000), so a
+chunks of `NASQAR_CONTAINER_VARIANT_ANNOTATION_CHUNK` records (default 50,000), so a
 cohort-sized VCF runs in bounded memory. Raise the chunk size on a node with
 plenty of memory to trade RAM for speed, or lower it on a small allocation:
-`NASQAR_VARIANT_ANNOTATION_CHUNK=100000 sbatch nasqar2.sbatch`.
+`NASQAR_CONTAINER_VARIANT_ANNOTATION_CHUNK=100000 sbatch nasqar2.sbatch`.
 
 ## Example data
 
@@ -129,8 +136,8 @@ few files inside the image; about 360 MB, `--skip-silva` for 140 MB):
 common/fetch-example-data.sh /path/to/data --sif /path/to/nasqar2/images/nasqar2.sif
 ```
 
-`/path/to/data` is the directory the job mounts as `NASQAR2_DATA_ROOT` (by
-default the directory containing `NASQAR2_HOME`). The files land in
+`/path/to/data` is the directory the job mounts as `NASQAR_HOST_DATA_ROOT` (by
+default the directory containing `NASQAR_HOST_HOME`). The files land in
 `/path/to/data/examples/<App>/` with a README naming every source; pick them
 from the Browse dialog of the matching application.
 
@@ -139,8 +146,8 @@ from the Browse dialog of the matching application.
 A Slurm job is one form of NASQAR2 private instance: the portal serves a single
 user, so it can read that user's files in place and keep results permanently on
 the host filesystem instead of round-tripping them through the browser. The job
-script enables this by setting `NASQAR_DATA_ROOT` and the per-application
-project, state, and cache directories listed above. The same mechanism works
+script enables this by setting `NASQAR_CONTAINER_DATA_ROOT` and
+`NASQAR_CONTAINER_PROJECT_ROOT`. The same mechanism works
 for Docker on a workstation; see
 [Run as a private instance](/quickstart/installation#run-as-a-private-instance-with-your-own-data).
 
@@ -179,8 +186,8 @@ helper once on a login node instead (the app shows the exact command under
 
 `nasqar2-install-genome --list` prints the catalog. The helper installs into
 the same library the jobs mount, so the genome is available in this and every
-later job. It honours the same `NASQAR2_HOME`, `NASQAR2_R_LIBRARY` and
-`NASQAR2_SINGULARITY_MODULE` settings as the job script.
+later job. It honours the same `NASQAR_HOST_HOME`, `NASQAR_HOST_R_LIBRARY` and
+`NASQAR_HOST_SINGULARITY_MODULE` settings as the job script.
 
 ## Install additional organisms for enrichment
 

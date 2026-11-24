@@ -10,7 +10,7 @@ observeEvent(inputDataReactive(), {
   # Every session starts with the same default project name: take a free one
   # rather than overwrite another session's project (restored projects are kept).
   project_name <- nasqar_project_unique_name(
-    project_app, current_project_name(), project_legacy_env,
+    project_app, current_project_name(),
     owned = session$userData$nasqar_project_last_dir, fallback = "seurat-project"
   )
   if (!identical(project_name, nasqar_project_sanitize(current_project_name(), "seurat-project"))) {
@@ -65,5 +65,5 @@ restore_project <- function(state, dir) {
 }
 
 project_refresh <- nasqar_project_server(
-  input, output, session, project_app, project_legacy_env, on_restore = restore_project
+  input, output, session, project_app, on_restore = restore_project
 )

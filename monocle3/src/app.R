@@ -150,7 +150,7 @@ server <- shinyServer(function(input, output, session) {
   )
   if (is.na(monocle_workers) || monocle_workers < 1L) monocle_workers <- 1L
 
-  data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
+  data_root <- Sys.getenv("NASQAR_CONTAINER_DATA_ROOT", unset = "")
   data_root <- if (nzchar(data_root)) normalizePath(data_root, winslash = "/", mustWork = FALSE) else NULL
 
   # Server-side browser jailed to the private data root; it only fills the path box.
@@ -172,8 +172,7 @@ server <- shinyServer(function(input, output, session) {
   # Private-space projects: projects/<name>/Monocle3 (shared convention)
   source("nasqar-project.R", local = TRUE)
   project_app <- "Monocle3"
-  project_legacy_env <- "NASQAR_MONOCLE3_PROJECT_DIR"
-  private_space <- nasqar_project_available(project_app, project_legacy_env)
+  private_space <- nasqar_project_available(project_app)
   # Reopening a project and its files tab exist in a private instance only.
   if (!private_space) {
     shinyjs::runjs("$('input[name=data_source][value=savedProject]').closest('.radio').remove()")
@@ -182,7 +181,7 @@ server <- shinyServer(function(input, output, session) {
     shinyjs::hide("data_source")
   }
   project_directory <- function(name) {
-    path <- nasqar_project_dir(project_app, name, project_legacy_env, fallback = "monocle3-project")
+    path <- nasqar_project_dir(project_app, name, fallback = "monocle3-project")
     if (!dir.exists(path) || file.access(path, 2) != 0) {
       stop("The Monocle3 private space directory is not writable.")
     }
@@ -453,7 +452,7 @@ server <- shinyServer(function(input, output, session) {
   }
 
   project_refresh <- nasqar_project_server(
-    input, output, session, project_app, project_legacy_env, on_restore = restore_project,
+    input, output, session, project_app, on_restore = restore_project,
     # opening a project fills in the Seurat object saved by Seurat v5
     input_default = list(text = "private_input_path", source = "data_source", value = "private",
                          find = function(apps) nasqar_project_newest(apps, "SeuratV5", "_seuratObj_.*\\.rds$"))

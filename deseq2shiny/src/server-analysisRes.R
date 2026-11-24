@@ -269,7 +269,7 @@ output$analysisRes_enrichGo <- renderUI({
 
     write.csv(exchange_data, file = fileUrl, row.names = FALSE)
     exchangeToken <- encryptUrlParam(fileUrl)
-    basePath <- Sys.getenv("NASQAR_BASE_PATH", unset = "")
+    basePath <- Sys.getenv("NASQAR_CONTAINER_BASE_PATH", unset = "")
     oraPath <- paste0(basePath, "/ClusterProfShinyORA/?countsdata=", exchangeToken, nasqar_project_handoff_query(session))
     gseaPath <- paste0(basePath, "/ClusterProfShinyGSEA/?countsdata=", exchangeToken, nasqar_project_handoff_query(session))
     return(tags$div(

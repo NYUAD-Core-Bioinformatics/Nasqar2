@@ -1,10 +1,7 @@
 # Pure helpers shared by the Shiny application and automated tests.
 
 encryptUrlParam <- function(paramStr) {
-  public_key_hex <- Sys.getenv(
-    "NASQAR_PUBLIC_KEY_HEX",
-    unset = "42b3781d6907cd426b9c05cac7155cce15bb9385a602716f619529485dab6c28"
-  )
+  public_key_hex <- "42b3781d6907cd426b9c05cac7155cce15bb9385a602716f619529485dab6c28"
   public_key <- sodium::hex2bin(public_key_hex)
   message <- serialize(paramStr, NULL)
   sodium::bin2hex(sodium::simple_encrypt(message, public_key))
@@ -182,12 +179,7 @@ safe_file_name <- function(value, extension = NULL) {
 }
 
 nasqar_exchange_dir <- function(create = FALSE) {
-  configured <- Sys.getenv("NASQAR_EXCHANGE_DIR", unset = "")
-  path <- if (nzchar(configured)) {
-    configured
-  } else {
-    file.path(dirname(tempdir(check = TRUE)), "nasqar_exchange")
-  }
+  path <- file.path(dirname(tempdir(check = TRUE)), "nasqar_exchange")
   if (create) {
     dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
   }

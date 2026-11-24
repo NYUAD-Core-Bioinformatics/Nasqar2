@@ -8,14 +8,11 @@
 # its own folder under the project's name, so the count matrix, the
 # differential expression and the enrichment of one study sit together.
 #
-# The root comes from NASQAR_PROJECT_ROOT (set by run-nasqar2.sh and the Slurm
+# The root comes from NASQAR_CONTAINER_PROJECT_ROOT (set by run-nasqar2.sh and the Slurm
 # launcher). Projects made before this layout, <project root>/<App>/<name>,
 # are still listed and reopened where they are; renaming one moves it into the
-# new layout. A per-application legacy variable (e.g. NASQAR_VARIANT_PROJECT_DIR)
-# still wins when set: that directory then holds the application's projects
-# directly, <dir>/<name>, so existing deployments keep their layout. When
-# nothing is set, or the directory is missing or read-only, there is no private
-# space: the application works in temporary storage and offers no restore.
+# new layout. When it is not set, or the directory is missing or read-only,
+# there is no private space: the application works in temporary storage and offers no restore.
 #
 # This file is maintained in common/nasqar-project.R and copied into each
 # application's src/ by common/sync-project-helper.sh. Edit the common copy.
@@ -24,33 +21,48 @@
 nasqar_project_apps <- c("DESeq2Shiny", "ClusterProfShinyORA", "ClusterProfShinyGSEA", "VariantAnnotation",
                          "DADA2", "ATACseqQC", "GeneCountMerger", "mergeFPKMs", "Monocle3", "SeuratV5")
 
+# Variable names from before the NASQAR_CONTAINER_ prefix are not read. A
+# `docker run` that still sets one would start without its private space and
+# without a word, so say so: one message per old name that is set.
+nasqar_old_variable_messages <- function() {
+    renamed <- c(NASQAR_DATA_ROOT = "NASQAR_CONTAINER_DATA_ROOT",
+                 NASQAR_PROJECT_ROOT = "NASQAR_CONTAINER_PROJECT_ROOT",
+                 NASQAR_BASE_PATH = "NASQAR_CONTAINER_BASE_PATH")
+    set <- names(renamed)[nzchar(Sys.getenv(names(renamed), unset = ""))]
+    sprintf("%s is no longer read: set %s instead.", set, renamed[set])
+}
+
+# In the log when the application starts and, when this file is sourced inside
+# a session, on screen until dismissed.
+local({
+    messages <- nasqar_old_variable_messages()
+    if (!length(messages)) return(invisible())
+    for (text in messages) message("NASQAR2: ", text)
+    session <- shiny::getDefaultReactiveDomain()
+    if (!is.null(session)) {
+        shiny::showNotification(
+            paste(c(messages, "Until then this instance has no private space."), collapse = " "),
+            type = "warning", duration = NULL, id = "nasqar-old-variables", session = session)
+    }
+})
+
 nasqar_usable_dir <- function(path) {
     if (!nzchar(path)) return(NULL)
     if (!dir.exists(path)) dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
     if (dir.exists(path) && file.access(path, 2) == 0) normalizePath(path, winslash = "/", mustWork = FALSE) else NULL
 }
 
-# The directory that holds the application's projects directly (<dir>/<name>),
-# when the deployment sets the application's legacy variable; NULL otherwise.
-nasqar_project_flat_root <- function(legacy_env = NULL) {
-    if (is.null(legacy_env)) return(NULL)
-    nasqar_usable_dir(Sys.getenv(legacy_env, unset = ""))
-}
+# The shared project root (NASQAR_CONTAINER_PROJECT_ROOT), or NULL.
+nasqar_project_root <- function() nasqar_usable_dir(Sys.getenv("NASQAR_CONTAINER_PROJECT_ROOT", unset = ""))
 
-# The shared project root (NASQAR_PROJECT_ROOT), or NULL.
-nasqar_project_root <- function() nasqar_usable_dir(Sys.getenv("NASQAR_PROJECT_ROOT", unset = ""))
-
-# Where this application's projects were kept before the project-first layout
-# (and where a legacy variable still keeps them).
-nasqar_project_app_root <- function(app, legacy_env = NULL) {
-    flat <- nasqar_project_flat_root(legacy_env)
-    if (!is.null(flat)) return(flat)
+# Where this application's projects were kept before the project-first layout.
+nasqar_project_app_root <- function(app) {
     root <- nasqar_project_root()
     if (is.null(root)) NULL else nasqar_usable_dir(file.path(root, app))
 }
 
-nasqar_project_available <- function(app, legacy_env = NULL) {
-    !is.null(nasqar_project_flat_root(legacy_env)) || !is.null(nasqar_project_root())
+nasqar_project_available <- function(app) {
+    !is.null(nasqar_project_root())
 }
 
 nasqar_project_sanitize <- function(name, fallback = "project") {
@@ -70,9 +82,7 @@ nasqar_project_name <- function(dir) {
 # The directory of a named project of this application, existing or not: the
 # old-layout folder when the project was made there, the project-first one
 # otherwise. NULL when there is no private space.
-nasqar_project_locate <- function(app, safe, legacy_env = NULL) {
-    flat <- nasqar_project_flat_root(legacy_env)
-    if (!is.null(flat)) return(file.path(flat, safe))
+nasqar_project_locate <- function(app, safe) {
     root <- nasqar_project_root()
     if (is.null(root)) return(NULL)
     current <- file.path(root, safe, app)
@@ -82,10 +92,10 @@ nasqar_project_locate <- function(app, safe, legacy_env = NULL) {
 
 # Directory of a named project; a temporary directory when there is no
 # private space. The name is sanitised to a safe single path component.
-nasqar_project_dir <- function(app, name, legacy_env = NULL, create = TRUE,
+nasqar_project_dir <- function(app, name, create = TRUE,
                                fallback = "project") {
     safe <- nasqar_project_sanitize(name, fallback)
-    path <- nasqar_project_locate(app, safe, legacy_env)
+    path <- nasqar_project_locate(app, safe)
     if (is.null(path)) path <- file.path(tempdir(), app, safe)
     if (create) dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
     path
@@ -99,12 +109,12 @@ nasqar_project_state_file <- function(dir) file.path(dir, "state.rds")
 # `owned` is the directory this session already writes to (or restored):
 # writing there again is fine. Otherwise an existing project gets a numeric
 # suffix (name-2, name-3, ...).
-nasqar_project_unique_name <- function(app, name, legacy_env = NULL, owned = NULL,
+nasqar_project_unique_name <- function(app, name, owned = NULL,
                                        fallback = "project") {
     safe <- nasqar_project_sanitize(name, fallback)
-    if (!nasqar_project_available(app, legacy_env)) return(safe)
+    if (!nasqar_project_available(app)) return(safe)
     usable <- function(candidate) {
-        dir <- nasqar_project_locate(app, candidate, legacy_env)
+        dir <- nasqar_project_locate(app, candidate)
         !is.null(owned) && identical(normalizePath(dir, winslash = "/", mustWork = FALSE),
                                      normalizePath(owned, winslash = "/", mustWork = FALSE)) ||
             !file.exists(nasqar_project_state_file(dir))
@@ -134,18 +144,11 @@ nasqar_browse_roots <- function() {
 
 nasqar_browse_roots_fixed <- function() {
     roots <- character(0)
-    # NASQAR_PRIVATE_ROOT: the private folder as a whole (data/ and projects/
-    # inside it); browsing starts there and can go into either.
-    private_root <- Sys.getenv("NASQAR_PRIVATE_ROOT", unset = "")
-    if (nzchar(private_root) && dir.exists(private_root)) {
-        roots["NASQAR2 private space"] <- normalizePath(private_root, winslash = "/", mustWork = FALSE)
-        return(roots)
-    }
-    data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
+    data_root <- Sys.getenv("NASQAR_CONTAINER_DATA_ROOT", unset = "")
     if (nzchar(data_root) && dir.exists(data_root)) {
         roots["Private data root"] <- normalizePath(data_root, winslash = "/", mustWork = FALSE)
     }
-    project_root <- Sys.getenv("NASQAR_PROJECT_ROOT", unset = "")
+    project_root <- Sys.getenv("NASQAR_CONTAINER_PROJECT_ROOT", unset = "")
     if (nzchar(project_root) && dir.exists(project_root)) {
         roots["Private space (projects)"] <- normalizePath(project_root, winslash = "/", mustWork = FALSE)
     }
@@ -157,7 +160,7 @@ nasqar_browse_roots_fixed <- function() {
 # is TRUE for a directory, FALSE for a file, NA for either. `what` names the
 # expected input in messages ("counts file", "FASTQ directory", ...).
 nasqar_private_path <- function(path, directory = FALSE, what = if (isTRUE(directory)) "directory" else "file") {
-    if (!nzchar(Sys.getenv("NASQAR_DATA_ROOT", unset = ""))) {
+    if (!nzchar(Sys.getenv("NASQAR_CONTAINER_DATA_ROOT", unset = ""))) {
         stop("This instance has no private space configured.", call. = FALSE)
     }
     if (is.null(path) || !nzchar(trimws(path))) {
@@ -174,7 +177,7 @@ nasqar_private_path <- function(path, directory = FALSE, what = if (isTRUE(direc
 
 # TRUE when a resolved path lies inside one of the browse roots.
 nasqar_path_inside_roots <- function(resolved, roots = nasqar_browse_roots_fixed()) {
-    for (var in c("NASQAR_DATA_ROOT", "NASQAR_PROJECT_ROOT")) {   # always allowed, even when nested
+    for (var in c("NASQAR_CONTAINER_DATA_ROOT", "NASQAR_CONTAINER_PROJECT_ROOT")) {   # always allowed, even when nested
         extra <- Sys.getenv(var, unset = "")
         if (nzchar(extra) && dir.exists(extra)) roots[var] <- normalizePath(extra, winslash = "/", mustWork = FALSE)
     }
@@ -255,11 +258,11 @@ nasqar_rewrite_paths <- function(x, old, new) {
 # A project directory that may be renamed or deleted: a real directory (not
 # the alias of a renamed project) directly under the application's root, with
 # a state file. Returns its normalised path, or stops with a message.
-nasqar_project_checked_dir <- function(app, name, legacy_env = NULL) {
-    if (!nasqar_project_available(app, legacy_env)) stop("This instance has no private space.", call. = FALSE)
+nasqar_project_checked_dir <- function(app, name) {
+    if (!nasqar_project_available(app)) stop("This instance has no private space.", call. = FALSE)
     safe <- nasqar_project_sanitize(name, "")
     if (!nzchar(safe) || !identical(safe, as.character(name))) stop("Not a project name.", call. = FALSE)
-    dir <- nasqar_project_locate(app, safe, legacy_env)
+    dir <- nasqar_project_locate(app, safe)
     if (nasqar_is_link(dir) || !dir.exists(dir) || !file.exists(nasqar_project_state_file(dir))) {
         stop(sprintf("There is no saved project named '%s'.", safe), call. = FALSE)
     }
@@ -281,14 +284,13 @@ nasqar_project_prune <- function(dir) {
 # Rename a project: move this application's folder under the new project name
 # and correct the paths recorded in its state. A project of the old layout
 # moves into the project-first one. Returns the new directory.
-nasqar_project_rename <- function(app, name, new_name, legacy_env = NULL) {
-    old_dir <- nasqar_project_checked_dir(app, name, legacy_env)
+nasqar_project_rename <- function(app, name, new_name) {
+    old_dir <- nasqar_project_checked_dir(app, name)
     safe <- nasqar_project_sanitize(new_name, "")
     if (!nzchar(safe)) stop("Enter a name using letters, digits, '.', '_' or '-'.", call. = FALSE)
     if (identical(safe, nasqar_project_name(old_dir))) stop("That is already the name of this project.", call. = FALSE)
-    flat <- nasqar_project_flat_root(legacy_env)
-    new_dir <- if (!is.null(flat)) file.path(flat, safe) else file.path(nasqar_project_root(), safe, app)
-    taken <- nasqar_project_locate(app, safe, legacy_env)
+    new_dir <- file.path(nasqar_project_root(), safe, app)
+    taken <- nasqar_project_locate(app, safe)
     if (file.exists(new_dir) || nasqar_is_link(new_dir) || file.exists(nasqar_project_state_file(taken)) || nasqar_is_link(taken)) {
         stop(sprintf("Project '%s' already has an analysis of this application.", safe), call. = FALSE)
     }
@@ -306,8 +308,8 @@ nasqar_project_rename <- function(app, name, new_name, legacy_env = NULL) {
 }
 
 # Delete this application's part of a project for good.
-nasqar_project_delete <- function(app, name, legacy_env = NULL) {
-    dir <- nasqar_project_checked_dir(app, name, legacy_env)
+nasqar_project_delete <- function(app, name) {
+    dir <- nasqar_project_checked_dir(app, name)
     unlink(dir, recursive = TRUE, force = TRUE)
     if (dir.exists(dir)) stop("The project folder could not be deleted completely.", call. = FALSE)
     nasqar_project_prune(dir)
@@ -354,9 +356,7 @@ nasqar_project_alias_remove <- function(alias_dir) {
 }
 
 # Every folder that may be a project of this application, in any layout.
-nasqar_project_candidates <- function(app, legacy_env = NULL) {
-    flat <- nasqar_project_flat_root(legacy_env)
-    if (!is.null(flat)) return(list.files(flat, full.names = TRUE))
+nasqar_project_candidates <- function(app) {
     root <- nasqar_project_root()
     if (is.null(root)) return(character(0))
     studies <- setdiff(list.files(root), nasqar_project_apps)
@@ -364,8 +364,8 @@ nasqar_project_candidates <- function(app, legacy_env = NULL) {
     c(current[file.exists(current) | nasqar_is_link(current)], list.files(file.path(root, app), full.names = TRUE))
 }
 
-nasqar_project_alias_cleanup <- function(app, legacy_env = NULL) {
-    for (path in nasqar_project_candidates(app, legacy_env)) {
+nasqar_project_alias_cleanup <- function(app) {
+    for (path in nasqar_project_candidates(app)) {
         if (!nasqar_is_link(path)) next
         marker <- nasqar_project_alias_marker(normalizePath(path, winslash = "/", mustWork = FALSE), path)
         pid <- if (file.exists(marker)) suppressWarnings(readLines(marker, n = 1, warn = FALSE)) else ""
@@ -460,7 +460,7 @@ nasqar_project_app_label <- function(app) {
 # Every project of the instance, newest first, each with the folders of the
 # applications that saved to it (apps: folder name -> directory; stages: the
 # stage each reached). Projects of the old layout are included.
-nasqar_project_studies <- function(app, legacy_env = NULL) {
+nasqar_project_studies <- function(app) {
     rows <- list()
     add <- function(name, a, dir) {
         if (!dir.exists(dir) || nasqar_is_link(dir)) return()
@@ -475,20 +475,15 @@ nasqar_project_studies <- function(app, legacy_env = NULL) {
         if (isTRUE(updated > entry$updated)) entry$updated <- updated
         rows[[name]] <<- entry
     }
-    flat <- nasqar_project_flat_root(legacy_env)
-    if (!is.null(flat)) {
-        for (dir in list.files(flat, full.names = TRUE)) add(basename(dir), app, dir)
-    } else {
-        root <- nasqar_project_root()
-        if (is.null(root)) return(rows)
-        for (study in setdiff(list.files(root), nasqar_project_apps)) {
-            folder <- file.path(root, study)
-            if (!dir.exists(folder) || nasqar_is_link(folder)) next
-            for (a in intersect(list.files(folder), nasqar_project_apps)) add(study, a, file.path(folder, a))
-        }
-        for (a in intersect(list.files(root), nasqar_project_apps)) {          # old layout
-            for (dir in list.files(file.path(root, a), full.names = TRUE)) add(basename(dir), a, dir)
-        }
+    root <- nasqar_project_root()
+    if (is.null(root)) return(rows)
+    for (study in setdiff(list.files(root), nasqar_project_apps)) {
+        folder <- file.path(root, study)
+        if (!dir.exists(folder) || nasqar_is_link(folder)) next
+        for (a in intersect(list.files(folder), nasqar_project_apps)) add(study, a, file.path(folder, a))
+    }
+    for (a in intersect(list.files(root), nasqar_project_apps)) {          # old layout
+        for (dir in list.files(file.path(root, a), full.names = TRUE)) add(basename(dir), a, dir)
     }
     if (!length(rows)) return(rows)
     rows[order(vapply(rows, function(r) as.numeric(r$updated), numeric(1)), decreasing = TRUE)]
@@ -517,12 +512,12 @@ nasqar_project_study_dir <- function(study, app) {
 }
 
 # All projects of an application that have a state.rds, newest first.
-nasqar_project_list <- function(app, legacy_env = NULL) {
+nasqar_project_list <- function(app) {
     empty <- data.frame(name = character(0), stage = character(0), input = character(0),
                         updated = as.POSIXct(character(0)), dir = character(0),
                         stringsAsFactors = FALSE)
-    if (!nasqar_project_available(app, legacy_env)) return(empty)
-    dirs <- nasqar_project_candidates(app, legacy_env)
+    if (!nasqar_project_available(app)) return(empty)
+    dirs <- nasqar_project_candidates(app)
     dirs <- dirs[dir.exists(dirs) & !nasqar_is_link(dirs)]   # not the alias of a renamed project
     # a name used in both layouts: the project-first folder is the project
     dirs <- dirs[!duplicated(vapply(dirs, nasqar_project_name, character(1)))]
@@ -965,10 +960,10 @@ nasqar_project_ui <- function(default_name, label = "Persistent project name",
 # find = function(apps) path) — when an existing project is opened, the path
 # box is filled with find()'s file from the project's other applications
 # (apps: folder name -> directory), e.g. DESeq2 takes Gene Count Merger's table.
-nasqar_project_server <- function(input, output, session, app, legacy_env = NULL,
+nasqar_project_server <- function(input, output, session, app,
                                   on_restore, input_default = NULL) {
     session$userData$nasqar_project_input <- input   # for state.json snapshots
-    if (!nasqar_project_available(app, legacy_env)) {
+    if (!nasqar_project_available(app)) {
         shiny::removeUI(selector = "#nasqar_project_panel")
         shiny::removeUI(selector = ".nasqar-project-private", multiple = TRUE)
         return(invisible(function() NULL))
@@ -995,7 +990,7 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
         if (identical(select, app) && !is.null(session$userData$nasqar_project_last_dir)) {
             select <- nasqar_project_name(session$userData$nasqar_project_last_dir)
         }
-        all <- nasqar_project_studies(app, legacy_env)
+        all <- nasqar_project_studies(app)
         studies(all)
         if (!length(all)) {
             shiny::updateSelectizeInput(session, "nasqar_project_open", choices = c("No projects yet" = ""))
@@ -1011,7 +1006,7 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
         shiny::updateSelectizeInput(session, "nasqar_project_open", choices = choices, selected = selected)
     }
     output$nasqar_project_root_note <- shiny::renderText(paste(
-        "Projects are stored under", nasqar_project_flat_root(legacy_env) %||% nasqar_project_root()))
+        "Projects are stored under", nasqar_project_root()))
     # A handoff from another application names the project to continue in.
     handoff_project_set <- FALSE
     shiny::observe({
@@ -1042,7 +1037,7 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
         w <- wanted()
         if (is.null(w)) return(NULL)
         current()
-        nasqar_project_unique_name(app, w$name, legacy_env, owned = session$userData$nasqar_project_last_dir)
+        nasqar_project_unique_name(app, w$name, owned = session$userData$nasqar_project_last_dir)
     })
     shiny::observe({
         name <- effective_name()
@@ -1151,7 +1146,7 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
     })
 
     # ---- current project badge, rename and delete -------------------------
-    nasqar_project_alias_cleanup(app, legacy_env)
+    nasqar_project_alias_cleanup(app)
     current <- shiny::reactiveVal(session$userData$nasqar_project_last_dir)
     session$userData$nasqar_project_current <- current
     is_current <- function(dir) {
@@ -1199,9 +1194,9 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
     shiny::observeEvent(input$nasqar_project_rename_ok, {
         name <- session$userData$nasqar_project_rename_target
         if (is.null(name)) return()
-        old_dir <- tryCatch(nasqar_project_checked_dir(app, name, legacy_env), error = function(error) NULL)
+        old_dir <- tryCatch(nasqar_project_checked_dir(app, name), error = function(error) NULL)
         was_current <- !is.null(old_dir) && is_current(old_dir)
-        new_dir <- tryCatch(nasqar_project_rename(app, name, input$nasqar_project_rename_to, legacy_env),
+        new_dir <- tryCatch(nasqar_project_rename(app, name, input$nasqar_project_rename_to),
                             error = function(error) {
                                 shiny::showNotification(conditionMessage(error), type = "error", duration = 10)
                                 NULL
@@ -1233,7 +1228,7 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
         if (!app %in% names(studies()[[name]]$apps)) {
             return(shiny::showNotification(sprintf("Project '%s' has no %s analysis to delete.", name, this_label), type = "warning"))
         }
-        dir <- tryCatch(nasqar_project_checked_dir(app, name, legacy_env), error = function(error) NULL)
+        dir <- tryCatch(nasqar_project_checked_dir(app, name), error = function(error) NULL)
         if (is.null(dir)) return(shiny::showNotification("This project no longer exists.", type = "warning"))
         if (is_current(dir)) {
             return(shiny::showNotification(
@@ -1254,7 +1249,7 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
         name <- session$userData$nasqar_project_delete_target
         session$userData$nasqar_project_delete_target <- NULL
         if (is.null(name)) return()
-        problem <- tryCatch({ nasqar_project_delete(app, name, legacy_env); NULL },
+        problem <- tryCatch({ nasqar_project_delete(app, name); NULL },
                             error = function(error) conditionMessage(error))
         shiny::removeModal()
         refresh()
@@ -1266,7 +1261,7 @@ nasqar_project_server <- function(input, output, session, app, legacy_env = NULL
     refresh()
     restore <- function(name) {
         if (is.null(name) || !nzchar(name)) return()
-        dir <- nasqar_project_dir(app, name, legacy_env, create = FALSE)
+        dir <- nasqar_project_dir(app, name, create = FALSE)
         state <- nasqar_project_state_read(dir)
         if (is.null(state)) {
             shiny::showNotification("This project has no saved state to restore.", type = "error")

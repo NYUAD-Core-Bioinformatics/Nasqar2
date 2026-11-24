@@ -20,7 +20,7 @@ output$handoff_link <- renderUI({
     exchange_path <- write_gene_list_csv(genes)
     token <- encryptUrlParam(exchange_path)
     handoff_path <- paste0(
-        Sys.getenv("NASQAR_BASE_PATH", unset = ""),
+        Sys.getenv("NASQAR_CONTAINER_BASE_PATH", unset = ""),
         "/ClusterProfShinyORA/?gene_names=", token, nasqar_project_handoff_query(session)
     )
     tags$a(

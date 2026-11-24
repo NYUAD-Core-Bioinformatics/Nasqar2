@@ -9,7 +9,7 @@ export port="${app_port}"
 export password="$(create_passwd 32)"
 
 # The image uses this only for the OOD session. Root deployments leave it empty.
-export NASQAR_BASE_PATH="/rnode/${host}/${port}"
+export NASQAR_CONTAINER_BASE_PATH="/rnode/${host}/${port}"
 
 echo "NASQAR2 application port: ${app_port}"
-echo "NASQAR2 OOD base path: ${NASQAR_BASE_PATH}"
+echo "NASQAR2 OOD base path: ${NASQAR_CONTAINER_BASE_PATH}"
