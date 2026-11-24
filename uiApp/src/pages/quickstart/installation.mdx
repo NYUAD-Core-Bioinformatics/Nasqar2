@@ -99,15 +99,14 @@ Run this way, NASQAR2 is a **public instance**: every dataset enters through bro
 
 ### Run as a private instance with your own data
 
-When NASQAR2 serves only you, on a laptop or workstation in Docker, or in a Slurm job on HPC, you can run it as a **private instance**. Mount your data directory and set `NASQAR_DATA_ROOT` to where it appears inside the container; the applications then browse and read files in place instead of uploading them, and projects, states, and results are written back to host directories you choose, so they survive container restarts.
+When NASQAR2 serves only you, on a laptop or workstation in Docker, or in a Slurm job on HPC, you can run it as a **private instance**. Mount your data directory and set `NASQAR_CONTAINER_DATA_ROOT` to where it appears inside the container; the applications then browse and read files in place instead of uploading them, and projects, states, and results are written back to host directories you choose, so they survive container restarts.
 
 ```bash
 docker run -p 127.0.0.1:8083:80 \
   -v /path/to/nasqar2-private:/private \
   -v /path/to/nasqar2-private/data:/private/data:ro \
-  -e NASQAR_PRIVATE_ROOT=/private \
-  -e NASQAR_DATA_ROOT=/private/data \
-  -e NASQAR_PROJECT_ROOT=/private/projects \
+  -e NASQAR_CONTAINER_DATA_ROOT=/private/data \
+  -e NASQAR_CONTAINER_PROJECT_ROOT=/private/projects \
   -e R_LIBS_USER=/private/.runtime/R/library \
   nyuadcorebio/nasqarall:latest
 ```
@@ -145,9 +144,9 @@ install more: to use another organism, pull the image and run it as a private
 instance as above, then install the package. Nothing has to be built from
 source.
 
-The same variables work with an image built from source (`nasqar2-all`). Leave `NASQAR_PROJECT_ROOT` unset and the applications keep their results in temporary storage inside the container, discarded when it stops. Browser upload and download remain available in every mode.
+The same variables work with an image built from source (`nasqar2-all`). Leave `NASQAR_CONTAINER_PROJECT_ROOT` unset and the applications keep their results in temporary storage inside the container, discarded when it stops. Browser upload and download remain available in every mode.
 
-**Projects.** With `NASQAR_PROJECT_ROOT` set, every NASQAR2 application keeps its work in a project, `projects/<project>/<App>`, holding the outputs, the caches, a `state.rds` with the inputs, settings and stage reached, and a human-readable `state.json` with the same settings plus a snapshot of every UI input at that moment, so the choices behind a result can be read without R (for a methods section, or to share with a colleague). Every figure or table you download is also kept in the project (`plots/` and `downloads/`).
+**Projects.** With `NASQAR_CONTAINER_PROJECT_ROOT` set, every NASQAR2 application keeps its work in a project, `projects/<project>/<App>`, holding the outputs, the caches, a `state.rds` with the inputs, settings and stage reached, and a human-readable `state.json` with the same settings plus a snapshot of every UI input at that moment, so the choices behind a result can be read without R (for a methods section, or to share with a colleague). Every figure or table you download is also kept in the project (`plots/` and `downloads/`).
 
 A private instance adds the same controls to every application; a public instance shows none of them:
 
@@ -160,20 +159,18 @@ A private instance adds the same controls to every application; a public instanc
 - Next to the list of existing projects, the pencil renames this application's analysis in the selected project and the bin deletes it after a confirmation. **Deleting removes that application's saved analysis, figures and tables in the project for good**; what other applications saved in the same project is kept. Input data is never touched, and a project that is open in the current session has to be closed (reload the page) before it can be deleted.
 - **Project files** (in DESeq2, **Export and files**) lists the saved figures and tables of the project with a preview. **Save all to project** writes every figure and table that exists at that moment into the project without downloading them. Gene Count Merger and Merge FPKMs save the merged table there automatically.
 
-Reopening restores the project without recomputing: cached results are reused, and a restore is refused when the source data changed since the project was made. The older per-application variables (`NASQAR_DESEQ2_STATE_DIR`, `NASQAR_*_PROJECT_DIR`, `NASQAR_ATAC_CACHE_DIR`) are still honoured as overrides.
+Reopening restores the project without recomputing: cached results are reused, and a restore is refused when the source data changed since the project was made.
+
+Every variable an application reads starts with `NASQAR_CONTAINER_` and holds a path or value as seen inside the container; the host side is the left half of each `-v` mount. (The HPC job script has its own `NASQAR_HOST_*` settings for paths on the cluster.)
 
 | Variable | Application | Purpose |
 | --- | --- | --- |
-| `NASQAR_PRIVATE_ROOT` | All NASQAR2 applications | The private folder as a whole; Browse dialogs start here |
-| `NASQAR_DATA_ROOT` | All NASQAR2 applications | Read-only data directory inside it; input paths must lie under it or under the projects |
-| `NASQAR_PROJECT_ROOT` | All NASQAR2 applications | Private-space projects, one folder per project with a folder per application inside (`projects/<project>/<App>`), each restorable from the app |
-| `NASQAR_DADA2_WORK_DIR` | DADA2 | Optional; set by the HPC job only. Fast node-local disk for the filtered FASTQs of a run (default: `work/` in the project) |
+| `NASQAR_CONTAINER_DATA_ROOT` | All NASQAR2 applications | Read-only data directory; input paths must lie under it or under the projects |
+| `NASQAR_CONTAINER_PROJECT_ROOT` | All NASQAR2 applications | Private-space projects, one folder per project with a folder per application inside (`projects/<project>/<App>`), each restorable from the app |
 | `R_LIBS_USER` | All | Writable R library, so packages installed on the fly survive container restarts |
-| `NASQAR_VARIANT_YIELD_SIZE` | Variant Annotation | Optional. Records read per chunk while summarising and filtering a VCF (default 100000); files below it are summarised automatically |
-| `NASQAR_VARIANT_ANNOTATION_CHUNK` | Variant Annotation | Optional. Records annotated per chunk (default 50000); lower it to use less memory |
-| `NASQAR_VARIANT_TABLE_PREVIEW` | Variant Annotation | Optional. Rows of each annotation table shown on screen (default 10000); the downloads are always complete |
+| `NASQAR_CONTAINER_VARIANT_ANNOTATION_CHUNK` | Variant Annotation | Optional. Records annotated per chunk (default 50000); lower it to use less memory |
 
-Applications only accept paths under `NASQAR_DATA_ROOT`, so mount the narrowest directory that holds your inputs rather than your home directory.
+Applications only accept paths under `NASQAR_CONTAINER_DATA_ROOT`, so mount the narrowest directory that holds your inputs rather than your home directory.
 
 **Example data.** To have something to try in every application's private-space input, populate the data folder once with small public data sets (pasilla RNA-seq, 10x pbmc3k, the mothur MiSeq SOP, SILVA references, and the ATAC-seq and VCF examples shipped with Bioconductor packages):
 
@@ -183,7 +180,7 @@ common/fetch-example-data.sh /path/to/nasqar2-private/data
 
 It writes `data/examples/<App>/...` (about 140 MB, or 360 MB with the SILVA taxonomy references; `--skip-silva` leaves those out) and an `examples/README.md` naming each source. Downloads happen on the machine you run it on; the derived files (DESeq2 results for ORA/GSEA, a Seurat object for Monocle 3) are computed inside the NASQAR2 image, so Docker (or `--sif` for a Singularity image) must be available.
 
-> **Do not set `NASQAR_DATA_ROOT` or the project directories on a public deployment.** Any user of the portal could then browse and read whatever is mounted there. Leave them unset and the instance stays upload-only.
+> **Do not set `NASQAR_CONTAINER_DATA_ROOT` or the project directories on a public deployment.** Any user of the portal could then browse and read whatever is mounted there. Leave them unset and the instance stays upload-only.
 
 On HPC the Slurm job script sets all of these for you; see the [HPC Deployment Guide](/quickstart/hpc).
 

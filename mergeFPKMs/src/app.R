@@ -187,7 +187,7 @@ server <- function(input, output, session) {
     restored_data <- reactiveVal(NULL)
 
     # Private data root: input files read in place (private instance only)
-    data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
+    data_root <- Sys.getenv("NASQAR_CONTAINER_DATA_ROOT", unset = "")
     data_root <- if (nzchar(data_root)) normalizePath(data_root, winslash = "/", mustWork = FALSE) else NULL
     if (!is.null(data_root)) {
         browse_roots <- nasqar_browse_roots   # a function: the open project comes first

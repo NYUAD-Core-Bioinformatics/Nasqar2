@@ -178,7 +178,7 @@ output$animalculesTransferUI <- renderUI({
     }
 
     handoffPath <- paste0(
-        Sys.getenv("NASQAR_BASE_PATH", unset = ""),
+        Sys.getenv("NASQAR_CONTAINER_BASE_PATH", unset = ""),
         "/animalcules/?exchange=",
         URLencode(token, reserved = TRUE)
     )

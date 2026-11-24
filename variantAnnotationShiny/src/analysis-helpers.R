@@ -6,12 +6,7 @@
 # ---------------------------------------------------------------------------
 
 nasqar_exchange_dir <- function(create = FALSE) {
-    configured <- Sys.getenv("NASQAR_EXCHANGE_DIR", unset = "")
-    path <- if (nzchar(configured)) {
-        configured
-    } else {
-        file.path(dirname(tempdir(check = TRUE)), "nasqar_exchange")
-    }
+    path <- file.path(dirname(tempdir(check = TRUE)), "nasqar_exchange")
     if (create) {
         dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
     }
@@ -26,10 +21,7 @@ new_exchange_file <- function(extension = ".csv") {
 }
 
 encryptUrlParam <- function(paramStr) {
-    public_key_hex <- Sys.getenv(
-        "NASQAR_PUBLIC_KEY_HEX",
-        unset = "42b3781d6907cd426b9c05cac7155cce15bb9385a602716f619529485dab6c28"
-    )
+    public_key_hex <- "42b3781d6907cd426b9c05cac7155cce15bb9385a602716f619529485dab6c28"
     public_key <- sodium::hex2bin(public_key_hex)
     message <- serialize(paramStr, NULL)
     sodium::bin2hex(sodium::simple_encrypt(message, public_key))
@@ -107,14 +99,14 @@ env_integer <- function(name, default) {
 }
 
 # Records read per chunk while summarising and filtering.
-yield_size_limit <- function() env_integer("NASQAR_VARIANT_YIELD_SIZE", 100000L)
+yield_size_limit <- function() 100000L
 
 # Filtered records annotated per chunk; memory use scales with this, not with
 # the size of the filtered set.
-annotation_chunk_size <- function() env_integer("NASQAR_VARIANT_ANNOTATION_CHUNK", 50000L)
+annotation_chunk_size <- function() env_integer("NASQAR_CONTAINER_VARIANT_ANNOTATION_CHUNK", 50000L)
 
 # Rows of each annotation table kept in memory for the interactive preview.
-table_preview_rows <- function() env_integer("NASQAR_VARIANT_TABLE_PREVIEW", 10000L)
+table_preview_rows <- function() 10000L
 
 format_count <- function(value) format(value, big.mark = ",", scientific = FALSE)
 
@@ -220,11 +212,8 @@ genome_install_library <- function() {
     NULL
 }
 
-# Seconds allowed per package download (override with NASQAR_GENOME_DOWNLOAD_TIMEOUT).
-genome_download_timeout <- function() {
-    value <- suppressWarnings(as.integer(Sys.getenv("NASQAR_GENOME_DOWNLOAD_TIMEOUT", "7200")))
-    if (is.na(value) || value < 60L) 7200L else value
-}
+# Seconds allowed per package download (BSgenome tarballs reach 1 GB).
+genome_download_timeout <- function() 7200L
 
 # Install genome packages in a background R process so the session stays
 # responsive; progress is appended to log_file.
@@ -252,10 +241,10 @@ offline_install_instructions <- function(resource, lib) {
         "options(timeout = %d); BiocManager::install(c(%s), lib = \"%s\", update = FALSE, ask = FALSE)",
         genome_download_timeout(), paste(sprintf("\"%s\"", packages), collapse = ", "), lib
     )
-    host_lib <- Sys.getenv("NASQAR_R_LIBRARY_HOST", unset = "")
-    sif <- Sys.getenv("NASQAR_SIF_HOST", unset = "")
+    host_lib <- Sys.getenv("NASQAR_HOST_R_LIBRARY", unset = "")
+    sif <- Sys.getenv("NASQAR_HOST_SIF", unset = "")
     if (nzchar(host_lib) && nzchar(sif)) {
-        # The Slurm install keeps its helper scripts in <NASQAR2_HOME>/bin,
+        # The Slurm install keeps its helper scripts in <NASQAR_HOST_HOME>/bin,
         # next to images/<sif>; the helper applies the same bind and library.
         home <- dirname(dirname(sif))
         paste(

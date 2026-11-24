@@ -7,6 +7,7 @@
 #   ./run-app.sh deseq2shiny            # http://localhost:4001/
 #   ./run-app.sh dada2Shiny 4010        # pick the host port
 #   ./run-app.sh deseq2shiny --private  # with the private space of ~/nasqar2-private
+#                                       # (NASQAR_HOST_HOME picks another folder)
 #
 # Stop with Ctrl-C (the container is removed), or `docker rm -f nasqar2-dev-<app>`.
 
@@ -17,7 +18,7 @@ app="" port="" private=0
 for arg in "$@"; do
     case "$arg" in
         --private) private=1 ;;
-        -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         [0-9]*) port="$arg" ;;
         *) app="${arg%/}" ;;
     esac
@@ -38,9 +39,9 @@ docker rm -f "$name" >/dev/null 2>&1 || true
 mounts=(-v "$repo_root/$app/src:/srv/shiny-server/$app/src")
 env=()
 if [[ $private -eq 1 ]]; then
-    private_root="${NASQAR_PRIVATE_ROOT:-$HOME/nasqar2-private}"
+    private_root="${NASQAR_HOST_HOME:-$HOME/nasqar2-private}"
     mounts+=(-v "$private_root:/private")
-    env+=(-e NASQAR_PRIVATE_ROOT=/private -e NASQAR_DATA_ROOT=/private/data -e NASQAR_PROJECT_ROOT=/private/projects)
+    env+=(-e NASQAR_CONTAINER_DATA_ROOT=/private/data -e NASQAR_CONTAINER_PROJECT_ROOT=/private/projects)
 fi
 
 tty=(); [[ -t 0 ]] && tty=(-it)

@@ -5,9 +5,7 @@ suppressPackageStartupMessages({
 })
 source("analysis-helpers.R")
 
-exchange_root <- tempfile("exchange-")
-dir.create(exchange_root)
-Sys.setenv(NASQAR_EXCHANGE_DIR = exchange_root)
+exchange_root <- nasqar_exchange_dir(create = TRUE)
 
 make_vcf <- function(chrom, pos, ref, alt, qual, filt, dp = NULL) {
     ranges <- GRanges(chrom, IRanges(pos, width = nchar(ref)))

@@ -249,7 +249,7 @@ input_files_reactive <- eventReactive(input$initFastq, {
     # Every session starts with the same default project name: take a free one
     # rather than overwrite another session's project (restored projects are kept).
     project_name <- nasqar_project_unique_name(
-        project_app, current_project_name(), project_legacy_env,
+        project_app, current_project_name(),
         owned = session$userData$nasqar_project_last_dir, fallback = "dada2-project"
     )
     if (private_space && !identical(project_name, nasqar_project_sanitize(current_project_name(), "dada2-project"))) {

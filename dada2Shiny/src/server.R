@@ -4,7 +4,7 @@ server <- function(input, output, session) {
     workers <- suppressWarnings(as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1")))
     if (is.na(workers) || workers < 1L) workers <- 1L
 
-    data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
+    data_root <- Sys.getenv("NASQAR_CONTAINER_DATA_ROOT", unset = "")
     data_root <- if (nzchar(data_root)) normalizePath(data_root, winslash = "/", mustWork = FALSE) else NULL
 
     # Server-side browser jailed to the private data root; it only fills the path box.
@@ -26,15 +26,14 @@ server <- function(input, output, session) {
     # Private-space projects: projects/<name>/DADA2 (shared convention)
     source("nasqar-project.R", local = TRUE)
     project_app <- "DADA2"
-    project_legacy_env <- "NASQAR_DADA2_PROJECT_DIR"
-    private_space <- nasqar_project_available(project_app, project_legacy_env)
+    private_space <- nasqar_project_available(project_app)
     # Reopening a project and its files page exist in a private instance only.
     if (!private_space) {
         shinyjs::runjs("$('input[name=data_file_type][value=savedProject]').closest('.radio').remove()")
         shinyjs::runjs("$('a[data-value=projectFilesTab]').closest('li').remove()")
     }
     project_directory <- function(name) {
-        path <- nasqar_project_dir(project_app, name, project_legacy_env, fallback = "dada2-project")
+        path <- nasqar_project_dir(project_app, name, fallback = "dada2-project")
         if (!dir.exists(path) || file.access(path, 2) != 0) {
             stop("The DADA2 private space directory is not writable.")
         }
@@ -45,18 +44,10 @@ server <- function(input, output, session) {
         if (private_space && !is.null(name) && nzchar(trimws(name))) trimws(name) else paste0("session-", session$token)
     }
 
-    # Filtered FASTQs of a run: <project>/work by default (the project lives in
-    # tempdir() without a private space); NASQAR_DADA2_WORK_DIR overrides it,
-    # e.g. node-local disk on HPC. Removed again when the run finishes.
+    # Filtered FASTQs of a run: <project>/work (the project lives in tempdir()
+    # without a private space). Removed again when the run finishes.
     local_working_directory <- function(project_dir, name) {
-        root <- Sys.getenv("NASQAR_DADA2_WORK_DIR", unset = "")
-        path <- if (nzchar(root)) {
-            safe_name <- gsub("[^A-Za-z0-9._-]+", "-", trimws(name))
-            if (!nzchar(safe_name)) safe_name <- paste0("session-", session$token)
-            file.path(root, safe_name)
-        } else {
-            file.path(project_dir, "work")
-        }
+        path <- file.path(project_dir, "work")
         dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
         if (!dir.exists(path) || file.access(path, 2) != 0) {
             stop("The DADA2 work directory is not writable.")

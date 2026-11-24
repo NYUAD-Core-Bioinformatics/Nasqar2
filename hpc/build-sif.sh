@@ -6,7 +6,7 @@
 #   ./hpc/build-sif.sh /path/to/nasqar2.sif
 #
 # The build needs roughly 25 GB of temporary space. It is taken under
-# hpc/build by default; set NASQAR2_BUILD_DIR to use another filesystem.
+# hpc/build by default; set NASQAR_HOST_BUILD_DIR to use another filesystem.
 #
 # The image is exported from the Docker daemon into a sandbox directory and
 # the SIF is built from that, rather than letting Singularity pull from the
@@ -18,7 +18,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 output="${1:-$repo_root/hpc/build/nasqar2.sif}"
-build_dir="${NASQAR2_BUILD_DIR:-$repo_root/hpc/build}"
+build_dir="${NASQAR_HOST_BUILD_DIR:-$repo_root/hpc/build}"
 definition="$repo_root/hpc/singularity/nasqar2-local.def"
 image="nasqar2-all:latest"
 

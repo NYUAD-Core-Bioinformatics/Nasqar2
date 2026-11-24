@@ -3,7 +3,7 @@ options(shiny.maxRequestSize = 30 * 1024^4)
 server <- function(input, output, session) {
     workers <- available_workers(limit = 8L)
 
-    data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
+    data_root <- Sys.getenv("NASQAR_CONTAINER_DATA_ROOT", unset = "")
     data_root <- if (nzchar(data_root)) {
         normalizePath(data_root, winslash = "/", mustWork = FALSE)
     } else {
@@ -29,15 +29,14 @@ server <- function(input, output, session) {
     # Private-space projects: projects/<name>/VariantAnnotation (shared convention)
     source("nasqar-project.R", local = TRUE)
     project_app <- "VariantAnnotation"
-    project_legacy_env <- "NASQAR_VARIANT_PROJECT_DIR"
-    private_space <- nasqar_project_available(project_app, project_legacy_env)
+    private_space <- nasqar_project_available(project_app)
     # Reopening a project and its files page exist in a private instance only.
     if (!private_space) {
         shinyjs::runjs("$('input[name=data_file_type][value=savedProject]').closest('.radio').remove()")
         shinyjs::runjs("$('a[data-value=projectFilesTab]').closest('li').remove()")
     }
     project_directory <- function(name) {
-        path <- nasqar_project_dir(project_app, name, project_legacy_env, fallback = "variant-project")
+        path <- nasqar_project_dir(project_app, name, fallback = "variant-project")
         if (!dir.exists(path) || file.access(path, 2) != 0) {
             stop("The Variant Annotation project directory is not writable.", call. = FALSE)
         }

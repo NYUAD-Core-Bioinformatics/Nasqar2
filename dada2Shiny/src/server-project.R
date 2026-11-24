@@ -90,5 +90,5 @@ restore_project <- function(state, dir) {
 }
 
 project_refresh <- nasqar_project_server(
-    input, output, session, project_app, project_legacy_env, on_restore = restore_project
+    input, output, session, project_app, on_restore = restore_project
 )

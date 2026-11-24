@@ -57,7 +57,7 @@ my_values <- reactiveValues()
 my_values$private_dir <- NULL          # the loaded BAM directory in the private space
 
 # Server-side browser jailed to the private space; it only fills the path box.
-private_space <- nzchar(Sys.getenv("NASQAR_DATA_ROOT", unset = ""))
+private_space <- nzchar(Sys.getenv("NASQAR_CONTAINER_DATA_ROOT", unset = ""))
 if (private_space) {
     browse_roots <- nasqar_browse_roots   # a function: the open project comes first
     shinyFiles::shinyDirChoose(input, "browse_private_directory", roots = browse_roots, session = session)

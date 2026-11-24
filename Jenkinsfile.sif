@@ -132,7 +132,7 @@ REMOTE
 set -euo pipefail
 root="$1"
 cd "$root/src"
-NASQAR2_BUILD_DIR="$root/work" ./hpc/build-sif.sh "$2"
+NASQAR_HOST_BUILD_DIR="$root/work" ./hpc/build-sif.sh "$2"
 rm -rf "$root/src" "$root/work"
 REMOTE
                     '''

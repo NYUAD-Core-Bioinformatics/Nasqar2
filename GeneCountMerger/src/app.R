@@ -614,7 +614,7 @@ server <- function(input, output, session) {
     }
 
     # Private data root: input files read in place (private instance only)
-    data_root <- Sys.getenv("NASQAR_DATA_ROOT", unset = "")
+    data_root <- Sys.getenv("NASQAR_CONTAINER_DATA_ROOT", unset = "")
     data_root <- if (nzchar(data_root)) normalizePath(data_root, winslash = "/", mustWork = FALSE) else NULL
     if (!is.null(data_root)) {
         browse_roots <- nasqar_browse_roots   # a function: the open project comes first
@@ -878,7 +878,7 @@ server <- function(input, output, session) {
 
 
     handoffLink <- function(label, path, token, style = "width: 100%;") {
-        basePath <- Sys.getenv("NASQAR_BASE_PATH", unset = "")
+        basePath <- Sys.getenv("NASQAR_CONTAINER_BASE_PATH", unset = "")
         handoffPath <- paste0(basePath, path, "?countsdata=", token, nasqar_project_handoff_query(session))
         a(
             label,
@@ -895,12 +895,7 @@ server <- function(input, output, session) {
     }
 
     nasqarExchangeDir <- function() {
-        configured <- Sys.getenv("NASQAR_EXCHANGE_DIR", unset = "")
-        path <- if (nzchar(configured)) {
-            configured
-        } else {
-            file.path(dirname(tempdir(check = TRUE)), "nasqar_exchange")
-        }
+        path <- file.path(dirname(tempdir(check = TRUE)), "nasqar_exchange")
         dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
         normalizePath(path, mustWork = TRUE)
     }

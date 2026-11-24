@@ -31,14 +31,11 @@ cd src && conda run -n v_variantannotation Rscript test_analysis_helpers.R
 
 | Variable | Purpose |
 |---|---|
-| `NASQAR_VARIANT_PROJECT_DIR` | Root of persistent project directories (tempdir fallback). |
-| `NASQAR_DATA_ROOT` | Read-only private data root that VCF paths must live under. |
-| `NASQAR_VARIANT_ANNOTATION_CHUNK` | Filtered records annotated per chunk (default 50000); bounds annotation memory. |
-| `NASQAR_VARIANT_TABLE_PREVIEW` | Rows of each result table kept for the interactive preview (default 10000). |
-| `NASQAR_VARIANT_YIELD_SIZE` | Records per streamed chunk (default 100000). |
-| `NASQAR_EXCHANGE_DIR`, `NASQAR_BASE_PATH`, `NASQAR_PUBLIC_KEY_HEX` | Shared NASQAR2 handoff settings. |
+| `NASQAR_CONTAINER_PROJECT_ROOT` | Root of the private-space projects (temporary storage when unset). |
+| `NASQAR_CONTAINER_DATA_ROOT` | Read-only private data root that VCF paths must live under. |
+| `NASQAR_CONTAINER_VARIANT_ANNOTATION_CHUNK` | Filtered records annotated per chunk (default 50000); bounds annotation memory. |
+| `NASQAR_CONTAINER_BASE_PATH` | URL prefix used in links that open another application (Open OnDemand). |
 | `R_LIBS_USER` | Writable library that on-the-fly genome installs go into (falls back to the first writable `.libPaths()` entry). |
-| `NASQAR_GENOME_DOWNLOAD_TIMEOUT` | Seconds allowed per package download during on-the-fly genome installs (default 7200; BSgenome tarballs reach 1 GB). |
 
 The hg38 BSgenome package is installed from a Bioconductor tarball in the
 Dockerfiles because the bioconda stub downloads it at environment creation.

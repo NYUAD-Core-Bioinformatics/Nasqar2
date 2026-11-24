@@ -8,8 +8,8 @@
 #   nasqar2-install-genome --list          # show the catalog
 #   nasqar2-install-genome BSgenome.Mmusculus.UCSC.mm39 org.Mm.eg.db   # explicit packages
 #
-# Uses the same NASQAR2_HOME / NASQAR2_SIF / NASQAR2_R_LIBRARY /
-# NASQAR2_SINGULARITY_MODULE settings as nasqar2.sbatch.
+# Uses the same NASQAR_HOST_HOME / NASQAR_HOST_SIF / NASQAR_HOST_R_LIBRARY /
+# NASQAR_HOST_SINGULARITY_MODULE settings as nasqar2.sbatch.
 
 set -euo pipefail
 
@@ -18,14 +18,14 @@ if [[ $# -eq 0 || "$1" == "-h" || "$1" == "--help" ]]; then
     exit 0
 fi
 
-nasqar2_home="${NASQAR2_HOME:-${SCRATCH:-$HOME}/nasqar2}"
-sif="${NASQAR2_SIF:-$nasqar2_home/images/nasqar2.sif}"
-r_library="${NASQAR2_R_LIBRARY:-$nasqar2_home/r-library/R-4.3}"
-[[ -f "$sif" ]] || { echo "NASQAR2 image not found: $sif (set NASQAR2_HOME or NASQAR2_SIF)" >&2; exit 1; }
+nasqar2_home="${NASQAR_HOST_HOME:-${SCRATCH:-$HOME}/nasqar2}"
+sif="${NASQAR_HOST_SIF:-$nasqar2_home/images/nasqar2.sif}"
+r_library="${NASQAR_HOST_R_LIBRARY:-$nasqar2_home/r-library/R-4.3}"
+[[ -f "$sif" ]] || { echo "NASQAR2 image not found: $sif (set NASQAR_HOST_HOME or NASQAR_HOST_SIF)" >&2; exit 1; }
 mkdir -p "$r_library"
 
 if command -v module >/dev/null 2>&1 && ! command -v singularity >/dev/null 2>&1; then
-    module load "${NASQAR2_SINGULARITY_MODULE:-singularity}"
+    module load "${NASQAR_HOST_SINGULARITY_MODULE:-singularity}"
 fi
 
 in_container() {

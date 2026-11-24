@@ -64,7 +64,7 @@ default. It provides:
 - persistent DESeq2Shiny state files and ATACseqQC caches; and
 - a private writable R library for packages that must persist across jobs.
 
-Build the Singularity image, copy it and the launcher files to the HPC system,
+Build the Singularity image, copy it and the job script to the HPC system,
 and submit the supplied Slurm script:
 
 ```bash
@@ -73,12 +73,11 @@ docker build -t nasqar2-all:latest .
 
 rsync -ah hpc/build/nasqar2.sif \
   USER@LOGIN_HOST:/path/to/nasqar2/images/nasqar2.sif
-rsync -ah hpc/bin/nasqar2-hpc hpc/slurm/nasqar2.sbatch \
+rsync -ah hpc/slurm/nasqar2.sbatch \
   USER@LOGIN_HOST:/path/to/nasqar2/
 
 ssh USER@LOGIN_HOST \
-  'NASQAR2_SIF=/path/to/nasqar2/images/nasqar2.sif \
-   NASQAR2_LAUNCHER=/path/to/nasqar2/nasqar2-hpc \
+  'NASQAR_HOST_SIF=/path/to/nasqar2/images/nasqar2.sif \
    sbatch /path/to/nasqar2/nasqar2.sbatch'
 ```
 
