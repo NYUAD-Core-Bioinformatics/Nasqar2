@@ -21,6 +21,31 @@
 nasqar_project_apps <- c("DESeq2Shiny", "ClusterProfShinyORA", "ClusterProfShinyGSEA", "VariantAnnotation",
                          "DADA2", "ATACseqQC", "GeneCountMerger", "mergeFPKMs", "Monocle3", "SeuratV5")
 
+# Variable names from before the NASQAR_CONTAINER_ prefix are not read. A
+# `docker run` that still sets one would start without its private space and
+# without a word, so say so: one message per old name that is set.
+nasqar_old_variable_messages <- function() {
+    renamed <- c(NASQAR_DATA_ROOT = "NASQAR_CONTAINER_DATA_ROOT",
+                 NASQAR_PROJECT_ROOT = "NASQAR_CONTAINER_PROJECT_ROOT",
+                 NASQAR_BASE_PATH = "NASQAR_CONTAINER_BASE_PATH")
+    set <- names(renamed)[nzchar(Sys.getenv(names(renamed), unset = ""))]
+    sprintf("%s is no longer read: set %s instead.", set, renamed[set])
+}
+
+# In the log when the application starts and, when this file is sourced inside
+# a session, on screen until dismissed.
+local({
+    messages <- nasqar_old_variable_messages()
+    if (!length(messages)) return(invisible())
+    for (text in messages) message("NASQAR2: ", text)
+    session <- shiny::getDefaultReactiveDomain()
+    if (!is.null(session)) {
+        shiny::showNotification(
+            paste(c(messages, "Until then this instance has no private space."), collapse = " "),
+            type = "warning", duration = NULL, id = "nasqar-old-variables", session = session)
+    }
+})
+
 nasqar_usable_dir <- function(path) {
     if (!nzchar(path)) return(NULL)
     if (!dir.exists(path)) dir.create(path, recursive = TRUE, showWarnings = FALSE, mode = "0700")
