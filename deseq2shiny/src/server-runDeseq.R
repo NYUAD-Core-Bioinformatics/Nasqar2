@@ -1,7 +1,8 @@
 output$ddsColData <- renderTable(
     {
         colDataTable <- colData(myValues$dds)
-        colsToSelect <- labels(terms(design(myValues$dds)))
+        # all.vars, not term labels: an interaction term such as A:B is not a column
+        colsToSelect <- intersect(all.vars(design(myValues$dds)), colnames(colDataTable))
 
         if (length(colsToSelect) == 0) {
             return(head(colDataTable, n = 5))
